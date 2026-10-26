@@ -2,6 +2,7 @@
 
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import Link from "next/link";
 import { LogoWordmark } from "@/components/logo";
 
 const LAST_UPDATED = "October 26, 2026";
@@ -96,10 +97,24 @@ export function LegalLayout({ title, subtitle, lastUpdated = LAST_UPDATED, child
         </div>
       </div>
 
-      <footer className="relative mt-auto border-t border-border/60 py-8">
-        <p className="text-center text-xs text-muted-foreground">
+      <footer className="relative mt-auto flex flex-col items-center gap-3 border-t border-border/60 py-8 text-xs text-muted-foreground">
+        <p>
           &copy; {new Date().getFullYear()} CODEIT CareerOS. All rights reserved.
         </p>
+        <nav aria-label="Legal">
+          <ul className="flex items-center gap-4">
+            <li>
+              <Link className="transition hover:text-foreground" href="/legal/privacy">
+                Privacy Policy
+              </Link>
+            </li>
+            <li>
+              <Link className="transition hover:text-foreground" href="/legal/terms">
+                Terms of Service
+              </Link>
+            </li>
+          </ul>
+        </nav>
       </footer>
     </main>
   );
