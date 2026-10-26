@@ -19,6 +19,11 @@ const footerAccountLinks = [
   { href: "/register", label: "Start career assessment" },
 ];
 
+const footerLegalLinks = [
+  { href: "/legal/privacy", label: "Privacy Policy" },
+  { href: "/legal/terms", label: "Terms of Service" },
+];
+
 export default function Home() {
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -124,6 +129,20 @@ export default function Home() {
 
           <div className="mt-12 flex flex-col items-center justify-between gap-3 border-t border-white/10 pt-6 text-[13px] text-pine-300 sm:flex-row">
             <p>© {new Date().getFullYear()} CODEIT CareerOS. All rights reserved.</p>
+            <nav aria-label="Legal">
+              <ul className="flex items-center gap-4">
+                {footerLegalLinks.map((link) => (
+                  <li key={link.label}>
+                    <Link
+                      href={link.href}
+                      className="transition hover:text-white"
+                    >
+                      {link.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </nav>
             <p className="inline-flex items-center gap-1.5">
               <Sparkles className="size-3.5 text-brand-300" aria-hidden="true" />
               Test. Analyze. Improve. Become Industry Ready.
