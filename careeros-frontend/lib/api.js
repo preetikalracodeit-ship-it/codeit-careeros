@@ -26,7 +26,7 @@ const api = axios.create({
 
 api.interceptors.request.use((config) => {
   const token = auth.getAccessToken();
-  if (token) {
+  if (token && !config.skipAuth) {
     config.headers.Authorization = `Bearer ${token}`;
   }
   // File uploads carry their own multipart boundary — never send the
@@ -68,7 +68,9 @@ api.interceptors.response.use(
       original?.url?.includes("/auth/register") ||
       original?.url?.includes("/auth/google") ||
       original?.url?.includes("/auth/config") ||
-      original?.url?.includes("/auth/refresh");
+      original?.url?.includes("/auth/refresh") ||
+      original?.url?.includes("/invitations/") ||
+      original?.skipAuth;
 
     if (error.response?.status === 401 && !isAuthCall && !original?._retry && typeof window !== "undefined") {
       original._retry = true;

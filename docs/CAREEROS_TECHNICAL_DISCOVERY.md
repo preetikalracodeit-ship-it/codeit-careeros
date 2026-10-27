@@ -2,7 +2,7 @@
 
 > **Audit record with a post-audit remediation addendum.** This file records what existed at the audit baseline and what was observed on the live site. The audit itself did not implement, migrate, deploy, or change application behavior. Later stabilization changes are uncommitted and are summarized in [CAREEROS_AUDIT_SUMMARY.md](CAREEROS_AUDIT_SUMMARY.md); the baseline findings retain their historical evidence value.
 
-> **Current working tree (2026-10-27):** Next.js `16.4.3`; backend `mvn -B verify` = 298 tests, 0 failures; `npm audit --audit-level=high` = 0 vulnerabilities; CI workflow, build-version endpoint, health probes, request IDs, consent gates, role cookie, and report-only CSP added. The live deployment has **not** been re-verified or redeployed. See the summary for current status.
+> **Current working tree (2026-10-27, later state):** Next.js `16.4.3`; backend `mvn -B verify` = 320 tests, 0 failures, 0 errors, 2 skipped (both real-MySQL tests); frontend lint/build pass; `npm audit --audit-level=high` = 0 vulnerabilities. Flyway V1–V3, durable consent records, platform-admin audit events, immediate deactivation invalidation, and CI jobs for MySQL migration and OWASP Dependency-Check are present locally. The CI workflow has not run on the repository host, the local SCA could not reach NVD, and the live deployment has **not** been re-verified or redeployed. Baseline findings below retain their historical evidence value; see the summary for current status.
 
 ## 0. Audit metadata
 
@@ -417,7 +417,7 @@ These checks were unauthenticated and public. No credentials or private data wer
 
 | Claim | Status | Evidence |
 |---|---|---|
-| Student email/password auth works | **Verified by automated tests** | 298-test current suite (278 at audit baseline); auth integration tests |
+| Student email/password auth works | **Verified by automated tests** | 320-test current suite (278 at audit baseline; 2 skipped real-MySQL tests); auth integration tests |
 | Student profile CRUD works | Verified by tests | profile integration tests |
 | Assessment start/submit/scoring/ownership | Verified by tests | assessment integration tests |
 | Readiness weighted calculation | Verified by tests and code review | `CareerInsightService`, test suite |
@@ -435,9 +435,9 @@ These checks were unauthenticated and public. No credentials or private data wer
 | Tenant isolation exists | **Disproved** | no institution/tenant key or scoped query |
 | Privacy Policy and Terms pages exist in the repository | **Verified** | `app/legal/*` and `components/legal/*`; build includes both routes |
 | Privacy Policy and Terms are live | **Disproved** | public `GET /legal/privacy` and `/legal/terms` return 404 |
-| Operational consent/retention/deletion exists | **Disproved** | static policy text only; no consent record, request workflow, retention job, or deletion path |
-| Backend is production-ready for college PII | **Not established** | missing tenant model, staff roles, audit, export controls; critical dependency issue |
-| All tests pass | **Disproved** | Baseline: 1 of 278 failed; current working tree: 298/0 |
+| Operational consent/retention/deletion exists | **Partial** | Durable append-only consent evidence now exists; there is still no retention job, DSAR/export, or deletion path |
+| Backend is production-ready for college PII | **Not established** | missing tenant model, staff roles, tenant audit, export controls; backend SCA not yet run |
+| All tests pass | **Partially verified** | Baseline: 1 of 278 failed; current working tree: 320 tests, 0 failures, 0 errors, 2 skipped (MySQL gates, not run locally) |
 
 ---
 

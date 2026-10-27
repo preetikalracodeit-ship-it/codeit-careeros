@@ -144,7 +144,8 @@ function NotificationsMenu() {
 }
 
 function TopHeader({ items, title, user, initials, photoKey = null, photoVersion = 0, onMenuClick, variant = "student" }) {
-  const isAdmin = variant === "admin";
+  const isStaff = variant === "admin" || variant === "college";
+  const staffLabel = variant === "admin" ? "Administrator" : "College staff";
 
   return (
     <header className="glass-bar sticky top-0 z-30 flex h-16 shrink-0 items-center gap-3 border-b border-border/60 px-4 md:px-6">
@@ -167,7 +168,7 @@ function TopHeader({ items, title, user, initials, photoKey = null, photoVersion
       <div className="flex items-center gap-1.5">
         <NotificationsMenu />
 
-        {isAdmin ? (
+        {isStaff ? (
           <div className="hidden items-center gap-2.5 rounded-full py-1 pr-2.5 pl-1.5 transition hover:bg-accent sm:flex">
             <StudentAvatar
               photoKey={null}
@@ -179,7 +180,7 @@ function TopHeader({ items, title, user, initials, photoKey = null, photoVersion
             />
             <div className="hidden leading-tight lg:block">
               <p className="max-w-36 truncate text-sm font-medium">{user?.fullName || user?.email || "User"}</p>
-              <p className="text-xs text-muted-foreground">Administrator</p>
+              <p className="text-xs text-muted-foreground">{staffLabel}</p>
             </div>
             <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
           </div>

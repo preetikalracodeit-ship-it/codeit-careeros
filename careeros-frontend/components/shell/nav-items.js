@@ -20,6 +20,9 @@ import {
   Lightbulb,
   HelpCircle,
   Bot,
+  Building2,
+  Upload,
+  UserCog,
 } from "lucide-react";
 
 const studentNav = [
@@ -43,6 +46,7 @@ const studentNav = [
 const adminNav = [
   { label: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard, section: "Overview" },
   { label: "Students", href: "/admin/students", icon: Users, section: "Overview" },
+  { label: "Institutions", href: "/admin/institutions", icon: Building2, section: "Overview" },
 
   { label: "Careers", href: "/admin/careers", icon: Briefcase, section: "Content" },
   { label: "Skills", href: "/admin/skills", icon: Lightbulb, section: "Content" },
@@ -56,4 +60,16 @@ const adminNav = [
   { label: "Settings", href: "/admin/settings", icon: Settings, section: "System" },
 ];
 
-export { studentNav, adminNav };
+// Items marked with a permission are only rendered after /college/me
+// confirms the server-side authority. The backend enforces the same checks.
+const collegeNav = [
+  { label: "Dashboard", href: "/college/dashboard", icon: LayoutDashboard, section: "Overview" },
+  { label: "Students", href: "/college/students", icon: Users, section: "Overview", permission: "VIEW_STUDENTS" },
+  { label: "CSV Import", href: "/college/import", icon: Upload, section: "Students", permission: "IMPORT_STUDENTS" },
+  { label: "Staff", href: "/college/staff", icon: UserCog, section: "Institution", permission: "MANAGE_STAFF" },
+  { label: "Academic Structure", href: "/college/structure", icon: Building2, section: "Institution", permission: "MANAGE_STRUCTURE" },
+  { label: "Reports", href: "/college/reports", icon: FileBarChart, section: "Analysis", permission: "VIEW_REPORTS" },
+  { label: "Settings", href: "/college/settings", icon: Settings, section: "System" },
+];
+
+export { studentNav, adminNav, collegeNav };

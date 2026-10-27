@@ -2,7 +2,7 @@
 
 > **Planning document plus Phase 0 status.** The College/TPO phases below are not implemented. It preserves the existing MySQL + Spring Boot + Next.js architecture and assumes the audit's recommendation to re-baseline the brief's Phase 1 before building. Phase 0 stabilization work is in the working tree but is uncommitted and undeployed; see [CAREEROS_AUDIT_SUMMARY.md](CAREEROS_AUDIT_SUMMARY.md).
 
-> **Phase 0 status (2026-10-27):** dependency/test stabilization, build/version visibility, health probes, request IDs, consent enforcement, role-cookie migration, report-only CSP, rate-limiter hardening, CI workflow, and a deployment smoke script are locally implemented and verified (backend 298/0; frontend build/lint pass; npm audit 0; local smoke 9/9). Phase 1A remains blocked on an approved role/membership matrix and migration strategy.
+> **Phase 0 status (2026-10-27, later state):** dependency/test stabilization, build/version visibility, health probes, request IDs, consent enforcement with durable evidence, role-cookie migration, report-only CSP, rate-limiter hardening, CI workflow, deployment smoke script, Flyway V1–V3, platform-admin audit events, and backend dependency scanning are locally implemented and verified (backend suite green; frontend build/lint pass; npm audit 0; local smoke 9/9). The CI workflow and MySQL migration job have not executed on the repository host, and no production migration/deploy has run. Phase 1A remains blocked on an approved role/membership matrix and migration strategy; see [CAREEROS_COLLEGE_ROLE_MATRIX.md](CAREEROS_COLLEGE_ROLE_MATRIX.md).
 
 ## 0. Principles
 
@@ -28,7 +28,7 @@
 - Is placement status part of Phase 1? There is no placement model today.
 - Which fields may each designation see (mobile, DOB, CV, AI chat, LinkedIn)?
 - Which institution is the pilot, and who owns data mapping/approval?
-- Who owns the privacy/terms text, consent model, retention schedule, and data-subject request process? The current pages use placeholder contacts and the Google signup path bypasses the consent checkbox.
+- Who owns the privacy/terms text, consent model, retention schedule, and data-subject request process? The current pages use configurable owner contacts; Google signup now requires the same consent checkbox, but retention/deletion policy is still unapproved (see `DATA_RETENTION_AND_DELETION.md`).
 
 **Exit criteria:** written scope, role matrix, field-visibility matrix, pilot institution, and acceptance criteria. Do not implement dashboards before this gate.
 

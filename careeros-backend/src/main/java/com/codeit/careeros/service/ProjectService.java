@@ -58,7 +58,12 @@ public class ProjectService {
     /** Recommended (published) projects of the current student's target career. */
     @Transactional(readOnly = true)
     public ProjectListResponse recommended() {
-        Long userId = SecurityUtils.currentUserId();
+        return recommendedFor(SecurityUtils.currentUserId());
+    }
+
+    /** Recommended projects of a specific student. Caller must authorize the student. */
+    @Transactional(readOnly = true)
+    public ProjectListResponse recommendedFor(Long userId) {
         StudentProfile profile = studentProfileRepository.findByUserId(userId).orElse(null);
         if (profile == null || profile.getTargetCareer() == null) {
             return new ProjectListResponse(null, null, false, 0, 0, 0, List.of());

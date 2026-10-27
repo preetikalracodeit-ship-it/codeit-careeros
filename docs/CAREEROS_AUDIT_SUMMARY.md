@@ -1,176 +1,253 @@
 # CODEIT CareerOS — Stabilization and Audit Report
 
-> **Status as of 2026-10-27.** This report replaces the earlier audit-only header for the current working tree. The audit evidence below was gathered without production credentials or production data changes. Safe stabilization work was then implemented locally and is **not committed or deployed**.
+> **Status as of 2026-10-27 (later state).** This report replaces the earlier
+> audit-only header for the current working tree. The audit evidence was
+> gathered without production credentials or production data changes. Safe
+> stabilization work was then implemented locally and is **not committed or
+> deployed**. See section D for exact test results and section F for what was
+> not verified.
 
 ## A. Executive verdict
 
 ### Existing student/admin product: **CONDITIONAL**
 
-The existing product is materially healthier than the audit baseline: the backend suite is green, the frontend dependency audit is clean, the production build succeeds, and local public-route smoke checks pass. It is still **CONDITIONAL** because deployment parity, durable consent evidence, legal contacts, migration discipline, and several operational controls remain unproven or incomplete.
+The existing product is materially healthier than the audit baseline: the
+backend suite is green, the frontend dependency audit is clean, the production
+build succeeds, and local public-route smoke checks pass. Durable consent
+evidence, versioned migrations, immediate deactivation of sessions, and a
+minimum admin audit trail now exist locally.
+
+It is still **CONDITIONAL**, not GO, because:
+
+- the deployed commit and live environment are unverified;
+- tokens remain JavaScript-readable (`localStorage`); the full HttpOnly session
+  migration is planned but not implemented;
+- retention/deletion, DSAR export, and legal policy are unapproved and
+  unimplemented;
+- CI (including the real MySQL migration job and dependency scan) has not run
+  on the repository host;
+- no production schema copy has been compared with the Flyway baseline;
+- monitoring/alerting, email verification/reset, staff MFA, upload malware
+  scanning, and cross-instance rate limiting remain missing.
+
+Local tests are not proof of production readiness.
 
 ### Requested College/TPO Phase 1: **NO-GO**
 
-No tenant foundation was implemented. The role/permission matrix, institution and membership model, migration/rollback strategy, and production schema verification were not approved or supplied. Inventing them would create the exact cross-college PII risk the audit identified. No college dashboard, CSV workflow, export, mock interview, or staff screen was built.
-
-**Overall:** **CONDITIONAL for the existing student/admin product; NO-GO for the requested College/TPO Phase 1.** Do not present the current application as a college/TPO platform.
-
----
-
-## B. Baseline
-
-| Item | Value |
-|---|---|
-| Repository | `H:\Careeros` |
-| Branch | `main` |
-| Baseline commit | `1e00bdb38d596175b71668dd2521f61f4008ca2e` — 2026-10-26 16:57:57 +0530 — “Add navigation links for Privacy Policy and Terms of Service in footer” |
-| Working tree at baseline | Five audit documents modified; no application changes |
-| Backend | Spring Boot 3.5.4, Java 21, MySQL 8/H2 tests, Maven |
-| Frontend | Next.js 16.3.5 at baseline; React 19.2.8; JavaScript/JSX |
-| Prior backend result | 278 tests, 1 failure, `BUILD FAILURE` |
-| Prior frontend audit | 12 vulnerabilities (1 critical, 8 high, 3 moderate) |
-| Prior CI | None |
-| Prior live observations | `/api/v1/auth/config` 401, `POST /api/v1/auth/google` 404, legal routes 404, public backend `:8080` timed out |
-| Current environment | Node `v24.17.0`, npm `11.4.1`, JDK 21.0.12.1, Maven 3.9.9, Windows 11 |
-
-No production data, secret, migration, or deployment was used or changed.
+No tenant foundation was implemented. The role/permission matrix, institution
+and membership model, migration/rollback strategy, and production schema
+verification were not approved or supplied. Inventing them would create the
+exact cross-college PII risk the audit identified. A concrete matrix for
+approval is now in `docs/CAREEROS_COLLEGE_ROLE_MATRIX.md`; it is **not** an
+implementation authorisation.
 
 ---
 
-## C. Changes by category
+## B. Repository state and scope
 
-### C.1 Dependency, test, and build stabilization (Phase 0A)
-
-- Upgraded `next` and `eslint-config-next` from `16.3.5` to `16.4.3`.
-- Raised the direct `shadcn` floor from `4.21.0` to `4.22.1`.
-- `npm audit --audit-level=high` now reports **0 vulnerabilities**.
-- Corrected the stale Gemini test expectation from `gemini-2.0-flash` to `gemini-2.5-flash` and added `AiPropertiesTest`.
-- Added `.github/workflows/ci.yml`:
-  - frontend `npm ci`, lint, production build, and high/critical audit;
-  - backend `mvn -B verify`.
-- CI has **not** been executed on GitHub because nothing was pushed.
-
-### C.2 Deployment and API consistency (Phase 0B)
-
-- Added Maven build-info generation and a public, non-sensitive `GET /api/v1/meta/version` returning service, version, build time, and optional commit.
-- Added public liveness/readiness probes:
-  - `/actuator/health/liveness` — process only;
-  - `/actuator/health/readiness` — process plus database.
-- Added a frontend `GET /health` route with service, status, and version.
-- Added `RequestIdFilter`, `X-Request-Id` response headers, and MDC correlation logging.
-- Added `scripts/smoke-deployment.sh` for frontend health, legal routes, auth config, build identity, protected-route denial, Google-route existence, and optional backend probes.
-- Passed legal-contact and version build arguments through the frontend Docker image and Compose.
-- Added runtime `APP_VERSION` to the frontend service so `/health` reports the deployed value rather than `unknown`.
-- Added `APP_BUILD_COMMIT`, `APP_VERSION`, `PRIVACY_POLICY_VERSION`, and trusted-proxy configuration to `.env.example`.
-- `deploy-prod.sh` now records the git-derived build identity when the operator has not supplied one, and prints it in the deployment summary.
-
-### C.3 Auth and browser hardening (Phase 0C)
-
-- Replaced the JavaScript-readable access-token cookie with a non-sensitive `careeros_role` routing hint.
-- Kept legacy `careeros_token` reads during migration; the legacy cookie is removed on the next successful session save and on logout.
-- `proxy.js` still treats the role cookie only as a UX hint; backend JWT authorization remains authoritative.
-- Added `Content-Security-Policy-Report-Only`, `Cross-Origin-Opener-Policy: same-origin-allow-popups`, and `poweredByHeader: false`.
-- Hardened `AuthRateLimitFilter`:
-  - trusts `X-Forwarded-For` only from configured proxy CIDRs;
-  - uses the closest untrusted hop rather than the client-supplied left-most value;
-  - bounds tracked clients with an overflow bucket and periodic purge;
-  - fixes the `Map.of(..., "data", null)` `NullPointerException` on 429 responses.
-- Added `AuthRateLimitFilterTest` covering direct spoofing, trusted proxies, proxy chains, and invalid CIDRs.
-- CSP is report-only because the current Next.js rendering model uses inline bootstrap scripts/styles. It is not yet an enforcement boundary.
-- Tokens remain in `localStorage`; moving to server-managed cookies/BFF is still recommended.
-
-### C.4 Privacy and consent (Phase 0D)
-
-- Added `termsAccepted` to registration and Google-login contracts.
-- New email/password registrations require explicit `termsAccepted: true`.
-- New Google identities require consent; **existing** Google accounts can still sign in without re-consenting.
-- Added `app.privacy.policy-version`, default `2026-10-26`, and consent logging with user ID, method, and policy version.
-- Registration now links the actual Terms and Privacy pages and sends consent only after the checkbox is accepted.
-- Google signup is hidden until consent is checked; the sign-in page sends `termsAccepted: false`, which prevents new account creation through the sign-in path while preserving existing-user login.
-- Replaced fake legal contact addresses with owner-supplied `NEXT_PUBLIC_LEGAL_CONTACT_EMAIL` and `NEXT_PUBLIC_LEGAL_WEBSITE` values. When absent, the pages explicitly say the contact is not configured rather than displaying an invented address.
-- Consent evidence is currently **application-log only**. No durable consent table, retention job, deletion workflow, or subject-access workflow was added because the migration strategy and production schema are unresolved.
-
-### C.5 College/TPO tenant foundation (Phase 1A)
-
-**Not implemented.** No institution, department, program, batch, section, enrollment, staff membership, `PROFESSOR`, TPO/HOD/faculty/college-admin role, invite flow, tenant scope, or isolation test was added. No schema or migration was invented. The existing `ADMIN` role remains platform-wide and must not be reused as a college role.
+- Branch `main`; HEAD `4b69c6e` (reported as the previously pushed commit;
+  the remote was not re-checked).
+- The earlier Phase 0 work described as “uncommitted” in the first report was
+  already in HEAD; the tree was clean at the start of this change.
+- This change is **uncommitted**. Nothing was committed, pushed, tagged,
+  deployed, or published. No production database was contacted.
+- Scope respected: no College/TPO screens, imports/exports, analytics, mock
+  interviews, billing, AI features, or unrelated UI changes.
+- A concurrent, unapproved College/TPO implementation appeared in the same
+  working tree during this change (a `college/` package, `Role.PROFESSOR`, a
+  duplicate `audit_events` mapping, and one NUL-corrupted file). With the
+  user's explicit decision it was **preserved outside the build path**, not
+  deleted: see section H.4.
 
 ---
 
-## D. Testing evidence
+## C. What changed
+
+### C.1 Durable consent (replaces log-only evidence)
+
+- New append-only `consent_records` table (Flyway V2), one row per
+  `(user, consent_type, policy_version)`, with a unique constraint and a
+  foreign key to `users`.
+- Stored fields: consent type (`TERMS_AND_PRIVACY`), policy version, method
+  (`REGISTRATION`, `GOOGLE_SIGN_IN`, `RECONSENT`), non-PII evidence label, and
+  accepted-at timestamp. No IP address or user agent is stored.
+- Password registration still requires `termsAccepted: true`; successful
+  authentication alone never creates a record.
+- New Google identities require the same explicit consent. **Existing** Google
+  users keep signing in without being forced to re-consent.
+- Legacy accounts are not locked out. Authentication responses now carry
+  `consentRequired` and `consentPolicyVersion`; the account is flagged until it
+  accepts the current policy.
+- New endpoints (authenticated):
+  - `GET /api/v1/auth/consent` — caller's own status and latest evidence;
+  - `POST /api/v1/auth/consent` — explicit `termsAccepted: true`, idempotent
+    for the same policy version.
+- A policy-version change creates a new row and preserves history. Repeating
+  the same acceptance returns the original row/timestamp.
+- Default published policy version: `2026-10-26`
+  (`app.privacy.policy-version`).
+- Tests: `ConsentIntegrationTest` (8) and `GoogleSignInConsentIntegrationTest`
+  (4), plus compatibility updates in auth tests.
+
+### C.2 Versioned migrations (Flyway)
+
+- Added `flyway-core` + `flyway-mysql`; Flyway owns the schema.
+- `V1__baseline_existing_schema.sql` is the full pre-Flyway schema generated
+  from the actual entity DDL.
+- `V2__durable_consent_records.sql` adds `consent_records`.
+- `V3__audit_events.sql` adds `audit_events`.
+- Configuration: `baseline-on-migrate=true`, `baseline-version=1`,
+  `validate-on-migrate=true`, `clean-disabled=true`.
+  - **Fresh database:** V1→V3 execute.
+  - **Existing database:** Flyway records V1 as `BASELINE` (does not execute
+    it) and applies only V2/V3, preserving rows and ids.
+- Dev `ddl-auto` changed from `update` to `validate`; prod remains `validate`.
+  The H2 test profile keeps `create-drop` and disables Flyway for speed.
+- `deploy-prod.sh` now always forces `JPA_DDL_AUTO=validate`, sets
+  `FLYWAY_ENABLED=true`, and prints the latest successful
+  `flyway_schema_history` version after the health check. The old one-time
+  `ddl-auto=update` bootstrap was removed.
+- Tests: `MigrationScriptTest` (fresh execution, upgrade/baseline with a legacy
+  user row, constraints/indexes) and `MigrationMySqlIntegrationTest` (real
+  MySQL 8, gated by env vars; runs in CI). Full policy and recovery steps:
+  `docs/MIGRATIONS.md`.
+
+### C.3 Authentication hardening
+
+- `JwtAuthFilter` now loads the account and rejects a valid access token whose
+  user is not `ACTIVE`. Previously a deactivated account kept working until
+  token expiry.
+- `AuthService.refresh` rejects non-`ACTIVE` accounts and revokes all their
+  outstanding refresh tokens (`401`).
+- Google sign-in rejects a deactivated account (`403`).
+- `AuthNoStoreFilter` adds `Cache-Control: no-store` and `Pragma: no-cache` to
+  `/api/v1/auth/**`.
+- `SecurityConfig` no longer permits all `POST /api/v1/auth/**`; only the
+  anonymous entry points (`register`, `login`, `google`, `refresh`, `logout`,
+  `config`) are public. `/auth/me` and `/auth/consent` require authentication.
+- Not done: full HttpOnly cookie session migration. Rationale, residual XSS
+  risk, and a phased plan are in `docs/AUTH_SESSION_HARDENING.md`.
+
+### C.4 Audit trail (minimum foundation)
+
+- New append-only `audit_events` table (Flyway V3).
+- An MVC interceptor records every `/api/v1/admin/**` request with actor id,
+  actor role, `METHOD route`, target path, outcome, HTTP status, request id, and
+  timestamp.
+- `RestAccessDeniedHandler` records denied admin attempts that never reach a
+  controller (outcome `DENIED`, status `403`).
+- Deliberately **not** stored: request/response bodies, query strings, tokens,
+  passwords, CV text, or other PII values.
+- No read API, dashboard, retention job, or tenant-scoped audit yet. Platform
+  admin actions only.
+- Tests: `AuditTrailIntegrationTest` (successful admin write, validation
+  failure, denied student access, no request-body leakage).
+
+### C.5 Backend dependency scanning and CI
+
+- Added an optional Maven `sca` profile pinning OWASP Dependency-Check
+  **12.2.2**; CVSS ≥ 7.0 (HIGH/CRITICAL) fails the build.
+- 13.0.0 was rejected: it aborts with
+  `NvdApiException: Invalid API key, length of 0` when no key is configured.
+- The NVD key is optional and read only from `NVD_API_KEY`; it is never stored
+  in the POM or reports. Suppressions require a CVE, justification, owner, and
+  expiry (process in `docs/DEPENDENCY_SECURITY.md`).
+- CI now has three jobs: frontend lint/build/audit, backend `mvn -B verify`,
+  MySQL 8 migration validation (`MigrationMySqlIntegrationTest`), and
+  Dependency-Check with SARIF upload + dependency-tree/report artifacts.
+- `.github/workflows/ci.yml` has **not** executed on the repository host.
+
+### C.6 Documentation and design (no implementation)
+
+- `docs/MIGRATIONS.md` — Flyway strategy, baseline caveat, verification,
+  forward recovery.
+- `docs/AUTH_SESSION_HARDENING.md` — current token risk, implemented fixes,
+  cookie/CSRF migration plan, rollback.
+- `docs/DATA_RETENTION_AND_DELETION.md` — full data inventory, external copies,
+  policy decisions required, proposed FK-safe deletion order (not implemented).
+- `docs/CAREEROS_COLLEGE_ROLE_MATRIX.md` — concrete platform-vs-institution
+  role matrix, field visibility, unresolved decisions, minimum data model gate.
+- `docs/DEPENDENCY_SECURITY.md` — scanning scope, threshold, exception process.
+- Updated `docs/PRODUCTION.md`, `docs/BACKUP_RESTORE.md`, the requirements gap
+  matrix, and the roadmap status to match the new state.
+
+---
+
+## D. Verification
 
 ### D.1 Backend
 
-Command:
-
-```text
-mvn -B verify
-```
-
-Result on JDK 21 / Maven 3.9.9 / H2 test profile:
-
-```text
-Tests run: 298, Failures: 0, Errors: 0, Skipped: 0
-BUILD SUCCESS
-```
-
-This includes the full controller/service/repository suite, the new operational endpoint tests, rate-limit tests, consent/registration compatibility updates, and AI tests. No test was weakened or skipped to obtain a pass.
+- JDK 21 (Temurin 21.0.12.1+1) and Maven 3.9.9.
+- Command: `mvn -B verify`.
+- Exact full-suite result: **320 tests, 0 failures, 0 errors, 2 skipped**
+  (both real-MySQL tests), `BUILD SUCCESS` (2:05 min, exit code 0). The
+  skipped tests are the real-MySQL gates; they are not passes and are not
+  counted as verified.
+- Focused runs also passed for consent, Google consent, auth security, audit,
+  and migration tests.
+- `MigrationMySqlIntegrationTest` is **skipped locally** (no MySQL/Docker); it
+  runs in CI when `MYSQL_TEST_URL`, `MYSQL_TEST_USER`, and
+  `MYSQL_TEST_PASSWORD` are set.
 
 ### D.2 Frontend
 
-| Command | Result |
-|---|---|
-| `npm run lint` | Exit 0, no findings |
-| `npm run build` | Success on Next.js 16.4.3; 30 routes generated |
-| `npm audit --audit-level=high` | `found 0 vulnerabilities` |
+- `npm run lint`: pass, no errors or warnings.
+- `npm run build`: `Compiled successfully`, all existing routes generated.
+- `npm audit --audit-level=high`: 0 vulnerabilities.
+- No frontend code was changed for durable consent; the UI would need a
+  consent prompt for legacy accounts (see D.5).
 
-The build includes static legal routes, dynamic `/health`, and the existing student/admin routes.
+### D.3 Smoke and public routes
 
-### D.3 Local standalone smoke
-
-Backend was run with the `test` profile; the frontend was run from the production standalone build. Results:
-
-```text
-PASS  frontend health (200)
-PASS  privacy policy route (200)
-PASS  terms route (200)
-PASS  public auth config (200)
-PASS  public build identity (200)
-PASS  protected endpoint remains protected (401)
-PASS  Google sign-in route exists (400 validation)
-PASS  backend liveness (200)
-PASS  backend readiness (200)
-
-Smoke result: 9 passed, 0 failed.
-```
-
-Additional local checks:
-
-- legal pages contain no `your-college.edu` placeholder and show the explicit “not been configured” notice when contacts are absent;
-- `Content-Security-Policy-Report-Only`, `Cross-Origin-Opener-Policy`, HSTS, and `X-Content-Type-Options` are present;
-- `X-Powered-By` is absent;
-- `/api/v1/meta/version` returns a non-empty version, build time, and commit;
-- registration without consent returns `400` with “You must accept the Terms of Service and Privacy Policy to create an account.”
+The previous local smoke run passed 9/9 (frontend health, legal routes, public
+auth config, build identity, protected endpoint 401, Google route validation,
+backend liveness/readiness). It was not re-run after this change because no
+server was started.
 
 ### D.4 Not verified
 
-- Live/staging deployment parity or live authenticated flows.
-- GitHub Actions execution (workflow is local only).
-- Docker image build, Compose startup, or production migration.
+- GitHub Actions execution (including the MySQL job and SCA).
+- Docker image build, Compose startup, or any production migration.
+- A production schema copy compared with V1, and a backup/restore drill.
 - Real Google credential exchange and real AI-provider behavior.
-- Backup restore drill, load/soak test, DAST/fuzzing, container scan, or Maven dependency vulnerability scan.
-- Cross-instance rate limiting.
+- Live authenticated flows, deployment parity, DAST/fuzzing, container scan,
+  load/soak test, cross-instance rate limiting.
+- The full OWASP Dependency-Check result. The plugin is pinned and the CI job
+  is wired, but the local scan could not reach `api.nvd.nist.gov` (DNS
+  resolution failed), so **no local vulnerability result is claimed**; CI is
+  the authoritative run and has not executed here.
+
+### D.5 Known residual risk after this change
+
+- **Legacy consent UX:** the backend flags `consentRequired`, but no frontend
+  prompt was added. Legacy users can keep using the product without accepting
+  the current policy until a UI prompt is built. This is deliberate (no
+  lockout) and must be closed before claiming complete consent operations.
+- **Token storage:** XSS can still read access/refresh tokens.
+- **Retention/deletion:** no automated erasure or export.
+- **Migration drift:** an existing production schema may differ from V1; only
+  `validate` catches missing/incompatible columns.
+- **Audit breadth:** platform admin routes only; no institution scope.
 
 ---
 
-## E. Regression assessment
+## E. Regression and compatibility
 
-- **Backend:** full suite green; no schema change; no production data touched.
-- **Frontend:** lint and production build pass; existing routes remain present.
-- **API compatibility:** new clients must send `termsAccepted: true` to register; older registration clients now receive `400` by design. Google login accepts a missing/false consent flag for existing accounts and rejects new account creation. This is an intentional legal gate, not a silent break.
-- **Sessions:** existing token-cookie sessions remain readable through the legacy path; the role cookie is written on the next login/session save. Logout clears both.
-- **Security posture:** 429 responses no longer crash; rate-limit keys are bounded and spoof-resistant behind configured proxies. In-memory limiting is still not reliable across multiple backend instances.
-- **Residual XSS risk:** access and refresh tokens remain in `localStorage`; the role cookie is only a routing hint and is not an authorization boundary.
-- **Residual legal risk:** consent evidence is in logs, not a durable database record; legal contacts and retention/deletion policy remain owner decisions.
-- **Deployment risk:** the backend remains published on host port `8080` in Compose, and deployment parity is unproven. Existing live drift was not repaired by local code changes.
+- **Backend:** full suite green; schema changes are additive (V2/V3). No
+  production data touched.
+- **API compatibility:** registration still requires `termsAccepted: true`.
+  `AuthResponse` gained two fields (`consentRequired`,
+  `consentPolicyVersion`); additive for JSON clients. New authenticated
+  `/auth/consent` endpoints. No existing route removed.
+- **Startup:** a database that Hibernate created previously will be baselined
+  at V1 and receive V2/V3. A dev database created with old `update` DDL should
+  validate; if not, recreate it (local only).
+- **Sessions:** deactivated accounts are now cut off immediately; this is an
+  intentional security fix. Existing active sessions keep working.
+- **Deployment:** `deploy-prod.sh` no longer bootstraps with `ddl-auto=update`;
+  it validates and reports the Flyway version. This changes the first-deploy
+  procedure (documented).
+- **Frontend:** no functional change in this pass; build/lint remain the gate.
 
 ---
 
@@ -178,67 +255,125 @@ Additional local checks:
 
 **Not deployed. No staging or production access was used.**
 
-- The prior live inconsistencies remain presumed unresolved until a new deployment is verified: `/api/v1/auth/config` 401, `POST /api/v1/auth/google` 404, `/legal/privacy` 404, `/legal/terms` 404, and public backend `:8080` timeout.
-- Docker is not available locally, so image and Compose startup were not exercised.
-- The repository has no validated migration path; production uses `ddl-auto=validate` after a one-time bootstrap.
-- `scripts/smoke-deployment.sh` is ready for an authorized staging/production run once a deployment exists.
+- The prior live inconsistencies remain presumed unresolved until a new
+  deployment is verified: `/api/v1/auth/config` 401, `POST
+  /api/v1/auth/google` 404, `/legal/privacy` 404, `/legal/terms` 404, and public
+  backend `:8080` timeout.
+- Docker is not available locally, so image and Compose startup were not
+  exercised.
+- Flyway V1–V3 exist and are locally tested on H2; real MySQL validation is
+  wired in CI but has not run here.
+- `scripts/smoke-deployment.sh` is ready for an authorized staging/production
+  run once a deployment exists.
 - No commit, push, image publish, or deploy was performed.
 
 ---
 
 ## G. Remaining blockers
 
-### College/TPO Phase 1
-
-1. Approved role/permission matrix separating platform admin from institution-scoped staff.
-2. Approved institution, department, program, batch, section, enrollment, and membership model.
-3. Approved migration and rollback strategy, plus verification against a production schema copy.
-4. Durable audit/consent evidence and retention/deletion policy.
-5. Two-institution isolation, forged-ID, and field-visibility tests.
-6. Staff onboarding, activation, deactivation, and role-change workflow.
-7. College-scoped student/report/export authorization before any dashboard or CSV work.
-
 ### Existing product release
 
 1. Real legal contacts and approved policy text.
-2. Durable consent record and privacy rights/retention workflow.
-3. Live deployment parity and deployed-commit verification.
-4. Migration discipline and backup/restore evidence.
-5. Monitoring/alerting, email verification/reset, MFA for staff/admin, upload malware scanning, and backend dependency scanning.
-6. Cross-instance rate limiting or an edge limiter.
-7. Server-managed session strategy or a BFF to remove tokens from `localStorage`.
-8. CI execution on the repository host, not just a local workflow file.
+2. Frontend prompt/flow for legacy `consentRequired` accounts.
+3. Approved retention schedule, deletion, and DSAR/export process.
+4. Live deployment parity and deployed-commit verification.
+5. Production schema-copy comparison with V1; backup/restore drill; MySQL CI
+   run.
+6. CI execution on the repository host, including SCA and MySQL jobs.
+7. Monitoring/alerting, email verification/reset, staff MFA, upload malware
+   scanning, and cross-instance rate limiting.
+8. Server-managed session strategy/BFF to remove tokens from `localStorage`.
+
+### College/TPO Phase 1
+
+1. Approved role/permission matrix separating platform admin from
+   institution-scoped staff (`CAREEROS_COLLEGE_ROLE_MATRIX.md`).
+2. Approved institution, department, program, batch, section, enrollment, and
+   membership model.
+3. Approved migration and rollback strategy, plus verification against a
+   production schema copy.
+4. Nationwide scope/ownership decision (brief vs PDF) and pilot institution.
+5. Two-institution isolation, forged-ID, and field-visibility tests.
+6. Staff onboarding, activation, deactivation, and role-change workflow.
+7. College-scoped student/report/export authorization before any dashboard or
+   CSV work.
 
 ---
 
 ## H. Files and migrations
 
-### Main changed areas
+### H.1 Main changed areas
 
-- Backend auth/consent: `AuthService.java`, `AuthController.java`, `RegisterRequest.java`, `GoogleLoginRequest.java`.
-- Backend security/ops: `AuthRateLimitFilter.java`, `RequestIdFilter.java`, `MetaController.java`, `application.yml`, `pom.xml`.
-- Backend tests: new `AiPropertiesTest`, `OperationalEndpointsIntegrationTest`, `AuthRateLimitFilterTest`; consent compatibility updates across existing integration tests.
-- Frontend auth/privacy: `lib/auth.js`, `proxy.js`, `app/register/page.jsx`, `components/auth/google-signin.jsx`, legal components.
-- Frontend operations/security: `next.config.mjs`, `app/health/route.js`, `Dockerfile`.
-- Deployment/configuration: `docker-compose.prod.yml`, `.env.example`, `deploy-prod.sh`, `.github/workflows/ci.yml`, `scripts/smoke-deployment.sh`.
-- Documentation: the five `docs/CAREEROS_*.md` files and `docs/PRODUCTION.md`.
+- Consent: `ConsentType`, `ConsentMethod`, `ConsentRecord`,
+  `ConsentRecordRepository`, `ConsentService`, `ConsentStatusResponse`,
+  `ConsentAcceptRequest`, `AuthService`, `AuthController`, `AuthResponse`,
+  `RegisterRequest`, `GoogleLoginRequest`.
+- Auth security: `JwtAuthFilter`, `AuthNoStoreFilter`, `SecurityConfig`,
+  `AuthService`.
+- Audit: `AuditEvent`, `AuditEventRepository`, `AuditService`,
+  `AdminAuditInterceptor`, `WebMvcConfig`, `RestAccessDeniedHandler`.
+- Migrations: `V1__baseline_existing_schema.sql`,
+  `V2__durable_consent_records.sql`, `V3__audit_events.sql`.
+- Build/CI: `pom.xml` (Flyway, `sca` profile),
+  `dependency-check-suppressions.xml`, `.github/workflows/ci.yml`,
+  `deploy-prod.sh`, `application.yml`, `application-dev.yml`,
+  `application-test.yml`.
+- Tests: `ConsentIntegrationTest`, `GoogleSignInConsentIntegrationTest`,
+  `AuditTrailIntegrationTest`, `MigrationScriptTest`,
+  `MigrationMySqlIntegrationTest`, plus auth test updates.
+- Documentation: `MIGRATIONS.md`, `AUTH_SESSION_HARDENING.md`,
+  `DATA_RETENTION_AND_DELETION.md`, `CAREEROS_COLLEGE_ROLE_MATRIX.md`,
+  `DEPENDENCY_SECURITY.md`, and updates to `PRODUCTION.md`,
+  `BACKUP_RESTORE.md`, the gap matrix, and the roadmap.
 
-### Migrations
+### H.2 Migrations
 
-**No database migration was added.** No table, column, index, role, institution, membership, or consent record was created. Production schema changes remain blocked pending an approved migration strategy and schema verification.
+- V1 baseline, V2 consent, V3 audit. They are additive; no existing table is
+  dropped or rewritten. Existing databases baseline V1 and run V2/V3.
+- No institution/staff/tenant tables were added. Those remain blocked on the
+  approved matrix and model.
 
-### Commit state
+### H.3 Commit state
 
-All application, configuration, workflow, script, and documentation changes are **uncommitted** in the working tree. Nothing was committed, pushed, or deployed.
+All application, configuration, workflow, script, and documentation changes are
+**uncommitted** in the working tree. Nothing was committed, pushed, or
+deployed.
+
+### H.4 Concurrent unapproved work preserved
+
+A separate active process wrote an unapproved College/TPO package into the same
+tree during this change. It conflicted with the “no tenant schema before
+approval” instruction, broke compilation (a NUL-filled
+`CsvImportRowRepository.java`), and mapped a second entity to `audit_events`.
+With the user's explicit decision, the complete package and the `Role.java`
+change were copied to:
+
+```text
+C:\Users\bhave\AppData\Local\Temp\opencode\concurrent-college-work-20261027-1153\
+```
+
+and removed from `src/main/java` so the approved work could compile and be
+verified. Nothing was deleted: the folder contains the package, `Role.java`,
+`Role.patch`, and a README with restore instructions. It is outside the
+repository and not part of the build. Do not restore it without the approved
+matrix and versioned migrations.
 
 ---
 
 ## I. Next step
 
-1. Obtain owner approval for the exact role/permission matrix, institution/membership model, and migration/rollback plan. Do not start College/TPO UI before this.
-2. Obtain the real legal contact and policy decisions; add durable consent/retention/deletion records with the approved migration.
-3. Deploy the current stabilization branch to staging only after authorization, run `scripts/smoke-deployment.sh`, and compare `/api/v1/meta/version` plus `/health` against the tested commit.
-4. Add backend dependency scanning and execute the new CI workflow on the repository host.
-5. Then implement Phase 1A: canonical tenant structure, scoped staff memberships, invite-only onboarding, server-derived scope, audit foundation, and two-institution isolation tests.
+1. Obtain written approval of the role matrix, field visibility, unresolved
+   decisions, and tenant model. Do not start College/TPO UI before this.
+2. Obtain the real legal contact, consent prompt decision, and
+   retention/deletion policy; add the approved deletion/export workflow.
+3. Run the CI workflow on the repository host; confirm the MySQL migration job
+   and dependency scan pass on the tested commit.
+4. Deploy to staging only after authorization; compare production/staging
+   schema with V1; run `scripts/smoke-deployment.sh`; verify
+   `/api/v1/meta/version` and `/health` against the tested commit.
+5. Then implement Phase 1A: canonical tenant structure, scoped staff
+   memberships, invite-only onboarding, server-derived scope, tenant audit, and
+   two-institution isolation tests.
 
-Do not claim production readiness or College/TPO completion from local tests alone.
+Do not claim production readiness or College/TPO completion from local tests
+alone.

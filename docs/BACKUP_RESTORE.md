@@ -47,19 +47,29 @@ mysql -h localhost -u root -p careeros < careeros-backup-20260101-0300.sql
 Then start the backend with `SPRING_PROFILES_ACTIVE=prod` — `validate`
 confirms the schema matches before serving traffic.
 
-## Safe migration process (no Flyway in this project — deliberate, Sprint 8
-kept the architecture unchanged)
+## Safe schema change process (Flyway)
 
-1. Develop the entity change against **dev** (`ddl-auto: update` applies it
-   to your local DB automatically — never point dev at production).
-2. Capture the exact DDL Hibernate used (dev log, `format_sql: true`).
-3. **Back up production** (above).
-4. Review the DDL by hand: only additive/compatible changes
-   (`ADD COLUMN NULL`, `CREATE INDEX`). Destructive changes
-   (`DROP`, type narrowing) need a written data-migration plan first.
-5. Apply the reviewed DDL to production with `mysql < migration.sql`.
-6. Deploy the backend; `validate` passes → done. If it fails, the app
-   stays down **instead of corrupting data** — restore the backup and retry.
+Schema changes are **versioned migrations**, not hand-applied DDL. Full policy:
+`docs/MIGRATIONS.md`.
+
+1. Add a new `careeros-backend/src/main/resources/db/migration/V<n>__*.sql`.
+   Never edit an already-applied migration; fix forward.
+2. Test locally: `mvn -B -Dtest=MigrationScriptTest test` (fresh + upgrade +
+   constraints on H2/MySQL mode). CI runs the same migrations and Hibernate
+   validation against a disposable MySQL 8 (`MigrationMySqlIntegrationTest`).
+3. **Back up production** (above). Record the current commit and
+   `flyway_schema_history` version.
+4. Review only additive/compatible changes. Destructive changes need a written
+   data-migration and restore plan.
+5. Deploy the backend. Flyway applies pending versions, then Hibernate
+   `validate` confirms the schema. If either fails, the app stays down rather
+   than corrupting data; restore the backup and fix forward.
+6. Verify the latest successful version:
+   `SELECT version, description, success FROM flyway_schema_history ORDER BY installed_rank DESC;`
+
+An existing pre-Flyway database is baselined at V1: V1 is recorded as
+`BASELINE` and not executed, so existing data and ids are untouched. See
+`docs/MIGRATIONS.md` for the drift caveat and forward-recovery steps.
 
 ## Docker Compose volumes
 

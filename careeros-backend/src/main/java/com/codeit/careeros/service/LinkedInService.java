@@ -86,7 +86,12 @@ public class LinkedInService {
     /** Full analysis of the current student's LinkedIn presence. */
     @Transactional(readOnly = true)
     public LinkedInAnalysisResponse analyze() {
-        Long userId = SecurityUtils.currentUserId();
+        return analyzeFor(SecurityUtils.currentUserId());
+    }
+
+    /** LinkedIn analysis of a specific student. Caller must authorize the student. */
+    @Transactional(readOnly = true)
+    public LinkedInAnalysisResponse analyzeFor(Long userId) {
         LinkedInProfile profile = linkedInProfileRepository.findByUserId(userId).orElse(null);
         if (profile == null) {
             return new LinkedInAnalysisResponse(false, false, null, null, null, 0,
@@ -110,7 +115,7 @@ public class LinkedInService {
             }
         }
 
-        ReadinessResponse readiness = careerInsightService.myReadiness();
+        ReadinessResponse readiness = careerInsightService.readinessFor(userId);
         List<SkillGapResponse> matched = new ArrayList<>();
         List<SkillGapResponse> missing = new ArrayList<>();
         if (readiness.hasTarget()) {
@@ -126,7 +131,7 @@ public class LinkedInService {
         int alignment = frameworkSize == 0 ? 0
                 : Math.round((matched.size() * 100.0f) / frameworkSize);
 
-        List<DetectedSkillResponse> cvSkills = cvAnalysisService.analyze().detectedSkills();
+        List<DetectedSkillResponse> cvSkills = cvAnalysisService.analyzeFor(userId).detectedSkills();
         Map<Long, DetectedSkillResponse> cvById = new LinkedHashMap<>();
         for (DetectedSkillResponse skill : cvSkills) {
             cvById.put(skill.skillId(), skill);

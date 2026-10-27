@@ -66,6 +66,18 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- Versioned, additive schema migrations. V1 is the baseline of the
+             pre-Flyway schema; existing databases are baselined without
+             re-running it (baseline-on-migrate). -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-mysql</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
@@ -186,4 +198,66 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <!--
+          Backend software-composition analysis (direct + transitive Maven
+          dependencies). Kept out of the default build so `mvn verify` stays
+          fast and works offline; CI runs the `check` goal directly in the
+          `sca` profile.
+
+          Policy:
+            * CVSS >= 7.0 (HIGH or CRITICAL) fails the build.
+            * Lower severities are reported but do not block.
+            * Exceptions are reviewed and recorded in
+              dependency-check-suppressions.xml with a justification and an
+              expiry date. Never suppress a finding just to obtain a green
+              build.
+            * Set NVD_API_KEY in CI to avoid NVD rate limiting. The secret is
+              read from the environment and never written to a file.
+        -->
+        <profile>
+            <id>sca</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.owasp</groupId>
+                        <artifactId>dependency-check-maven</artifactId>
+                        <version>12.2.2</version>
+                        <configuration>
+                            <failBuildOnCVSS>7</failBuildOnCVSS>
+                            <skipTestScope>true</skipTestScope>
+                            <!-- Read the key from the environment only when
+                                 set; never put a key in the POM or logs.
+                                 Dependency-Check 13.0.0 aborts when no key is
+                                 configured, so 12.2.2 is pinned until that
+                                 regression is fixed and verified. -->
+                            <nvdApiKeyEnvironmentVariable>NVD_API_KEY</nvdApiKeyEnvironmentVariable>
+                            <formats>
+                                <format>HTML</format>
+                                <format>JSON</format>
+                                <format>SARIF</format>
+                            </formats>
+                            <suppressionFiles>
+                                <suppressionFile>dependency-check-suppressions.xml</suppressionFile>
+                            </suppressionFiles>
+                            <!-- OSS Index is disabled: anonymous use is
+                                 rate-limited and its result is not part of
+                                 the release gate. NVD is the source. -->
+                            <ossIndexAnalyzerEnabled>false</ossIndexAnalyzerEnabled>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <id>dependency-check</id>
+                                <phase>verify</phase>
+                                <goals>
+                                    <goal>check</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>

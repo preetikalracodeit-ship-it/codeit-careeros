@@ -30,8 +30,9 @@ Or with Docker (dev defaults only, never prod secrets):
 docker compose -f docker-compose.yml up --build
 ```
 
-Dev profile: MySQL `careeros`/`careeros`+`careeros_dev_pw`, `ddl-auto: update`,
-local CV dir `./data/cv-storage`, Swagger at `/swagger-ui.html`, relaxed logging.
+Dev profile: MySQL `careeros`/`careeros`+`careeros_dev_pw`, Flyway migrations +
+`ddl-auto: validate`, local CV dir `./data/cv-storage`, Swagger at
+`/swagger-ui.html`, relaxed logging.
 
 ## 3. Environment variables
 
@@ -75,9 +76,18 @@ cp .env.example backend.env      # fill in, keep on the host
 
 - Engine MySQL 8. Prod datasource strictly `${DB_URL/USERNAME/PASSWORD}` (fail-fast, no defaults).
 - Hikari pool: max 10, min idle 2 (see `application-prod.yml`).
-- Schema: managed with `ddl-auto: validate` in prod. Dev uses `update`; capture the DDL diff and
-  apply additive-only migrations to prod manually (flow documented in `docs/BACKUP_RESTORE.md`).
-- Indexes/constraints: FKs + unique constraints on ownership columns (user/student/attempt/CV/LinkedIn/AI session owners); refresh-token `token_hash` unique.
+- Schema: **Flyway** owns it (`db/migration/V1..Vn`). Prod runs
+  `JPA_DDL_AUTO=validate`; Hibernate never creates or updates tables. A fresh
+  database runs V1..Vn. An existing pre-Flyway database is baselined at V1
+  (V1 is marked applied, not executed) and only V2+ run, so existing rows and
+  ids are untouched. Full procedure, caveats, and recovery steps:
+  `docs/MIGRATIONS.md`.
+- Dev also uses `validate`; a local database is initialized by Flyway. The H2
+  test profile keeps `create-drop` and dedicated migration tests cover fresh +
+  upgrade paths.
+- Indexes/constraints: FKs + unique constraints on ownership columns
+  (user/student/attempt/CV/LinkedIn/AI session owners); refresh-token
+  `token_hash` unique; consent `(user, type, policy_version)` unique.
 
 ## 5. Backend startup
 
@@ -129,7 +139,10 @@ Build arg: `API_PROXY_URL=http://backend:8080` (server-side target).
 ## 12. Production deployment (checklist)
 
 1. Provision MySQL 8, create DB + least-privilege user.
-2. Apply schema (validated migrations, `JPA_DDL_AUTO=validate`).
+2. Apply schema: Flyway runs V1..Vn automatically on backend start, then
+   Hibernate `validate` confirms the entity model. `deploy-prod.sh` forces
+   `JPA_DDL_AUTO=validate` and prints the latest `flyway_schema_history`
+   version. Take a verified backup before the first production start.
 3. Create `backend.env` from `.env.example` (strong `JWT_SECRET`, real DB creds, exact CORS origins, approved `LEGAL_CONTACT_EMAIL`/`LEGAL_WEBSITE`, and `APP_BUILD_COMMIT`/`APP_VERSION` if not auto-derived).
 4. First boot creates the admin from `ADMIN_EMAIL/ADMIN_PASSWORD` only if no users exist; rotate afterwards.
 5. `./deploy-prod.sh <public-host-or-ip>` from the repo root (recommended —
@@ -143,7 +156,7 @@ Build arg: `API_PROXY_URL=http://backend:8080` (server-side target).
 ## 13–14. Database backup / restore
 
 Full procedure in `docs/BACKUP_RESTORE.md` (mysqldump `--single-transaction --routines`, S3 versioning
-for binaries, manual additive-only migration flow, `docker exec` variant for Compose volumes).
+for binaries, Flyway migration/recovery notes, `docker exec` variant for Compose volumes).
 
 ## 15. Security considerations
 
@@ -157,8 +170,15 @@ for binaries, manual additive-only migration flow, `docker exec` variant for Com
   prompt-injection system rules, provider errors sanitized, no secret leakage (`safeProviderMessage`).
 - Error responses: consistent `ApiResponse`, no stack traces/SQL/paths/keys (see `GlobalExceptionHandler`).
 - Frontend: `Secure` cookie flag on HTTPS, single-flight token refresh, friendly error mapping, no secrets in bundle.
-- Known residual risk: auth state lives in JS-readable storage/cookie (HttpOnly server cookies would
-  require a backend session-cookie mechanism — future work, not Sprint 8 scope).
+- Session storage: access/refresh tokens remain JavaScript-readable in `localStorage`; the role cookie
+  is only a routing hint. Deactivated accounts now lose existing access/refresh tokens immediately and
+  auth responses are `Cache-Control: no-store`. The cookie/session migration plan and residual XSS risk
+  are documented in `docs/AUTH_SESSION_HARDENING.md`; do not describe the current scheme as XSS-safe.
+- Consent: durable append-only `consent_records` (V2) with policy version, method, evidence, timestamp.
+  Legacy accounts are flagged `consentRequired`; they are not silently treated as consented and are not
+  locked out. Retention/deletion is policy-blocked (`docs/DATA_RETENTION_AND_DELETION.md`).
+- Audit: platform-admin writes and denied admin attempts are recorded in append-only `audit_events` (V3),
+  with actor, route, outcome, status, request id. No bodies/tokens/PII values.
 
 ## 16. API / Swagger usage
 
@@ -170,13 +190,16 @@ for binaries, manual additive-only migration flow, `docker exec` variant for Com
 
 ```bash
 # Backend (needs JDK 21+, uses H2, no external services)
-SPRING_PROFILES_ACTIVE=test mvn test        # 136 tests: security/auth, careers/skills,
+SPRING_PROFILES_ACTIVE=test mvn test        # 320 tests: security/auth, consent,
+                                            # migrations, audit, careers/skills,
                                             # assessment incl. expiry, scoring, gaps, readiness,
                                             # roadmap/projects, reports, CV, LinkedIn, AI incl.
                                             # fallback/rate-limit/provider-failure/injection
+# Real MySQL migration gate (CI or a disposable local MySQL only)
+mvn -B -Dtest=MigrationMySqlIntegrationTest test
 # Frontend
 npm run lint                                # eslint, must be clean
-npm run build                               # production build, all 22 routes
+npm run build                               # production build, all routes
 ```
 
 Do not weaken tests to make them pass. New production code (e.g. `ProdAdminBootstrapRunner`,

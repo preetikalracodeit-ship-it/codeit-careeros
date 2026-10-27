@@ -2,7 +2,7 @@
 
 > **Audit-plus-remediation status.** The baseline rows below are based on repository evidence, existing automated tests, the production build, and unauthenticated live checks. Later stabilization work is uncommitted and locally verified only; a feature is not marked complete merely because a file, table, route, or UI label exists, and local tests do not establish live deployment parity. See [CAREEROS_AUDIT_SUMMARY.md](CAREEROS_AUDIT_SUMMARY.md).
 
-> **Post-audit remediation snapshot (2026-10-27):** the college/TPO functional totals are unchanged (0 of 49 complete). Phase 0 improvements are local and uncommitted: backend 298/0, frontend build/lint pass, npm audit 0, CI workflow added but not executed remotely, build-version endpoint and health probes added, consent enforced for new accounts and logged (not durably stored), role cookie and report-only CSP added, rate limiter hardened. Live deployment parity remains unresolved and no migration was added.
+> **Post-audit remediation snapshot (2026-10-27, later state):** the college/TPO functional totals are unchanged (0 of 49 complete). New local, uncommitted work adds durable consent records (Flyway V2), platform-admin audit events (V3), a Flyway V1 baseline with migration tests, immediate invalidation of deactivated accounts, and a backend OWASP Dependency-Check CI job. Backend and frontend gates pass locally; the CI workflow and MySQL migration job have not executed on the repository host, and no production migration/deploy was performed. College/TPO remains blocked on the role matrix and tenant model.
 
 ## 0. Status definitions
 
@@ -140,19 +140,19 @@ The admin dashboard UI is also inconsistent: it locks assessment, roadmap, and r
 
 | ID | Requirement | Status | Evidence and gap |
 |---|---|---|---|
-| P1 | Durable audit log | **MISSING** | No audit table/entity. Application logs exist but are not a durable, queryable trail with actor/scope/before/after. |
-| P2 | Audit coverage for staff/admin actions | **MISSING** | No staff actions; admin logs omit actor ID, institution, IP, request ID, and before/after values. |
-| P3 | Versioned database migrations | **MISSING** | No `db/migration`; prod bootstraps once with `ddl-auto=update`, then `validate` (`deploy-prod.sh:195-208`). |
-| P4 | CI quality gate | **PARTIAL** | `.github/workflows/ci.yml` now runs frontend lint/build/audit and backend `mvn -B verify`; it has not been executed on the repository host or proven as a protected branch gate. |
+| P1 | Durable audit log | **PARTIAL** | Append-only `audit_events` (Flyway V3) records platform-admin writes and denied admin attempts with actor id/role, route, outcome, status, and request id. No institution/scope columns, no staff actions, no read API, and no retention policy yet. Consent evidence is separately durable in `consent_records`. |
+| P2 | Audit coverage for staff/admin actions | **PARTIAL** | Platform-admin requests are covered via an MVC interceptor; denied admin access is recorded by the access-denied handler. Institution-scoped staff actions do not exist yet. Details/before-after values are deliberately not stored. |
+| P3 | Versioned database migrations | **IMPLEMENTED (local, not production-verified)** | Flyway V1 baseline + V2 consent + V3 audit; `baseline-on-migrate`, `ddl-auto=validate` in dev/prod, H2 fresh/upgrade/constraint tests, and a MySQL 8 CI validation job. No production migration has run. |
+| P4 | CI quality gate | **PARTIAL** | `.github/workflows/ci.yml` runs frontend lint/build/audit, backend `mvn -B verify`, a MySQL migration job, and OWASP Dependency-Check with SARIF upload. It has not executed on the repository host or been proven as a protected-branch gate. |
 | P5 | Frontend dependency remediation | **COMPLETE AND VERIFIED (local)** | `next@16.4.3`, `eslint-config-next@16.4.3`, `shadcn@4.22.1`; `npm audit --audit-level=high` reports 0. Deployment not verified. |
-| P6 | Backend test suite green | **COMPLETE AND VERIFIED (local)** | `mvn -B verify`: 298 tests, 0 failures, BUILD SUCCESS on JDK 21/H2. Live deployment not verified. |
-| P7 | Deployment parity and version verification | **PARTIAL** | Public build-version and frontend health endpoints plus a smoke script were added locally. Prior live 401/404/404 observations remain unresolved; no deployed-commit verification has happened. |
-| P8 | Token storage and CSP hardening | **PARTIAL** | Access-token cookie replaced by a non-sensitive role hint; report-only CSP and COOP added. Tokens still live in `localStorage`, and CSP is not enforced. |
+| P6 | Backend test suite green | **COMPLETE AND VERIFIED (local)** | `mvn -B verify` is green on JDK 21/H2: 320 tests, 0 failures, 0 errors, 2 skipped (real-MySQL gates). Live deployment not verified. |
+| P7 | Deployment parity and version verification | **PARTIAL** | Public build-version and frontend health endpoints plus a smoke script were added locally. `deploy-prod.sh` now forces Flyway + `validate` and prints the applied version. Prior live 401/404/404 observations remain unresolved; no deployed-commit verification has happened. |
+| P8 | Token storage and CSP hardening | **PARTIAL** | Access-token cookie replaced by a non-sensitive role hint; report-only CSP and COOP added. Tokens still live in `localStorage`, CSP is not enforced, and the cookie/session migration is documented but not implemented. Deactivated accounts now lose access/refresh tokens immediately. |
 | P9 | Email verification and password reset | **MISSING** | No mail sender, verification token, forgot-password flow, or reset flow. |
 | P10 | Staff MFA | **MISSING** | No MFA. |
 | P11 | Backup automation and tested restore | **PARTIAL** | Manual runbook only (`docs/BACKUP_RESTORE.md`); no scheduled job or restore drill evidence. |
 | P12 | Monitoring and alerting | **PARTIAL** | Health endpoint and application logs only; no metrics, tracing, error tracking, or alerting. |
-| P13 | Privacy, consent, retention, deletion | **PARTIAL** | Registration and new Google identities now require consent; legal pages are linked and fake contacts were removed in favor of owner-supplied values. Consent is logged only, with no durable table, retention job, access/deletion workflow, or data-processing record. Live legal routes remain unverified. |
+| P13 | Privacy, consent, retention, deletion | **PARTIAL** | Registration and new Google identities now require consent; legal pages are linked and fake contacts were removed in favor of owner-supplied values. Consent evidence is durable and append-only (`consent_records`, V2) with policy version/method/timestamp; legacy accounts are flagged, not locked out. Still missing: frontend prompt, approved retention schedule, access/deletion workflow, data-processing record. Live legal routes remain unverified. |
 | P14 | Rate-limit hardening | **PARTIAL** | Limiter now trusts only configured proxy CIDRs, uses the closest untrusted hop, bounds tracked clients, purges periodically, and no longer crashes on 429. Still in-memory and not reliable across instances. |
 | P15 | Documentation/runbook parity | **PARTIAL** | `README.md` still says admin controllers do not exist and describes a smaller route set; `PRODUCTION.md` is more current. |
 
@@ -218,9 +218,10 @@ Even under the narrower PDF Phase 1, the following are not complete:
 3. **The existing student ownership model is a strength.** Reports, attempts, CVs, roadmaps, projects, and AI sessions are owner-scoped and tested. Reuse those service reads rather than duplicating them.
 4. **Admin is not a college role.** Reusing `ADMIN` for professors/TPO would expose platform-wide PII and content controls.
 5. **"No CSV" is not "CSV safe."** The requirement is absent. Any implementation must include formula-injection defenses, scoped permissions, and audit.
-6. **A green local build is not a green release.** The current working tree has 298/0 backend tests, frontend lint/build passing, and a clean npm audit, but the CI workflow has not run on the host and the live deployment remains inconsistent. Deployment parity is still a release gate.
+6. **A green local build is not a green release.** The current working tree has a green backend suite (see the final report for the exact count), frontend lint/build passing, and a clean npm audit, but the CI workflow has not run on the host and the live deployment remains inconsistent. Deployment parity is still a release gate.
 7. **The PDF's example PostgreSQL stack is not a reason to migrate.** MySQL remains appropriate; the missing tenant model is the real architectural gap.
-8. **Consent enforcement is not yet consent operations.** New accounts now require acceptance and legal pages are linked, but consent is only logged, owner contacts are unset, and rights/deletion/retention workflows plus live verification are still missing.
+8. **Consent enforcement is not yet consent operations.** New accounts now require acceptance, legal pages are linked, and evidence is durable (append-only `consent_records` with policy version), but owner contacts are unset, legacy accounts are only flagged, and rights/deletion/retention workflows plus live verification are still missing. See `DATA_RETENTION_AND_DELETION.md`.
+9. **Migrations are now versioned, but not production-verified.** Flyway V1–V3 exist with local H2 fresh/upgrade tests and a MySQL CI job. No production schema copy has been compared with V1 and no production migration has run. See `MIGRATIONS.md`.
 
 ---
 

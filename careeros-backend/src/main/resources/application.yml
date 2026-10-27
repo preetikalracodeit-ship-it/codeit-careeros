@@ -8,6 +8,19 @@ spring:
     multipart:
       max-file-size: 10MB
       max-request-size: 10MB
+  # Versioned schema migrations (prod/dev/test-profile aware).
+  #   * Fresh empty database: V1..Vn run in order.
+  #   * Existing pre-Flyway database: Flyway records the baseline at V1
+  #     and executes V2+ only. Existing rows/ids are never touched.
+  #   * Never enable clean-on-startup; there is no destructive mode.
+  flyway:
+    enabled: ${FLYWAY_ENABLED:true}
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    baseline-version: 1
+    baseline-description: "Pre-Flyway CareerOS schema"
+    validate-on-migrate: true
+    clean-disabled: true
   ai:
     openai:
       # Placeholder keeps the Spring AI starter bootable with no key.

@@ -2,6 +2,8 @@ package com.codeit.careeros.controller;
 
 import com.codeit.careeros.common.ApiResponse;
 import com.codeit.careeros.dto.auth.AuthResponse;
+import com.codeit.careeros.dto.auth.ConsentAcceptRequest;
+import com.codeit.careeros.dto.auth.ConsentStatusResponse;
 import com.codeit.careeros.dto.auth.GoogleLoginRequest;
 import com.codeit.careeros.dto.auth.LoginRequest;
 import com.codeit.careeros.dto.auth.RefreshRequest;
@@ -76,6 +78,25 @@ public class AuthController {
     @GetMapping("/me")
     public ApiResponse<UserResponse> me() {
         return ApiResponse.success(authService.me());
+    }
+
+    @Operation(summary = "Consent status of the authenticated caller",
+            description = "Returns only the caller's own durable consent evidence. "
+                    + "consentCurrent=false means the current policy version has not "
+                    + "been explicitly accepted; callers must not assume consent.")
+    @GetMapping("/consent")
+    public ApiResponse<ConsentStatusResponse> consentStatus() {
+        return ApiResponse.success(authService.consentStatus());
+    }
+
+    @Operation(summary = "Accept the currently published Terms/Privacy version",
+            description = "Authenticated. Requires an explicit termsAccepted=true. "
+                    + "Idempotent: repeating the same request returns the original record.")
+    @PostMapping("/consent")
+    public ApiResponse<ConsentStatusResponse> acceptConsent(
+            @RequestBody ConsentAcceptRequest request) {
+        return ApiResponse.success("Consent recorded",
+                authService.acceptConsent(request.termsAccepted()));
     }
 
     @Operation(summary = "Public auth configuration (Google Client ID for the sign-in button)",

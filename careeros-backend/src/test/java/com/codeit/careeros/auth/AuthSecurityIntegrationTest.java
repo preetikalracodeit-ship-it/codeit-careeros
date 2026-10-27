@@ -1,6 +1,9 @@
 package com.codeit.careeros.auth;
 
 import com.codeit.careeros.TestSupport;
+import com.codeit.careeros.common.enums.UserStatus;
+import com.codeit.careeros.entity.User;
+import com.codeit.careeros.repository.UserRepository;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.junit.jupiter.api.DisplayName;
@@ -23,6 +26,7 @@ import java.util.Date;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -38,6 +42,8 @@ class AuthSecurityIntegrationTest {
 
     @Autowired
     private MockMvc mockMvc;
+    @Autowired
+    private UserRepository userRepository;
 
     @Value("${app.jwt.secret}")
     private String jwtSecret;
@@ -182,6 +188,52 @@ class AuthSecurityIntegrationTest {
         mockMvc.perform(get("/api/v1/cvs/download")
                         .header("Authorization", "Bearer " + accessA))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("Deactivating an account immediately invalidates access and refresh tokens")
+    void deactivatedAccount_cannotUseExistingSession() throws Exception {
+        MvcResult reg = register("deactivated@test.local");
+        String access = TestSupport.token(reg, "accessToken");
+        String refresh = TestSupport.token(reg, "refreshToken");
+
+        User user = userRepository.findByEmail("deactivated@test.local").orElseThrow();
+        user.setStatus(UserStatus.INACTIVE);
+        userRepository.saveAndFlush(user);
+
+        mockMvc.perform(get("/api/v1/students/me")
+                        .header("Authorization", "Bearer " + access))
+                .andExpect(status().isUnauthorized());
+
+        mockMvc.perform(post("/api/v1/auth/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"refreshToken\": \"" + refresh + "\"}"))
+                .andExpect(status().isUnauthorized());
+
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email": "deactivated@test.local", "password": "Password1"}
+                                """))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("Authentication responses are marked non-cacheable")
+    void authResponses_areNoStore() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email": "nobody@test.local", "password": "WrongPass1"}
+                                """))
+                .andExpect(status().isUnauthorized())
+                .andExpect(header().string("Cache-Control", "no-store"));
+
+        MvcResult reg = register("cache@test.local");
+        mockMvc.perform(get("/api/v1/auth/me")
+                        .header("Authorization", "Bearer " + TestSupport.token(reg, "accessToken")))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Cache-Control", "no-store"));
     }
 
     /** Hand-built single-page PDF (no xref; PDFBox/Tika rebuild it). */

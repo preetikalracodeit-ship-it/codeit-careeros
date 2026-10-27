@@ -11,6 +11,7 @@ import { AuthSplit } from "@/components/auth/auth-split";
 import { Field } from "@/components/field";
 import api from "@/lib/api";
 import { auth } from "@/lib/auth";
+import { homeForRole } from "@/lib/roles";
 import { GoogleSignInButton } from "@/components/auth/google-signin";
 
 export default function LoginPage() {
@@ -36,7 +37,7 @@ export default function LoginPage() {
     try {
       const data = await api.post("/auth/login", form);
       auth.save(data);
-      router.replace(data.user?.role === "ADMIN" ? "/admin/dashboard" : "/student/dashboard");
+      router.replace(homeForRole(data.user?.role));
     } catch (err) {
       if (err.fieldErrors?.length) {
         const mapped = {};

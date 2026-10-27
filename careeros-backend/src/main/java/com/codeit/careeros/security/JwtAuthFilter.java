@@ -45,8 +45,15 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         String token = header.substring(BEARER_PREFIX.length());
         try {
             Claims claims = jwtService.parseClaims(token);
-            Long userId = Long.valueOf(claims.getSubject());
             UserDetails userDetails = userDetailsService.loadUserByUsername(claims.get("email", String.class));
+            if (!userDetails.isEnabled()) {
+                // A previously issued access token must stop working as soon
+                // as the account is deactivated/locked. Without this check the
+                // JWT alone would keep granting access until it expires.
+                log.debug("Rejected token for disabled account {}", userDetails.getUsername());
+                filterChain.doFilter(request, response);
+                return;
+            }
 
             UsernamePasswordAuthenticationToken authentication =
                     new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());

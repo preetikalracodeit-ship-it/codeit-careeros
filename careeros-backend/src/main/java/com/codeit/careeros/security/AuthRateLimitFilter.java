@@ -82,7 +82,10 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
         return !("/api/v1/auth/login".equals(path)
                 || "/api/v1/auth/register".equals(path)
                 || "/api/v1/auth/refresh".equals(path)
-                || "/api/v1/auth/google".equals(path));
+                || "/api/v1/auth/google".equals(path)
+                // Invitation acceptance is a public credential-adjacent
+                // endpoint and is rate limited like login.
+                || (path.startsWith("/api/v1/invitations/") && path.endsWith("/accept")));
     }
 
     @Override

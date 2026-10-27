@@ -48,6 +48,8 @@ class AuthServiceTest {
     private JwtService jwtService;
     @Mock
     private GoogleTokenVerifier googleTokenVerifier;
+    @Mock
+    private ConsentService consentService;
 
     @InjectMocks
     private AuthService authService;
@@ -55,7 +57,6 @@ class AuthServiceTest {
     @BeforeEach
     void setUp() {
         ReflectionTestUtils.setField(authService, "refreshExpirationMs", 604_800_000L);
-        ReflectionTestUtils.setField(authService, "privacyPolicyVersion", "2026-10-26");
     }
 
     @Test

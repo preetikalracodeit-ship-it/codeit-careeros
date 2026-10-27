@@ -30,7 +30,7 @@ function AppShell({ items, variant = "student", title, children }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
-  const isAdmin = variant === "admin";
+  const isStaff = variant === "admin" || variant === "college";
 
   useEffect(() => {
     const id = setTimeout(() => setUser(auth.getUser() || {}), 0);
@@ -38,7 +38,7 @@ function AppShell({ items, variant = "student", title, children }) {
   }, []);
 
   useEffect(() => {
-    if (isAdmin) return undefined;
+    if (isStaff) return undefined;
     let ignore = false;
     api
       .get("/students/me")
@@ -65,7 +65,7 @@ function AppShell({ items, variant = "student", title, children }) {
       ignore = true;
       window.removeEventListener("careeros:photo-updated", onPhotoUpdated);
     };
-  }, [isAdmin]);
+  }, [isStaff]);
 
   async function confirmLogout() {
     setSigningOut(true);
@@ -90,7 +90,7 @@ function AppShell({ items, variant = "student", title, children }) {
       <aside
         className={cn(
           "fixed top-0 bottom-0 left-0 z-30 hidden w-64 border-r md:block",
-          isAdmin ? "border-pine-800 bg-pine-950" : "border-border/60 bg-card",
+          isStaff ? "border-pine-800 bg-pine-950" : "border-border/60 bg-card",
         )}
       >
         <SidebarContent
@@ -98,7 +98,7 @@ function AppShell({ items, variant = "student", title, children }) {
           variant={variant}
           user={user}
           initials={initialsOf(user)}
-          photoKey={isAdmin ? null : photoKey}
+          photoKey={isStaff ? null : photoKey}
           photoVersion={photoVersion}
           onLogout={() => setConfirmOpen(true)}
         />
@@ -115,7 +115,7 @@ function AppShell({ items, variant = "student", title, children }) {
       <aside
         className={cn(
           "fixed top-0 bottom-0 left-0 z-50 w-72 md:hidden",
-          isAdmin ? "bg-pine-950 text-white" : "bg-card",
+          isStaff ? "bg-pine-950 text-white" : "bg-card",
           "transition-transform duration-250 ease-out",
           drawerOpen ? "translate-x-0" : "-translate-x-full",
         )}
@@ -128,7 +128,7 @@ function AppShell({ items, variant = "student", title, children }) {
           variant={variant}
           user={user}
           initials={initialsOf(user)}
-          photoKey={isAdmin ? null : photoKey}
+          photoKey={isStaff ? null : photoKey}
           photoVersion={photoVersion}
           onClose={() => setDrawerOpen(false)}
           onLogout={() => {
@@ -144,7 +144,7 @@ function AppShell({ items, variant = "student", title, children }) {
           title={title}
           user={user}
           initials={initialsOf(user)}
-          photoKey={isAdmin ? null : photoKey}
+          photoKey={isStaff ? null : photoKey}
           photoVersion={photoVersion}
           variant={variant}
           onMenuClick={() => setDrawerOpen(true)}
@@ -157,7 +157,13 @@ function AppShell({ items, variant = "student", title, children }) {
       <Dialog
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
-        title={isAdmin ? "Sign out of Admin Console?" : "Sign out?"}
+        title={
+          variant === "admin"
+            ? "Sign out of Admin Console?"
+            : variant === "college"
+              ? "Sign out of College Console?"
+              : "Sign out?"
+        }
         description="You'll need to sign in again to continue using CareerOS."
         footer={
           <>

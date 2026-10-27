@@ -60,7 +60,12 @@ public class RoadmapService {
     /** Personalized roadmap of the current student for their target career. */
     @Transactional(readOnly = true)
     public RoadmapResponse myRoadmap() {
-        Long userId = SecurityUtils.currentUserId();
+        return roadmapFor(SecurityUtils.currentUserId());
+    }
+
+    /** Roadmap of a specific student. Caller must authorize the student. */
+    @Transactional(readOnly = true)
+    public RoadmapResponse roadmapFor(Long userId) {
         StudentProfile profile = studentProfileRepository.findByUserId(userId).orElse(null);
         if (profile == null || profile.getTargetCareer() == null) {
             return new RoadmapResponse(null, null, false, 0, 0, 0, 0, List.of());

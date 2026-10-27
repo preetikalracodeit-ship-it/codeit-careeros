@@ -1,12 +1,15 @@
 package com.codeit.careeros.service;
 
+import com.codeit.careeros.common.enums.ConsentMethod;
 import com.codeit.careeros.common.enums.Role;
 import com.codeit.careeros.common.enums.UserStatus;
 import com.codeit.careeros.dto.auth.AuthResponse;
+import com.codeit.careeros.dto.auth.ConsentStatusResponse;
 import com.codeit.careeros.dto.auth.LoginRequest;
 import com.codeit.careeros.dto.auth.RefreshRequest;
 import com.codeit.careeros.dto.auth.RegisterRequest;
 import com.codeit.careeros.dto.auth.UserResponse;
+import com.codeit.careeros.entity.ConsentRecord;
 import com.codeit.careeros.entity.RefreshToken;
 import com.codeit.careeros.entity.StudentProfile;
 import com.codeit.careeros.entity.User;
@@ -43,12 +46,10 @@ public class AuthService {
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
     private final GoogleTokenVerifier googleTokenVerifier;
+    private final ConsentService consentService;
 
     @Value("${app.jwt.refresh-expiration-ms:604800000}")
     private long refreshExpirationMs;
-
-    @Value("${app.privacy.policy-version:2026-10-26}")
-    private String privacyPolicyVersion;
 
     @Transactional
     public AuthResponse register(RegisterRequest request) {
@@ -76,9 +77,12 @@ public class AuthService {
                 .build();
         studentProfileRepository.save(profile);
 
-        log.info("Registered student {} ({})", user.getEmail(), user.getId());
-        log.info("Terms/Privacy consent recorded for user {} policy={} method=password",
-                user.getId(), privacyPolicyVersion);
+        // Durable evidence is written in the same transaction as the account:
+        // a registration can never succeed without its consent record.
+        consentService.recordCurrentPolicy(user, ConsentMethod.PASSWORD_REGISTRATION,
+                ConsentRecord.EVIDENCE_REGISTRATION_CHECKBOX);
+
+        log.info("Registered student {}", user.getId());
         return issueTokens(user);
     }
 
@@ -104,6 +108,11 @@ public class AuthService {
         GoogleTokenVerifier.VerifiedGoogleUser googleUser = googleTokenVerifier.verify(idToken);
         String email = googleUser.email();
         User user = userRepository.findByEmail(email).orElse(null);
+        if (user != null && user.getStatus() != UserStatus.ACTIVE) {
+            // Google identity is verified, but the CareerOS account itself is
+            // deactivated. Do not issue a session.
+            throw BusinessException.forbidden("Account is disabled");
+        }
         if (user == null) {
             // Google authentication proves identity, not acceptance of the
             // Terms/Privacy Policy. Only new accounts must opt in explicitly.
@@ -123,11 +132,17 @@ public class AuthService {
                     .semester(1)
                     .build();
             studentProfileRepository.save(profile);
-            log.info("Registered student via Google {} ({})", user.getEmail(), user.getId());
-            log.info("Terms/Privacy consent recorded for user {} policy={} method=google",
-                    user.getId(), privacyPolicyVersion);
+            // Google proves identity, not consent. This row is only written
+            // because the new-account branch above required an explicit
+            // termsAccepted=true flag from the sign-up form.
+            consentService.recordCurrentPolicy(user, ConsentMethod.GOOGLE_REGISTRATION,
+                    ConsentRecord.EVIDENCE_GOOGLE_SIGNUP_CHECKBOX);
+            log.info("Registered student via Google {}", user.getId());
         } else {
-            log.info("Logged in user via Google {} ({})", user.getEmail(), user.getId());
+            // Existing accounts keep their previous sign-in behaviour. They
+            // are not forced to re-consent here; if they have no evidence for
+            // the current policy the response flags consentRequired instead.
+            log.info("Logged in user via Google {}", user.getId());
         }
         return issueTokens(user);
     }
@@ -161,6 +176,12 @@ public class AuthService {
         }
 
         User user = stored.getUser();
+        if (user.getStatus() != UserStatus.ACTIVE) {
+            // Revoke outstanding sessions of a deactivated account and stop
+            // renewal immediately; do not wait for token expiry.
+            revokeAllForUser(user.getId());
+            throw BusinessException.unauthorized("Account is disabled");
+        }
         IssuedRefreshToken replacement = issueNewRefreshToken(user);
         stored.setRevoked(true);
         stored.setReplacedById(replacement.entity().getId());
@@ -171,7 +192,9 @@ public class AuthService {
                 replacement.raw(),
                 "Bearer",
                 jwtService.getAccessExpirationMs() / 1000,
-                UserMapper.toResponse(user));
+                UserMapper.toResponse(user),
+                !consentService.isCurrent(user),
+                consentService.currentPolicyVersion());
     }
 
     @Transactional
@@ -185,9 +208,32 @@ public class AuthService {
     }
 
     public UserResponse me() {
-        User user = userRepository.findById(SecurityUtils.currentUserId())
+        return UserMapper.toResponse(currentUser());
+    }
+
+    @Transactional(readOnly = true)
+    public ConsentStatusResponse consentStatus() {
+        return consentService.status(currentUser());
+    }
+
+    @Transactional
+    public ConsentStatusResponse acceptConsent(Boolean termsAccepted) {
+        return consentService.acceptCurrentPolicy(currentUser(), termsAccepted);
+    }
+
+    private User currentUser() {
+        return userRepository.findById(SecurityUtils.currentUserId())
                 .orElseThrow(() -> BusinessException.notFound("User not found"));
-        return UserMapper.toResponse(user);
+    }
+
+    /**
+     * Issues a fresh session for an already-authenticated user. Used by the
+     * staff-invitation acceptance flow after the account has been created or
+     * verified; it performs no authentication of its own.
+     */
+    @Transactional
+    public AuthResponse issueSession(User user) {
+        return issueTokens(user);
     }
 
     private AuthResponse issueTokens(User user) {
@@ -197,7 +243,9 @@ public class AuthService {
                 refresh.raw(),
                 "Bearer",
                 jwtService.getAccessExpirationMs() / 1000,
-                UserMapper.toResponse(user));
+                UserMapper.toResponse(user),
+                !consentService.isCurrent(user),
+                consentService.currentPolicyVersion());
     }
 
     private IssuedRefreshToken issueNewRefreshToken(User user) {

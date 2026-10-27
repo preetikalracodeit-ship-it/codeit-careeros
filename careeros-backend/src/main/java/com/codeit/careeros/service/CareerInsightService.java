@@ -45,7 +45,12 @@ public class CareerInsightService {
     /** Submitted attempts of the current student, newest first, optionally for one assessment. */
     @Transactional(readOnly = true)
     public List<AttemptHistoryItem> myHistory(Long assessmentId) {
-        Long userId = SecurityUtils.currentUserId();
+        return historyFor(SecurityUtils.currentUserId(), assessmentId);
+    }
+
+    /** Submitted attempts of a specific student, newest first. Caller must authorize the student. */
+    @Transactional(readOnly = true)
+    public List<AttemptHistoryItem> historyFor(Long userId, Long assessmentId) {
         return attemptRepository.findByUserIdAndStatusOrderByStartedAtDesc(userId, AttemptStatus.SUBMITTED).stream()
                 .filter(attempt -> assessmentId == null
                         || attempt.getAssessment().getId().equals(assessmentId))
@@ -62,7 +67,15 @@ public class CareerInsightService {
      */
     @Transactional(readOnly = true)
     public ReadinessResponse myReadiness() {
-        Long userId = SecurityUtils.currentUserId();
+        return readinessFor(SecurityUtils.currentUserId());
+    }
+
+    /**
+     * Readiness of a specific student. Callers (college staff) must verify
+     * that the student belongs to their institution and scope first.
+     */
+    @Transactional(readOnly = true)
+    public ReadinessResponse readinessFor(Long userId) {
         StudentProfile profile = studentProfileRepository.findByUserId(userId).orElse(null);
         if (profile == null || profile.getTargetCareer() == null) {
             return new ReadinessResponse(null, null, false, 0, null, 0, 0, 0, 0, null,

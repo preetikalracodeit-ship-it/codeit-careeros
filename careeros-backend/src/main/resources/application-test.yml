@@ -11,6 +11,11 @@ spring:
     properties:
       hibernate:
         format_sql: false
+  flyway:
+    # The ordinary unit/integration suite builds the schema with Hibernate on
+    # an in-memory database. Migration correctness is covered separately by
+    # MigrationScriptTest (H2) and MigrationMySqlIntegrationTest (CI MySQL).
+    enabled: false
 
 app:
   jwt:

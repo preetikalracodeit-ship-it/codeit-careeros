@@ -11,16 +11,21 @@ import { cn } from "cn";
 function SidebarContent({ items, variant, user, initials, photoKey = null, photoVersion = 0, onClose, onLogout }) {
   const pathname = usePathname();
   const isAdmin = variant === "admin";
+  const isCollege = variant === "college";
+  const isDark = isAdmin || isCollege;
+  const home = isAdmin ? "/admin/dashboard" : isCollege ? "/college/dashboard" : "/student/dashboard";
+  const areaLabel = isAdmin ? "Admin Console" : isCollege ? "College Console" : "Student Portal";
+  const roleLabel = user?.role === "ADMIN" ? "Administrator" : user?.role === "PROFESSOR" ? "College staff" : "Student";
 
   return (
     <div className="flex h-full flex-col">
       <div className="flex h-16 shrink-0 items-center justify-between gap-2 px-5">
         <Link
-          href={isAdmin ? "/admin/dashboard" : "/student/dashboard"}
+          href={home}
           onClick={onClose}
           className="rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
         >
-          <LogoWordmark tone={isAdmin ? "light" : "dark"} size="text-sm" />
+          <LogoWordmark tone={isDark ? "light" : "dark"} size="text-sm" />
         </Link>
         {onClose && (
           <Button
@@ -28,7 +33,7 @@ function SidebarContent({ items, variant, user, initials, photoKey = null, photo
             size="icon-sm"
             onClick={onClose}
             aria-label="Close navigation menu"
-            className={cn(isAdmin && "text-pine-200 hover:bg-pine-800 hover:text-white")}
+            className={cn(isDark && "text-pine-200 hover:bg-pine-800 hover:text-white")}
           >
             <X className="size-4" aria-hidden="true" />
           </Button>
@@ -38,10 +43,10 @@ function SidebarContent({ items, variant, user, initials, photoKey = null, photo
       <p
         className={cn(
           "px-6 pb-3 text-[10px] font-bold uppercase tracking-widest",
-          isAdmin ? "text-pine-400" : "text-muted-foreground/70",
+          isDark ? "text-pine-400" : "text-muted-foreground/70",
         )}
       >
-        {isAdmin ? "Admin Console" : "Student Portal"}
+        {areaLabel}
       </p>
 
       <nav aria-label="Main navigation" className="flex-1 overflow-y-auto px-3 pb-4">
@@ -59,7 +64,7 @@ function SidebarContent({ items, variant, user, initials, photoKey = null, photo
                     "flex items-center gap-3 rounded-full px-3.5 py-2.5 text-sm font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
                     active
                       ? "bg-primary text-primary-foreground shadow-sm"
-                      : isAdmin
+                      : isDark
                         ? "text-pine-200 hover:bg-white/5 hover:text-white"
                         : "text-muted-foreground hover:bg-accent hover:text-foreground",
                   )}
@@ -72,7 +77,7 @@ function SidebarContent({ items, variant, user, initials, photoKey = null, photo
                         "shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide",
                         active
                           ? "bg-primary-foreground/20 text-primary-foreground"
-                          : isAdmin
+                          : isDark
                             ? "bg-white/10 text-pine-200"
                             : "bg-primary/10 text-primary/80",
                       )}
@@ -87,23 +92,23 @@ function SidebarContent({ items, variant, user, initials, photoKey = null, photo
         </ul>
       </nav>
 
-      <div className={cn("shrink-0 border-t px-4 py-4", isAdmin ? "border-pine-800" : "border-border/60")}>
+      <div className={cn("shrink-0 border-t px-4 py-4", isDark ? "border-pine-800" : "border-border/60")}>
         <div className="flex items-center gap-3 rounded-xl p-2">
           <StudentAvatar
-            photoKey={isAdmin ? null : photoKey}
+            photoKey={isDark ? null : photoKey}
             refreshKey={photoVersion}
             fullName={user?.fullName}
             email={user?.email}
             initials={initials}
             className="size-9"
-            fallbackClassName={cn(isAdmin ? "bg-brand-600 text-white" : "bg-primary/15 text-primary")}
+            fallbackClassName={cn(isDark ? "bg-brand-600 text-white" : "bg-primary/15 text-primary")}
           />
           <div className="min-w-0 flex-1 leading-tight">
-            <p className={cn("truncate text-sm font-semibold", isAdmin && "text-white")}>
+            <p className={cn("truncate text-sm font-semibold", isDark && "text-white")}>
               {user?.fullName || user?.email || "User"}
             </p>
-            <p className={cn("truncate text-xs", isAdmin ? "text-pine-300" : "text-muted-foreground")}>
-              {user?.role === "ADMIN" ? "Administrator" : "Student"}
+            <p className={cn("truncate text-xs", isDark ? "text-pine-300" : "text-muted-foreground")}>
+              {roleLabel}
             </p>
           </div>
           <Button
@@ -112,7 +117,7 @@ function SidebarContent({ items, variant, user, initials, photoKey = null, photo
             onClick={onLogout}
             aria-label="Sign out"
             title="Sign out"
-            className={cn(isAdmin && "text-pine-200 hover:bg-pine-800 hover:text-white")}
+            className={cn(isDark && "text-pine-200 hover:bg-pine-800 hover:text-white")}
           >
             <LogOut className="size-4" aria-hidden="true" />
           </Button>

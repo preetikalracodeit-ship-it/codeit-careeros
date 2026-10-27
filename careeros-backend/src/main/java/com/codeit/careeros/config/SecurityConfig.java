@@ -52,10 +52,26 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/**").permitAll()
+                        // Only the anonymous auth entry points are public.
+                        // Everything else under /api/v1/auth (consent status,
+                        // consent acceptance, /me) requires authentication.
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/v1/auth/register",
+                                "/api/v1/auth/login",
+                                "/api/v1/auth/google",
+                                "/api/v1/auth/refresh",
+                                "/api/v1/auth/logout").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/auth/config").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/careers/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/meta/**").permitAll()
+                        // The invitation token is the bearer secret. The
+                        // public endpoints mask the email and never reveal
+                        // whether an account exists.
+                        .requestMatchers("/api/v1/invitations/**").permitAll()
+                        // Institution staff authority is derived from an
+                        // active membership on every request, not from this
+                        // route rule or from a client-supplied institution id.
+                        .requestMatchers("/api/v1/college/**").hasRole("PROFESSOR")
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);

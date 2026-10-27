@@ -42,7 +42,12 @@ public class CvAnalysisService {
     /** Full analysis of the current student's CV (empty payload when none uploaded). */
     @Transactional(readOnly = true)
     public CvAnalysisResponse analyze() {
-        Long userId = SecurityUtils.currentUserId();
+        return analyzeFor(SecurityUtils.currentUserId());
+    }
+
+    /** CV analysis of a specific student. Caller must authorize the student. */
+    @Transactional(readOnly = true)
+    public CvAnalysisResponse analyzeFor(Long userId) {
         CvDocument document = cvDocumentRepository.findByUserId(userId).orElse(null);
         if (document == null || document.getExtractedText() == null) {
             return new CvAnalysisResponse(false, false, null, null, null,
@@ -64,7 +69,7 @@ public class CvAnalysisService {
             }
         }
 
-        ReadinessResponse readiness = careerInsightService.myReadiness();
+        ReadinessResponse readiness = careerInsightService.readinessFor(userId);
         List<SkillGapResponse> matched = new ArrayList<>();
         List<SkillGapResponse> missing = new ArrayList<>();
         if (readiness.hasTarget()) {

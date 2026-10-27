@@ -22,7 +22,6 @@ set -euo pipefail
 
 COMPOSE_FILE="docker-compose.prod.yml"
 ENV_FILE="backend.env"
-MARKER_FILE=".prod-db-initialized"
 
 HOST=""
 SCHEME="http"
@@ -203,20 +202,15 @@ TABLE_COUNT="$(docker compose -f "$COMPOSE_FILE" exec -T mysql \
   "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='${DB_NAME:-careeros}';" 2>/dev/null | tr -d '[:space:]' || echo "unknown")"
 echo "Tables in '${DB_NAME:-careeros}': $TABLE_COUNT"
 
-if [ "$TABLE_COUNT" = "0" ] && [ ! -f "$MARKER_FILE" ]; then
-  echo "Empty database on first deploy: one-time schema bootstrap with ddl-auto=update ..."
-  echo "  (safe: there is no data yet; afterwards prod runs on validate per docs.)"
-  set_kv "JPA_DDL_AUTO" "update"
-else
-  if [ "$TABLE_COUNT" = "unknown" ]; then
-    echo "WARNING: could not inspect the database; leaving JPA_DDL_AUTO untouched."
-  else
-    echo "Existing data found (${TABLE_COUNT} tables): keeping JPA_DDL_AUTO=validate (never auto-migrates)."
-  fi
-  if ! grep -q "^JPA_DDL_AUTO=" "$ENV_FILE"; then
-    set_kv "JPA_DDL_AUTO" "validate"
-  fi
+# --- Flyway owns the schema --------------------------------------------------
+# Fresh database: V1..Vn create the schema.
+# Existing database: Flyway baselines at V1 and applies V2+ only.
+# Never let Hibernate create/update schema in production.
+set_kv "JPA_DDL_AUTO" "validate"
+if ! grep -q "^FLYWAY_ENABLED=" "$ENV_FILE"; then
+  set_kv "FLYWAY_ENABLED" "true"
 fi
+echo "Schema: Flyway migrations + JPA validate (no auto-DDL)."
 
 # --- 3. Build + start everything (rebuild bakes the API proxy target in) -----
 echo "Building and starting the full stack ..."
@@ -238,25 +232,15 @@ if [ "$HEALTHY" != "true" ]; then
 fi
 echo "Backend is UP."
 
-# --- 4. After a bootstrap boot, lock prod back to validate --------------------
-if [ "$TABLE_COUNT" = "0" ] && [ ! -f "$MARKER_FILE" ]; then
-  echo "Locking prod back to JPA_DDL_AUTO=validate and restarting the API ..."
-  set_kv "JPA_DDL_AUTO" "validate"
-  docker compose -f "$COMPOSE_FILE" up -d backend
-  for _ in $(seq 1 36); do
-    if curl -fsS -m 5 "http://localhost:8080/actuator/health" 2>/dev/null | grep -q '"UP"'; then
-      HEALTHY=true
-      break
-    fi
-    sleep 5
-  done
-  if [ "$HEALTHY" != "true" ]; then
-    echo "ERROR: backend failed to restart on validate. Logs:"
-    docker compose -f "$COMPOSE_FILE" logs --tail=60 backend || true
-    exit 1
-  fi
-  date -u +"%Y-%m-%dT%H:%M:%SZ" > "$MARKER_FILE"
-  echo "Schema bootstrap complete."
+# --- 4. Verify the applied migration version ---------------------------------
+FLYWAY_VERSION="$(docker compose -f "$COMPOSE_FILE" exec -T mysql \
+  mysql -u root -p"${MYSQL_ROOT_PASSWORD}" -N -e \
+  "SELECT version FROM flyway_schema_history WHERE success=1 AND version IS NOT NULL ORDER BY installed_rank DESC LIMIT 1;" \
+  "${DB_NAME:-careeros}" 2>/dev/null | tr -d '[:space:]' || true)"
+if [ -n "$FLYWAY_VERSION" ]; then
+  echo "Flyway schema version: $FLYWAY_VERSION"
+else
+  echo "WARNING: no successful Flyway history row found. Check backend logs and the schema."
 fi
 
 # --- 5. Summary -----------------------------------------------------------------
