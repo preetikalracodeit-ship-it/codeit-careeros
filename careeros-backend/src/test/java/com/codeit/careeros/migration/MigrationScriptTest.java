@@ -110,7 +110,7 @@ class MigrationScriptTest {
     }
 
     @Test
-    @DisplayName("Upgrade: an existing pre-Flyway database is baselined and only V2+V3 run")
+    @DisplayName("Upgrade: an existing pre-Flyway database is baselined and only V2 through V4 run")
     void existingDatabase_isBaselinedAndUpgradedWithoutDataLoss() throws Exception {
         String url = newDatabaseUrl();
 

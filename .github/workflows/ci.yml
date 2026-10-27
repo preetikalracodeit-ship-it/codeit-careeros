@@ -102,7 +102,7 @@ jobs:
           java-version: "21"
           cache: maven
 
-      - name: Flyway V1–V3 on MySQL then Hibernate validate
+      - name: Flyway V1–V4 on MySQL then Hibernate validate
         run: mvn -B -Dtest=MigrationMySqlIntegrationTest test
         env:
           MYSQL_TEST_URL: jdbc:mysql://127.0.0.1:3306/careeros_migration_test?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC

@@ -17,6 +17,9 @@ import com.codeit.careeros.repository.AssessmentTestRepository;
 import com.codeit.careeros.repository.CareerRepository;
 import com.codeit.careeros.repository.CareerSkillRepository;
 import com.codeit.careeros.repository.CvDocumentRepository;
+import com.codeit.careeros.repository.ProjectProgressRepository;
+import com.codeit.careeros.repository.ProjectRepository;
+import com.codeit.careeros.repository.ProjectSkillRepository;
 import com.codeit.careeros.repository.QuestionOptionRepository;
 import com.codeit.careeros.repository.SkillRepository;
 import com.codeit.careeros.repository.SkillScoreRepository;
@@ -95,6 +98,15 @@ class CvIntegrationTest {
     @Autowired
     private CvDocumentRepository cvDocumentRepository;
 
+    @Autowired
+    private ProjectRepository projectRepository;
+
+    @Autowired
+    private ProjectSkillRepository projectSkillRepository;
+
+    @Autowired
+    private ProjectProgressRepository projectProgressRepository;
+
     private final ObjectMapper mapper = new ObjectMapper();
 
     private Long careerId;
@@ -113,6 +125,9 @@ class CvIntegrationTest {
         questionRepository.deleteAll();
         assessmentTestRepository.deleteAll();
         careerSkillRepository.deleteAll();
+        projectProgressRepository.deleteAll();
+        projectSkillRepository.deleteAll();
+        projectRepository.deleteAll();
         studentProfileRepository.deleteAll();
         careerRepository.deleteAll();
         skillRepository.deleteAll();

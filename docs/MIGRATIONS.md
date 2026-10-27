@@ -22,9 +22,10 @@ careeros-backend/src/main/resources/db/migration/
   V1__baseline_existing_schema.sql    # schema as it exists before Flyway
   V2__durable_consent_records.sql     # consent_records
   V3__audit_events.sql                # audit_events
+  V4__college_tenant_model.sql        # additive institution and college tables
 ```
 
-- Files are immutable once applied. Fix mistakes with a new `V4...` file.
+- Files are immutable once applied. Fix mistakes with a new versioned migration.
 - No `DROP`, `TRUNCATE`, data rewrite, or `flyway clean` is allowed.
   `clean-disabled: true` is set in `application.yml`.
 - Every migration must be additive or forward-fixable. Destructive changes
@@ -47,8 +48,8 @@ spring.flyway:
 
 | Database state | What happens |
 |---|---|
-| Brand-new empty database | V1, V2, V3 run in order. The schema matches the entity model. |
-| Existing pre-Flyway database with tables and data | Flyway sees a non-empty schema with no history, inserts a **baseline** row for V1 (it does **not** execute V1), then runs V2 and V3. Existing ids, rows, and relationships are untouched. |
+| Brand-new empty database | V1 through V4 run in order. The schema matches the entity model. |
+| Existing pre-Flyway database with tables and data | Flyway sees a non-empty schema with no history, inserts a **baseline** row for V1 (it does **not** execute V1), then runs V2 through V4. Existing ids, rows, and relationships are untouched. |
 | Existing database with Flyway history | Only pending versions run. Checksums are validated. |
 | Migration checksum mismatch | Startup fails. Do not edit an applied file; restore the original checksum or add a new forward migration. |
 
@@ -69,7 +70,7 @@ Before the first production start:
 1. Take a verified backup (`docs/BACKUP_RESTORE.md`).
 2. Compare the production schema with V1 (or run the MySQL validation test
    against a schema copy).
-3. If drift exists, write a **forward** `V4__...sql` that reconciles it. Do not
+3. If drift exists, write a **forward** migration that reconciles it. Do not
    edit V1 and do not let Hibernate “fix” production.
 
 ## 4. Application configuration
@@ -92,12 +93,12 @@ Before the first production start:
 
 `MigrationScriptTest` runs Flyway against H2 in MySQL mode:
 
-- **fresh database**: V1+V2+V3 execute and create every expected table, column,
+- **fresh database**: V1+V2+V3+V4 execute and create every expected table, column,
   index, and unique key;
 - **upgrade simulation**: V1 is executed manually to represent a pre-Flyway
   schema, a legacy user row is inserted, then Flyway baselines at V1, applies
-  V2+V3, and the test asserts the user row survives and the history is
-  `1:BASELINE, 2:SQL, 3:SQL`;
+  V2+V3+V4, and the test asserts the user row survives and the history is
+  `1:BASELINE, 2:SQL, 3:SQL, 4:SQL`;
 - **constraints**: duplicate `(user_id, consent_type, policy_version)` is
   rejected, a consent row for a missing user fails the foreign key, and a new
   policy version is allowed alongside the old one.
@@ -114,7 +115,7 @@ service and runs:
 mvn -B -Dtest=MigrationMySqlIntegrationTest test
 ```
 
-The test context points at the CI database, Flyway applies V1–V3, and
+The test context points at the CI database, Flyway applies V1–V4, and
 Hibernate validates every mapped entity/column/constraint. This is the
 authoritative MySQL check. It is skipped locally unless `MYSQL_TEST_URL`,
 `MYSQL_TEST_USER`, and `MYSQL_TEST_PASSWORD` are set.
@@ -155,9 +156,9 @@ schema change can destroy data.
    before adding `NOT NULL`.
 3. Add indexes for new access paths; verify with `EXPLAIN` on representative
    data.
-4. Never infer institutional membership from email domains and never add
-   tenant/staff tables until the role matrix and tenant model are approved
-   (see `CAREEROS_COLLEGE_ROLE_MATRIX.md`).
+4. Never infer institutional membership from email domains. Do not deploy the
+   V4 tenant schema until the role matrix and tenant model are approved (see
+   `CAREEROS_COLLEGE_ROLE_MATRIX.md`).
 5. Never include customer data, secrets, or environment-specific values in a
    migration.
 6. Test fresh initialization **and** upgrade from the current schema.

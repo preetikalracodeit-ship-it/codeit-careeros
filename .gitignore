@@ -17,6 +17,7 @@ frontend.env
 # Database dumps / backups — never commit production data
 # ---------------------------------------------------------------------------
 *.sql
+!careeros-backend/src/main/resources/db/migration/*.sql
 *.dump
 
 # ---------------------------------------------------------------------------
