@@ -4,12 +4,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { ArrowRight, BellOff, Bot, Loader2, Lock, ShieldCheck, UserRound } from "lucide-react";
+import { ArrowRight, Bot, Loader2, Lock, ShieldCheck, UserRound } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Field } from "@/components/field";
 import { Breadcrumb } from "@/components/breadcrumb";
 import { ErrorState } from "@/components/error-state";
@@ -220,20 +219,6 @@ export default function StudentSettingsPage() {
             </Button>
             <Button variant="outline" size="sm" disabled={loggingOut} onClick={handleLogout}>Log out</Button>
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Notifications — honest state */}
-      <Card className="shadow-card">
-        <CardHeader>
-          <CardTitle className="text-base">Notifications</CardTitle>
-          <CardDescription>CareerOS has no notification infrastructure yet.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Alert>
-            <BellOff className="size-4" aria-hidden="true" />
-            <AlertDescription>Not yet connected — no email, push or in-app notifications are sent. This section will light up when notification support ships. Nothing here is fake.</AlertDescription>
-          </Alert>
         </CardContent>
       </Card>
 

@@ -4,14 +4,17 @@ import com.codeit.careeros.college.dto.DashboardDtos;
 import com.codeit.careeros.college.dto.StudentDtos;
 import com.codeit.careeros.college.entity.StudentEnrollment;
 import com.codeit.careeros.college.enums.EnrollmentStatus;
+import com.codeit.careeros.common.enums.AttemptStatus;
 import com.codeit.careeros.dto.insight.ReadinessResponse;
 import com.codeit.careeros.dto.insight.SkillGapResponse;
+import com.codeit.careeros.repository.AssessmentAttemptRepository;
 import com.codeit.careeros.service.CareerInsightService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -30,15 +33,35 @@ public class DashboardService {
 
     private final StudentService studentService;
     private final CareerInsightService careerInsightService;
+    private final AssessmentAttemptRepository assessmentAttemptRepository;
 
     @Transactional(readOnly = true)
     public DashboardDtos.CollegeDashboardResponse dashboard(CollegeScope scope,
                                                             StudentDtos.StudentFilter filter) {
-        List<StudentEnrollment> enrollments = studentService.allInScope(scope, filter);
+        if (filter != null && filter.assessmentDateFrom() != null && filter.assessmentDateTo() != null
+                && filter.assessmentDateFrom().isAfter(filter.assessmentDateTo())) {
+            throw com.codeit.careeros.exception.BusinessException.badRequest(
+                    "Assessment submission start date must be on or before end date");
+        }
+        if (filter != null && LocalDate.MAX.equals(filter.assessmentDateTo())) {
+            throw com.codeit.careeros.exception.BusinessException.badRequest(
+                    "Assessment submission end date is out of range");
+        }
+        StudentDtos.StudentFilter cohortFilter = filter == null ? null : new StudentDtos.StudentFilter(
+                filter.search(), filter.academicYearId(), filter.departmentId(), filter.programId(),
+                filter.batchId(), filter.sectionId(), filter.status(),
+                filter.assessmentDateFrom() == null && filter.assessmentDateTo() == null
+                        ? filter.assessmentCompleted() : null,
+                null, null, null);
+        List<StudentEnrollment> enrollments = studentService.allInScope(scope, cohortFilter);
+        Instant assessmentFrom = dateBoundary(filter == null ? null : filter.assessmentDateFrom(), scope);
+        Instant assessmentToExclusive = dateBoundary(filter == null || filter.assessmentDateTo() == null
+                ? null : filter.assessmentDateTo().plusDays(1), scope);
 
         int total = enrollments.size();
         int active = 0;
         int participants = 0;
+        int notAssessed = 0;
         int readinessEvaluated = 0;
         int band0 = 0;
         int band25 = 0;
@@ -47,6 +70,7 @@ public class DashboardService {
 
         Map<Long, GapAggregate> gaps = new LinkedHashMap<>();
         Map<Long, DepartmentAggregate> departments = new LinkedHashMap<>();
+        Map<Long, BatchAggregate> batches = new LinkedHashMap<>();
 
         for (StudentEnrollment enrollment : enrollments) {
             boolean isActive = enrollment.getStatus() == EnrollmentStatus.ACTIVE;
@@ -55,13 +79,22 @@ public class DashboardService {
             }
             ReadinessResponse readiness = careerInsightService
                     .readinessFor(enrollment.getStudentProfile().getUser().getId());
-            boolean hasAttempts = readiness.submittedAttempts() != null
-                    && readiness.submittedAttempts() > 0;
-            if (hasAttempts) {
+            Long userId = enrollment.getStudentProfile().getUser().getId();
+            var submittedAttempts = assessmentAttemptRepository.findByUserIdAndStatusOrderByStartedAtDesc(
+                    userId, AttemptStatus.SUBMITTED);
+            boolean hasAttempts = hasSubmittedAttempt(submittedAttempts, assessmentFrom, assessmentToExclusive);
+            if (isActive && hasAttempts) {
                 participants++;
             }
-            boolean evaluated = Boolean.TRUE.equals(readiness.hasTarget())
-                    && hasAttempts && readiness.readinessPercent() != null;
+            if (isActive && !hasAttempts) {
+                notAssessed++;
+            }
+            boolean evaluated = isActive && Boolean.TRUE.equals(readiness.hasTarget())
+                    && hasSubmittedAttemptForTargetCareer(submittedAttempts,
+                        enrollment.getStudentProfile().getTargetCareer() == null
+                                ? null : enrollment.getStudentProfile().getTargetCareer().getId(),
+                        assessmentFrom, assessmentToExclusive)
+                    && readiness.readinessPercent() != null;
             if (evaluated) {
                 readinessEvaluated++;
                 int percent = readiness.readinessPercent();
@@ -94,13 +127,21 @@ public class DashboardService {
             if (isActive) {
                 aggregate.active++;
             }
-            if (hasAttempts) {
+            if (isActive && hasAttempts) {
                 aggregate.participants++;
             }
             if (evaluated) {
                 aggregate.evaluated++;
                 aggregate.readinessSum += readiness.readinessPercent();
             }
+
+            var batch = enrollment.getBatch();
+            BatchAggregate batchAggregate = batches.computeIfAbsent(batch.getId(),
+                    id -> new BatchAggregate(id, department.getName(), batch.getProgram().getName(),
+                            batch.getLabel()));
+            batchAggregate.enrolled++;
+            if (isActive) batchAggregate.active++;
+            if (isActive && hasAttempts) batchAggregate.participants++;
         }
 
         List<DashboardDtos.CommonGap> commonGaps = gaps.values().stream()
@@ -120,7 +161,17 @@ public class DashboardService {
                 .sorted(Comparator.comparing(DashboardDtos.DepartmentComparison::departmentName))
                 .toList();
 
-        Integer completion = total == 0 ? null : Math.round((participants * 100.0f) / total);
+        List<DashboardDtos.BatchComparison> batchComparisons = batches.values().stream()
+                .map(batch -> new DashboardDtos.BatchComparison(
+                        batch.id, batch.departmentName, batch.programName, batch.label,
+                        batch.enrolled, batch.active, batch.participants,
+                        batch.active == 0 ? null : Math.round(batch.participants * 100.0f / batch.active)))
+                .sorted(Comparator.comparing(DashboardDtos.BatchComparison::departmentName)
+                        .thenComparing(DashboardDtos.BatchComparison::programName)
+                        .thenComparing(DashboardDtos.BatchComparison::batchLabel))
+                .toList();
+
+        Integer completion = active == 0 ? null : Math.round((participants * 100.0f) / active);
 
         return new DashboardDtos.CollegeDashboardResponse(
                 scope.institutionName(),
@@ -130,14 +181,18 @@ public class DashboardService {
                         filter == null ? null : filter.programId(),
                         filter == null ? null : filter.batchId(),
                         filter == null ? null : filter.sectionId(),
-                        filter == null || filter.status() == null ? null : filter.status().name()),
+                        filter == null || filter.status() == null ? null : filter.status().name(),
+                        filter == null ? null : filter.assessmentCompleted(),
+                        filter == null ? null : filter.assessmentDateFrom(),
+                        filter == null ? null : filter.assessmentDateTo()),
                 definitions(),
                 total,
                 active,
                 participants,
+                notAssessed,
                 completion,
                 readinessEvaluated,
-                total - readinessEvaluated,
+                active - readinessEvaluated,
                 List.of(
                         new DashboardDtos.ReadinessBand("0-24%", band0),
                         new DashboardDtos.ReadinessBand("25-49%", band25),
@@ -145,9 +200,37 @@ public class DashboardService {
                         new DashboardDtos.ReadinessBand("75-100%", band75)),
                 commonGaps,
                 comparisons,
+                batchComparisons,
                 false,
                 "No historical readiness snapshots are stored yet, so a trend cannot be shown without fabricating data.",
                 Instant.now());
+    }
+
+    private static boolean hasSubmittedAttempt(List<com.codeit.careeros.assessment.AssessmentAttempt> attempts,
+                                               Instant from, Instant toExclusive) {
+        return attempts.stream()
+                .map(attempt -> attempt.getSubmittedAt())
+                .filter(java.util.Objects::nonNull)
+                .anyMatch(submittedAt -> (from == null || !submittedAt.isBefore(from))
+                        && (toExclusive == null || submittedAt.isBefore(toExclusive)));
+    }
+
+    private static boolean hasSubmittedAttemptForTargetCareer(
+                                                        List<com.codeit.careeros.assessment.AssessmentAttempt> attempts,
+                                                        Long careerId, Instant from, Instant toExclusive) {
+        if (careerId == null) return false;
+        return attempts.stream()
+                .filter(attempt -> attempt.getAssessment() != null
+                        && attempt.getAssessment().getCareer() != null
+                        && careerId.equals(attempt.getAssessment().getCareer().getId()))
+                .map(attempt -> attempt.getSubmittedAt())
+                .filter(java.util.Objects::nonNull)
+                .anyMatch(submittedAt -> (from == null || !submittedAt.isBefore(from))
+                        && (toExclusive == null || submittedAt.isBefore(toExclusive)));
+    }
+
+    private static Instant dateBoundary(LocalDate date, CollegeScope scope) {
+        return date == null ? null : date.atStartOfDay(scope.institutionZone()).toInstant();
     }
 
     private static List<DashboardDtos.MetricDefinition> definitions() {
@@ -157,11 +240,13 @@ public class DashboardService {
         definitions.add(new DashboardDtos.MetricDefinition(
                 "activeStudents", "Enrollments whose status is ACTIVE."));
         definitions.add(new DashboardDtos.MetricDefinition(
-                "assessmentParticipants", "Students with at least one submitted assessment attempt."));
+                "assessmentParticipants", "Active students with at least one submitted assessment attempt."));
         definitions.add(new DashboardDtos.MetricDefinition(
-                "assessmentCompletionPercent", "Assessment participants divided by total enrollments."));
+                "studentsNotAssessed", "Active students with no submitted assessment attempt."));
         definitions.add(new DashboardDtos.MetricDefinition(
-                "readinessEvaluated", "Students with a target career, a submitted attempt and a computable readiness score."));
+                "assessmentCompletionPercent", "Active students with a submitted attempt divided by all active students."));
+        definitions.add(new DashboardDtos.MetricDefinition(
+                "readinessEvaluated", "Active students with a target career and at least one submitted assessment for that career."));
         definitions.add(new DashboardDtos.MetricDefinition(
                 "readinessDistribution", "Evaluated students grouped by readiness percentage band."));
         definitions.add(new DashboardDtos.MetricDefinition(
@@ -193,6 +278,23 @@ public class DashboardService {
         private DepartmentAggregate(Long id, String name) {
             this.id = id;
             this.name = name;
+        }
+    }
+
+    private static final class BatchAggregate {
+        private final Long id;
+        private final String departmentName;
+        private final String programName;
+        private final String label;
+        private int enrolled;
+        private int active;
+        private int participants;
+
+        private BatchAggregate(Long id, String departmentName, String programName, String label) {
+            this.id = id;
+            this.departmentName = departmentName;
+            this.programName = programName;
+            this.label = label;
         }
     }
 }

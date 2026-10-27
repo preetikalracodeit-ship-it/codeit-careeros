@@ -41,6 +41,7 @@ import { SkillDonut, ScoreTrend, WeekActivity } from "@/components/charts";
 import api from "@/lib/api";
 import { formatDateTime, prettifyEnum } from "@/lib/format";
 import { cn } from "cn";
+import { hasReadinessEvidence, summarizeSkillGaps } from "@/lib/readiness-metrics.mjs";
 
 const CHECK_FIELDS = [
   "fullName",
@@ -112,27 +113,10 @@ function shortDate(iso) {
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
-function activityStreak(items) {
-  const days = new Set();
-  (items || []).forEach((item) => {
-    if (!item?.occurredAt) return;
-    const date = new Date(item.occurredAt);
-    if (!Number.isNaN(date.getTime())) days.add(date.toDateString());
-  });
-  if (days.size === 0) return 0;
-  const cursor = new Date();
-  if (!days.has(cursor.toDateString())) cursor.setDate(cursor.getDate() - 1);
-  let streak = 0;
-  while (days.has(cursor.toDateString())) {
-    streak += 1;
-    cursor.setDate(cursor.getDate() - 1);
-  }
-  return streak;
-}
-
 export default function StudentDashboard() {
   const [profile, setProfile] = useState(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
+  const [profileError, setProfileError] = useState("");
   const [progress, setProgress] = useState(null);
   const [loadingProgress, setLoadingProgress] = useState(true);
   const [progressError, setProgressError] = useState("");
@@ -147,10 +131,16 @@ export default function StudentDashboard() {
     api
       .get("/students/me")
       .then((data) => {
-        if (!ignore) setProfile(data || null);
+        if (!ignore) {
+          setProfile(data || null);
+          setProfileError("");
+        }
       })
-      .catch(() => {
-        if (!ignore) setProfile(null);
+      .catch((err) => {
+        if (!ignore) {
+          setProfile(null);
+          setProfileError(err.message || "Unable to load your profile.");
+        }
       })
       .finally(() => {
         if (!ignore) setLoadingProfile(false);
@@ -240,13 +230,14 @@ export default function StudentDashboard() {
 
   const readiness = progress?.readiness || null;
   const hasTarget = Boolean(profile?.targetCareerId || readiness?.hasTarget);
-  const readinessReady = Boolean(readiness?.hasTarget) && (readiness?.totalSkills ?? 0) > 0;
+  const readinessReady = hasReadinessEvidence(readiness);
   const readinessPercent = readinessReady ? (readiness.readinessPercent ?? 0) : null;
 
   const gaps = Array.isArray(readiness?.gaps) ? readiness.gaps : [];
+  const skillSummary = summarizeSkillGaps(gaps);
   const gapsBySeverity = [...gaps].sort((a, b) => (a.gapPercent ?? 0) - (b.gapPercent ?? 0));
   const topSkills = gapsBySeverity.slice(0, 6);
-  const needsImprovement = gaps.filter((g) => !g.metTarget).length;
+  const needsImprovement = skillSummary.needsWorkCount;
 
   const attempts = Array.isArray(progress?.attempts) ? progress.attempts : [];
   const completedAssessments = progress?.completedAssessments ?? attempts.length;
@@ -284,7 +275,6 @@ export default function StudentDashboard() {
   const linkedIn = progress?.linkedIn || null;
   const allActivity = Array.isArray(progress?.recentActivity) ? progress.recentActivity : [];
   const activity = allActivity.slice(0, 5);
-  const streak = activityStreak(allActivity);
 
   // Score trend — oldest first, capped so the chart stays readable.
   const trendPoints = [...attempts]
@@ -318,12 +308,12 @@ export default function StudentDashboard() {
 
   // Skills donut — on target vs needs work vs not yet assessed.
   const donutSegments = [
-    { label: "On target", value: gaps.filter((g) => g.assessed && g.metTarget).length, className: "stroke-chart-3" },
-    { label: "Needs work", value: gaps.filter((g) => g.assessed && !g.metTarget).length, className: "stroke-amber-500" },
-    { label: "Not assessed", value: gaps.filter((g) => !g.assessed).length, className: "stroke-muted-foreground/40" },
+    { label: "On target", value: skillSummary.onTargetCount, className: "stroke-chart-3" },
+    { label: "Needs work", value: skillSummary.needsWorkCount, className: "stroke-amber-500" },
+    { label: "Not assessed", value: skillSummary.unassessedCount, className: "stroke-muted-foreground/40" },
   ];
 
-  const skillsAtTarget = readiness?.metSkills ?? 0;
+  const skillsAtTarget = skillSummary.onTargetCount;
   const skillsTotal = readiness?.totalSkills ?? 0;
 
   const profileCompletion = completionOf(profile);
@@ -345,7 +335,7 @@ export default function StudentDashboard() {
   // Recommended Next Steps — derived from real gaps and statuses.
   const nextSteps = (() => {
     const steps = [];
-    if (!hasTarget) {
+    if (!hasTarget && !profileError) {
       steps.push({
         icon: Target,
         title: "Choose your target career",
@@ -372,7 +362,7 @@ export default function StudentDashboard() {
         href: "/student/assessment",
       });
     }
-    const topGap = gapsBySeverity[0];
+    const topGap = gapsBySeverity.find((gap) => gap.assessed);
     if (topGap && !topGap.metTarget && openRoadmap.length > 0) {
       const linked = openRoadmap.find((item) => item.skillId && item.skillId === topGap.skillId) || nextRoadmap;
       steps.push({
@@ -385,7 +375,7 @@ export default function StudentDashboard() {
         href: "/student/roadmap",
       });
     }
-    if (profileCompletion < 80) {
+    if (!profileError && profileCompletion < 80) {
       steps.push({
         icon: FileText,
         title: "Complete your profile",
@@ -439,7 +429,7 @@ export default function StudentDashboard() {
         href: "/student/reports",
       });
     }
-    return steps.slice(0, 4);
+    return steps.slice(0, 3);
   })();
 
   const initialLoading = loadingProfile || loadingProgress;
@@ -508,25 +498,12 @@ export default function StudentDashboard() {
             <p className="mt-1 text-sm text-white/80">
               Keep learning, keep building. You&apos;re one step closer to your career goal.
             </p>
-            {(readinessReady || streak > 0) && (
+            {readinessReady && (
               <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-                {readinessReady && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-white">
-                    <Award className="size-3" aria-hidden="true" />
-                    {prettifyEnum(readiness.readinessLevel)}
-                  </span>
-                )}
-                {streak > 0 && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-white">
-                    <Zap className="size-3" aria-hidden="true" />
-                    {streak}-day streak
-                  </span>
-                )}
-                {needsImprovement > 0 && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-white">
-                    {needsImprovement} skill{needsImprovement === 1 ? "" : "s"} to improve
-                  </span>
-                )}
+                <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-white">
+                  <Award className="size-3" aria-hidden="true" />
+                  {prettifyEnum(readiness.readinessLevel)}
+                </span>
               </div>
             )}
           </div>
@@ -542,14 +519,6 @@ export default function StudentDashboard() {
                 {continueLearning.label}
               </Button>
             )}
-            <Button
-              variant="outline"
-              size="sm"
-              className="border-white/30 bg-transparent text-white hover:bg-white/10 hover:text-white"
-              render={<Link href="/student/progress" />}
-            >
-              View progress
-            </Button>
           </div>
         </div>
       </section>
@@ -576,14 +545,9 @@ export default function StudentDashboard() {
                 )}
                 <p className="mt-1 text-xs text-muted-foreground">
                   {readinessReady ? (
-                    <>
-                      Career readiness{" "}
-                      <span className="tnum font-bold text-primary">{readinessPercent}%</span>
-                      {" · "}
-                      {needsImprovement === 0
-                        ? "all assessed skills on target"
-                        : `${needsImprovement} skill${needsImprovement === 1 ? "" : "s"} need${needsImprovement === 1 ? "s" : ""} improvement`}
-                    </>
+                    needsImprovement === 0
+                      ? `${skillSummary.assessedCount} assessed skills are on target.`
+                      : `${needsImprovement} assessed skill${needsImprovement === 1 ? "" : "s"} need${needsImprovement === 1 ? "s" : ""} improvement.`
                   ) : (
                     "Submit an assessment to calculate your readiness."
                   )}
@@ -616,47 +580,27 @@ export default function StudentDashboard() {
               <div className="min-w-52 flex-1">
                 <p className="text-sm font-bold">No target career yet</p>
                 <p className="mt-0.5 text-xs text-muted-foreground">
-                  Career selection unlocks assessments, skill gaps, roadmap and this dashboard.
+                  {profileError
+                    ? `Your profile could not be loaded. ${profileError}`
+                    : "Career selection unlocks assessments, skill gaps, roadmap and this dashboard."}
                 </p>
               </div>
-              <Button size="sm" render={<Link href="/student/careers" />}>
-                Choose career <ArrowRight className="size-3.5" aria-hidden="true" />
-              </Button>
+              {profileError ? (
+                <Button size="sm" variant="outline" onClick={() => window.location.reload()}>
+                  Retry
+                </Button>
+              ) : (
+                <Button size="sm" render={<Link href="/student/careers" />}>
+                  Choose career <ArrowRight className="size-3.5" aria-hidden="true" />
+                </Button>
+              )}
             </CardContent>
           </Card>
         )}
       </section>
 
       {/* 3. Top overview cards */}
-      <section aria-label="Overview" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="shadow-card transition-shadow hover:shadow-card-hover">
-          <CardContent className="space-y-2 py-5">
-            <div className="flex items-center justify-between">
-              <span className="flex size-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                <TrendingUp className="size-4.5" aria-hidden="true" />
-              </span>
-              {readinessReady && (
-                <Badge variant="secondary" className="shrink-0">
-                  {prettifyEnum(readiness.readinessLevel)}
-                </Badge>
-              )}
-            </div>
-            <p className="text-xs font-medium text-muted-foreground">Career Readiness</p>
-            <p className="tnum text-2xl font-bold tracking-tight">
-              {readinessPercent ?? "—"}
-              {readinessPercent != null && <span className="text-sm font-semibold text-muted-foreground">%</span>}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {readinessReady
-                ? `${readiness.assessedSkills} of ${readiness.totalSkills} skills assessed`
-                : "Take an assessment to begin"}
-            </p>
-            <Button variant="outline" size="sm" className="w-full" render={<Link href="/student/progress" />}>
-              View readiness <ArrowRight className="size-3.5" aria-hidden="true" />
-            </Button>
-          </CardContent>
-        </Card>
-
+      <section aria-label="Learning summary" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Card className="shadow-card transition-shadow hover:shadow-card-hover">
           <CardContent className="space-y-2 py-5">
             <div className="flex items-center justify-between">
@@ -688,29 +632,16 @@ export default function StudentDashboard() {
 
         <Card className="shadow-card transition-shadow hover:shadow-card-hover">
           <CardContent className="space-y-2 py-5">
-            <div className="flex items-center justify-between">
-              <span className="flex size-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                <Award className="size-4.5" aria-hidden="true" />
-              </span>
-              {skillsTotal > 0 && (
-                <span className="tnum text-xs font-semibold text-muted-foreground">
-                  {Math.round((skillsAtTarget / skillsTotal) * 100)}%
-                </span>
-              )}
+            <div className="flex size-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <Route className="size-4.5" aria-hidden="true" />
             </div>
-            <p className="text-xs font-medium text-muted-foreground">Skills at Target</p>
+            <p className="text-xs font-medium text-muted-foreground">Roadmap</p>
             <p className="tnum text-2xl font-bold tracking-tight">
-              {skillsAtTarget}
-              <span className="text-sm font-semibold text-muted-foreground"> / {skillsTotal}</span>
+              {roadmap?.completedItems ?? 0}<span className="text-sm font-semibold text-muted-foreground"> / {roadmap?.totalItems ?? 0}</span>
             </p>
-            <Progress
-              value={skillsTotal > 0 ? Math.round((skillsAtTarget / skillsTotal) * 100) : 0}
-              tone={skillsTotal > 0 && skillsAtTarget >= skillsTotal ? "green" : "primary"}
-              className="h-1.5"
-              aria-label={`${skillsAtTarget} of ${skillsTotal} skills at target`}
-            />
-            <Button variant="outline" size="sm" className="w-full" render={<Link href="/student/progress" />}>
-              View skills <ArrowRight className="size-3.5" aria-hidden="true" />
+            <Progress value={roadmap?.progressPercent ?? 0} className="h-1.5" aria-label={`Roadmap ${roadmap?.progressPercent ?? 0}% complete`} />
+            <Button variant="outline" size="sm" className="w-full" render={<Link href="/student/roadmap" />}>
+              Continue roadmap <ArrowRight className="size-3.5" aria-hidden="true" />
             </Button>
           </CardContent>
         </Card>
@@ -752,7 +683,7 @@ export default function StudentDashboard() {
           </div>
         </div>
         {loadingProgress ? (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <Skeleton className="h-44 rounded-2xl" />
             <Skeleton className="h-44 rounded-2xl" />
             <Skeleton className="h-44 rounded-2xl" />
@@ -769,7 +700,7 @@ export default function StudentDashboard() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {nextSteps.map((step, index) => {
               const Icon = step.icon;
               return (
@@ -802,8 +733,12 @@ export default function StudentDashboard() {
         )}
       </section>
 
-      {/* 5. Main + rail */}
-      <div className="grid items-start gap-4 lg:grid-cols-3">
+      <details className="group rounded-2xl border border-border/60 bg-card p-4 shadow-sm">
+        <summary className="cursor-pointer list-none text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          More progress details
+          <span className="ml-2 text-xs font-normal text-muted-foreground">Skills, assessments, roadmap and projects</span>
+        </summary>
+        <div className="mt-4 grid items-start gap-4 lg:grid-cols-3">
         <div className="min-w-0 space-y-4 lg:col-span-2">
           {/* 5a. Skill progress — WHAT ARE MY GAPS */}
           <Card className="shadow-card">
@@ -1431,53 +1366,8 @@ export default function StudentDashboard() {
             </CardContent>
           </Card>
         </div>
-      </div>
-
-      {/* 6. Module shortcuts */}
-      <section aria-label="Module shortcuts" className="grid gap-3 sm:grid-cols-3">
-        <Card className="shadow-card">
-          <CardContent className="flex items-center gap-3 py-4">
-            <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <BookOpen className="size-4.5" aria-hidden="true" />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-bold">Reports</p>
-              <p className="truncate text-xs text-muted-foreground">Readiness and gap reports.</p>
-            </div>
-            <Button variant="outline" size="sm" render={<Link href="/student/reports" />}>
-              View <ArrowRight className="size-3.5" aria-hidden="true" />
-            </Button>
-          </CardContent>
-        </Card>
-        <Card className="shadow-card">
-          <CardContent className="flex items-center gap-3 py-4">
-            <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <Upload className="size-4.5" aria-hidden="true" />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-bold">My Profile</p>
-              <p className="truncate text-xs text-muted-foreground">{profileCompletion}% complete · keep it fresh.</p>
-            </div>
-            <Button variant="outline" size="sm" render={<Link href="/student/profile" />}>
-              Edit <ArrowRight className="size-3.5" aria-hidden="true" />
-            </Button>
-          </CardContent>
-        </Card>
-        <Card className="shadow-card">
-          <CardContent className="flex items-center gap-3 py-4">
-            <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <TrendingUp className="size-4.5" aria-hidden="true" />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-bold">Progress</p>
-              <p className="truncate text-xs text-muted-foreground">Full journey and history.</p>
-            </div>
-            <Button variant="outline" size="sm" render={<Link href="/student/progress" />}>
-              View <ArrowRight className="size-3.5" aria-hidden="true" />
-            </Button>
-          </CardContent>
-        </Card>
-      </section>
+        </div>
+      </details>
     </div>
   );
 }

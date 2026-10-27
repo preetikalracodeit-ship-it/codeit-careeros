@@ -50,13 +50,18 @@ public class CollegeStudentController {
             @RequestParam(required = false) Long batchId,
             @RequestParam(required = false) Long sectionId,
             @RequestParam(required = false) EnrollmentStatus status,
+            @RequestParam(required = false) Boolean assessmentCompleted,
+            @RequestParam(required = false) Boolean readinessEvaluated,
+            @RequestParam(required = false) java.time.LocalDate assessmentDateFrom,
+            @RequestParam(required = false) java.time.LocalDate assessmentDateTo,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "25") int size,
             @RequestParam(defaultValue = "fullName") String sortBy,
             @RequestParam(defaultValue = "asc") String sortDir) {
         return ApiResponse.success(studentService.list(
                 collegeAccessService.currentScope(),
-                filter(search, academicYearId, departmentId, programId, batchId, sectionId, status),
+                filter(search, academicYearId, departmentId, programId, batchId, sectionId, status,
+                        assessmentCompleted, readinessEvaluated, assessmentDateFrom, assessmentDateTo),
                 page, size, sortBy, sortDir));
     }
 
@@ -85,10 +90,13 @@ public class CollegeStudentController {
             @RequestParam(required = false) Long programId,
             @RequestParam(required = false) Long batchId,
             @RequestParam(required = false) Long sectionId,
-            @RequestParam(required = false) EnrollmentStatus status) {
+            @RequestParam(required = false) EnrollmentStatus status,
+            @RequestParam(required = false) java.time.LocalDate assessmentDateFrom,
+            @RequestParam(required = false) java.time.LocalDate assessmentDateTo) {
         StudentCsvService.CsvExport export = studentCsvService.export(
                 collegeAccessService.currentScope(),
-                filter(search, academicYearId, departmentId, programId, batchId, sectionId, status));
+                filter(search, academicYearId, departmentId, programId, batchId, sectionId, status,
+                        null, null, assessmentDateFrom, assessmentDateTo));
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
                         .filename(export.filename()).build().toString())
@@ -128,8 +136,13 @@ public class CollegeStudentController {
     private static StudentDtos.StudentFilter filter(String search, Long academicYearId,
                                                     Long departmentId, Long programId,
                                                     Long batchId, Long sectionId,
-                                                    EnrollmentStatus status) {
+                                                    EnrollmentStatus status,
+                                                    Boolean assessmentCompleted,
+                                                    Boolean readinessEvaluated,
+                                                    java.time.LocalDate assessmentDateFrom,
+                                                    java.time.LocalDate assessmentDateTo) {
         return new StudentDtos.StudentFilter(
-                search, academicYearId, departmentId, programId, batchId, sectionId, status);
+                search, academicYearId, departmentId, programId, batchId, sectionId, status,
+                assessmentCompleted, readinessEvaluated, assessmentDateFrom, assessmentDateTo);
     }
 }

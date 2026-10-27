@@ -1,14 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
-  Briefcase,
-  GraduationCap,
   Mail,
   Search,
-  UserRound,
   Users,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -16,13 +13,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
 import { Breadcrumb } from "@/components/breadcrumb";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
 import { LoadingState } from "@/components/loading-state";
 import { PageHeader } from "@/components/page-header";
-import { StatCard } from "@/components/stat-card";
 import api from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
 
@@ -62,61 +57,49 @@ export default function AdminStudentsPage() {
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const [totalElements, setTotalElements] = useState(0);
-  const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
+  const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
-  const [careerFilter, setCareerFilter] = useState("ALL");
   const [selected, setSelected] = useState(null);
+  const requestId = useRef(0);
 
   const load = useCallback(async (pageToLoad = 0) => {
+    const currentRequestId = ++requestId.current;
     setLoading(true);
     setLoadError("");
     try {
-      const [listData, statsData] = await Promise.all([
-        api.get("/admin/students", { params: { page: pageToLoad, size: PAGE_SIZE } }),
-        api.get("/admin/stats").catch(() => null),
-      ]);
+      const listData = await api.get("/admin/students", {
+        params: { page: pageToLoad, size: PAGE_SIZE, ...(search ? { search } : {}) },
+      });
+      if (currentRequestId !== requestId.current) return;
       setStudents(Array.isArray(listData?.content) ? listData.content : []);
       setPage(listData?.page ?? pageToLoad);
       setTotalPages(listData?.totalPages ?? 0);
       setTotalElements(listData?.totalElements ?? 0);
-      setStats(statsData);
     } catch (err) {
+      if (currentRequestId !== requestId.current) return;
       setLoadError(err?.message || "Failed to load students.");
     } finally {
-      setLoading(false);
+      if (currentRequestId === requestId.current) setLoading(false);
     }
-  }, []);
+  }, [search]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- async data loader; state updates happen in promise callbacks
-    load(0);
-  }, [load]);
+    load(page);
+  }, [load, page]);
 
   function gotoPage(next) {
     const clamped = Math.max(0, Math.min(totalPages - 1, next));
-    load(clamped);
+    setPage(clamped);
   }
 
-  const careerOptions = useMemo(() => {
-    const names = new Map();
-    for (const s of students) {
-      if (s.targetCareerName) names.set(s.targetCareerName, (names.get(s.targetCareerName) || 0) + 1);
-    }
-    return [...names.entries()].sort((a, b) => a[0].localeCompare(b[0]));
-  }, [students]);
-
-  const filtered = useMemo(() => {
-    const term = search.trim().toLowerCase();
-    return students.filter((s) => {
-      if (careerFilter !== "ALL" && s.targetCareerName !== careerFilter) return false;
-      if (!term) return true;
-      return [s.fullName, s.email, s.studentId, s.college, s.branch, s.mobile]
-        .filter(Boolean)
-        .some((v) => String(v).toLowerCase().includes(term));
-    });
-  }, [students, search, careerFilter]);
+  function applySearch(event) {
+    event.preventDefault();
+    setPage(0);
+    setSearch(searchInput.trim());
+  }
 
   if (loading && students.length === 0) return <LoadingState label="Loading students…" />;
 
@@ -125,7 +108,7 @@ export default function AdminStudentsPage() {
       <div className="space-y-6">
         <PageHeader
           title="Students"
-          description="Search, inspect and manage every student account on the platform."
+          description="Search and inspect student accounts on the platform."
           breadcrumb={<Breadcrumb items={[{ label: "Students" }]} />}
         />
         <ErrorState title="Couldn't load students" description={loadError} onRetry={() => load(page)} />
@@ -140,58 +123,42 @@ export default function AdminStudentsPage() {
         description={
           totalElements > 0
             ? `${totalElements} registered student${totalElements === 1 ? "" : "s"} on the platform.`
-            : "Search, inspect and manage every student account on the platform."
+            : "Search and inspect student accounts on the platform."
         }
         breadcrumb={<Breadcrumb items={[{ label: "Students" }]} />}
       />
 
-      {stats && (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <StatCard icon={Users} label="Students" value={stats.students ?? totalElements} sub="Registered accounts" tone="primary" />
-          <StatCard icon={Briefcase} label="Careers" value={stats.careers ?? "—"} sub="Career tracks" tone="gold" />
-          <StatCard icon={GraduationCap} label="Assessments done" value={stats.assessmentsCompleted ?? "—"} sub="Submitted attempts" tone="green" />
-          <StatCard icon={UserRound} label="Questions" value={stats.questions ?? "—"} sub="In the bank" tone="muted" />
-        </div>
-      )}
-
       <Card className="shadow-card">
         <CardContent className="space-y-4 p-4">
-          <div className="flex flex-col gap-2 sm:flex-row">
+          <form onSubmit={applySearch} className="flex flex-col gap-2 sm:flex-row">
             <div className="relative flex-1">
               <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
               <Input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search this page by name, email, ID, college…"
-                aria-label="Search students on this page"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                placeholder="Search students by name, email, ID, college, branch or career"
+                aria-label="Search all students"
                 className="pl-9"
               />
             </div>
-            <Select
-              value={careerFilter}
-              onChange={(e) => setCareerFilter(e.target.value)}
-              aria-label="Filter by target career"
-              className="sm:w-56"
-              options={[
-                { value: "ALL", label: "All careers" },
-                ...careerOptions.map(([name, count]) => ({ value: name, label: `${name} (${count})` })),
-              ]}
-            />
-          </div>
+            <Button type="submit" disabled={loading}>
+              <Search className="size-3.5" aria-hidden="true" /> Search
+            </Button>
+          </form>
 
-          {filtered.length === 0 ? (
+          {students.length === 0 ? (
             <EmptyState
               icon={Users}
-              title={students.length === 0 ? "No students yet" : "No matches on this page"}
+              title={search ? "No students match this search" : "No students yet"}
               description={
-                students.length === 0
-                  ? "Student accounts appear here once someone registers."
-                  : "Try a different search term, career filter, or another page."
+                search
+                  ? "Try a different search term. Search applies across all student pages."
+                  : "Student accounts appear here once someone registers."
               }
             />
           ) : (
             <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {filtered.map((s) => (
+              {students.map((s) => (
                 <li key={s.id}>
                   <button
                     type="button"

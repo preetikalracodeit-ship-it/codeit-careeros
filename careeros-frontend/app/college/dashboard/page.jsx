@@ -1,9 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import {
   Building2,
   ClipboardCheck,
+  ClipboardList,
   Gauge,
   RefreshCw,
   TrendingUp,
@@ -15,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Select } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { Breadcrumb } from "@/components/breadcrumb";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
@@ -25,7 +28,16 @@ import api from "@/lib/api";
 import { designationLabel, ENROLLMENT_STATUSES } from "@/lib/college";
 import { formatDateTime, prettifyEnum } from "@/lib/format";
 
-const emptyFilters = { academicYearId: "", departmentId: "", status: "" };
+const emptyFilters = {
+  academicYearId: "",
+  departmentId: "",
+  programId: "",
+  batchId: "",
+  status: "",
+  assessmentCompleted: "",
+  assessmentDateFrom: "",
+  assessmentDateTo: "",
+};
 
 function metricLabel(value) {
   if (!value) return "Metric";
@@ -41,6 +53,7 @@ export default function CollegeDashboardPage() {
   const [filters, setFilters] = useState(emptyFilters);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const requestId = useRef(0);
 
   useEffect(() => {
     let ignore = false;
@@ -59,6 +72,7 @@ export default function CollegeDashboardPage() {
   }, []);
 
   const load = useCallback(async () => {
+    const currentRequestId = ++requestId.current;
     setLoading(true);
     setError("");
     try {
@@ -66,11 +80,13 @@ export default function CollegeDashboardPage() {
         Object.entries(filters).filter(([, value]) => value !== "" && value != null),
       );
       const data = await api.get("/college/dashboard", { params });
+      if (currentRequestId !== requestId.current) return;
       setDashboard(data);
     } catch (err) {
+      if (currentRequestId !== requestId.current) return;
       setError(err.message || "Failed to load the institution dashboard.");
     } finally {
-      setLoading(false);
+      if (currentRequestId === requestId.current) setLoading(false);
     }
   }, [filters]);
 
@@ -100,6 +116,36 @@ export default function CollegeDashboardPage() {
     ],
     [structure],
   );
+
+  const programOptions = useMemo(
+    () => [
+      { value: "", label: "All programs" },
+      ...(structure?.programs || [])
+        .filter((program) => !filters.departmentId || String(program.departmentId) === filters.departmentId)
+        .map((program) => ({ value: String(program.id), label: `${program.code} · ${program.name}` })),
+    ],
+    [filters.departmentId, structure],
+  );
+
+  const batchOptions = useMemo(
+    () => [
+      { value: "", label: "All batches" },
+      ...(structure?.batches || [])
+        .filter((batch) => !filters.programId || String(batch.programId) === filters.programId)
+        .map((batch) => ({ value: String(batch.id), label: batch.label })),
+    ],
+    [filters.programId, structure],
+  );
+
+  function studentHref(overrides = {}) {
+    const values = { ...filters, ...overrides };
+    const params = new URLSearchParams();
+    Object.entries(values).forEach(([key, value]) => {
+      if (value !== "" && value != null) params.set(key, value);
+    });
+    const query = params.toString();
+    return `/college/students${query ? `?${query}` : ""}`;
+  }
 
   if (loading && !dashboard) return <LoadingState label="Loading institution dashboard…" />;
 
@@ -140,7 +186,7 @@ export default function CollegeDashboardPage() {
       />
 
       <Card>
-        <CardContent className="grid gap-3 p-4 sm:grid-cols-3">
+        <CardContent className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3">
           <Select
             label="Academic year"
             value={filters.academicYearId}
@@ -150,8 +196,25 @@ export default function CollegeDashboardPage() {
           <Select
             label="Department"
             value={filters.departmentId}
-            onChange={(event) => setFilters((prev) => ({ ...prev, departmentId: event.target.value }))}
+            onChange={(event) => setFilters((prev) => ({
+              ...prev,
+              departmentId: event.target.value,
+              programId: "",
+              batchId: "",
+            }))}
             options={departmentOptions}
+          />
+          <Select
+            label="Program"
+            value={filters.programId}
+            onChange={(event) => setFilters((prev) => ({ ...prev, programId: event.target.value, batchId: "" }))}
+            options={programOptions}
+          />
+          <Select
+            label="Batch"
+            value={filters.batchId}
+            onChange={(event) => setFilters((prev) => ({ ...prev, batchId: event.target.value }))}
+            options={batchOptions}
           />
           <Select
             label="Enrollment status"
@@ -162,6 +225,29 @@ export default function CollegeDashboardPage() {
               ...ENROLLMENT_STATUSES.map((status) => ({ value: status, label: prettifyEnum(status) })),
             ]}
           />
+          <Select
+            label="Assessment status"
+            value={filters.assessmentCompleted}
+            onChange={(event) => setFilters((prev) => ({
+              ...prev,
+              assessmentCompleted: event.target.value,
+              assessmentDateFrom: "",
+              assessmentDateTo: "",
+            }))}
+            options={[
+              { value: "", label: "All students" },
+              { value: "true", label: "Assessed" },
+              { value: "false", label: "Not assessed" },
+            ]}
+          />
+          <label className="space-y-1 text-sm font-medium">
+            <span>Assessment submitted from</span>
+            <Input type="date" value={filters.assessmentDateFrom} onChange={(event) => setFilters((prev) => ({ ...prev, assessmentDateFrom: event.target.value, assessmentCompleted: "" }))} />
+          </label>
+          <label className="space-y-1 text-sm font-medium">
+            <span>Assessment submitted through</span>
+            <Input type="date" value={filters.assessmentDateTo} onChange={(event) => setFilters((prev) => ({ ...prev, assessmentDateTo: event.target.value, assessmentCompleted: "" }))} />
+          </label>
         </CardContent>
       </Card>
 
@@ -174,12 +260,13 @@ export default function CollegeDashboardPage() {
         </p>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <StatCard
           icon={Users}
           label="Enrolled students"
           value={dashboard?.totalEnrolled ?? "—"}
           sub="In the current scope"
+          href={studentHref()}
           tone="primary"
         />
         <StatCard
@@ -187,18 +274,28 @@ export default function CollegeDashboardPage() {
           label="Active students"
           value={dashboard?.activeStudents ?? "—"}
           sub="Enrollment status ACTIVE"
+          href={studentHref({ status: "ACTIVE" })}
           tone="green"
         />
         <StatCard
           icon={ClipboardCheck}
-          label="Assessment participants"
+          label="Assessed students"
           value={dashboard?.assessmentParticipants ?? "—"}
           sub={
             dashboard?.assessmentCompletionPercent == null
               ? "Completion unavailable"
-              : `${dashboard.assessmentCompletionPercent}% of enrolled students`
+              : `${dashboard.assessmentCompletionPercent}% of active students`
           }
+          href={studentHref({ status: "ACTIVE", assessmentCompleted: "true", readinessEvaluated: "" })}
           tone="gold"
+        />
+        <StatCard
+          icon={ClipboardList}
+          label="Not assessed"
+          value={dashboard?.studentsNotAssessed ?? "—"}
+          sub="Active students with no submitted assessment"
+          href={studentHref({ status: "ACTIVE", assessmentCompleted: "false", readinessEvaluated: "" })}
+          tone="muted"
         />
         <StatCard
           icon={Gauge}
@@ -209,6 +306,11 @@ export default function CollegeDashboardPage() {
               ? `${dashboard.readinessUnavailable} without enough assessment data`
               : "Students with a target career and submitted attempts"
           }
+          href={studentHref({
+            status: "ACTIVE",
+            assessmentCompleted: "",
+            readinessEvaluated: "true",
+          })}
           tone="muted"
         />
       </div>
@@ -333,6 +435,59 @@ export default function CollegeDashboardPage() {
               icon={Building2}
               title="No departments in scope"
               description="Create departments in Academic Structure before students are enrolled."
+            />
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Batch assessment coverage</CardTitle>
+          <CardDescription>Submitted assessments among active students in each batch.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {dashboard?.batchComparisons?.length ? (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[640px] text-sm">
+                <thead>
+                  <tr className="border-b border-border/60 text-left text-xs uppercase tracking-wider text-muted-foreground">
+                    <th className="py-2 pr-3 font-semibold">Batch</th>
+                    <th className="py-2 pr-3 font-semibold">Department / Program</th>
+                    <th className="py-2 pr-3 font-semibold">Active</th>
+                    <th className="py-2 pr-3 font-semibold">Assessed</th>
+                    <th className="py-2 font-semibold">Coverage</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {dashboard.batchComparisons.map((row) => (
+                    <tr key={row.batchId} className="border-b border-border/40 last:border-0">
+                      <td className="py-2.5 pr-3 font-medium">
+                        <Link
+                          href={studentHref({ batchId: String(row.batchId) })}
+                          className="text-primary hover:underline"
+                        >
+                          {row.batchLabel}
+                        </Link>
+                      </td>
+                      <td className="py-2.5 pr-3">
+                        {row.departmentName} · {row.programName}
+                      </td>
+                      <td className="tnum py-2.5 pr-3">{row.active}</td>
+                      <td className="tnum py-2.5 pr-3">{row.assessmentParticipants}</td>
+                      <td className="tnum py-2.5 font-semibold">
+                        {row.assessmentCoveragePercent == null ? "—" : `${row.assessmentCoveragePercent}%`}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <EmptyState
+              compact
+              icon={Users}
+              title="No batch data"
+              description="Create batches in Academic Structure to compare assessment coverage."
             />
           )}
         </CardContent>

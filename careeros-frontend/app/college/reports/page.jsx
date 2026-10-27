@@ -7,6 +7,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { Breadcrumb } from "@/components/breadcrumb";
 import { ErrorState } from "@/components/error-state";
 import { LoadingState } from "@/components/loading-state";
@@ -22,7 +23,8 @@ export default function CollegeReportsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [downloading, setDownloading] = useState(false);
-  const [filters, setFilters] = useState({ academicYearId: "", departmentId: "", status: "" });
+  const [reportType, setReportType] = useState("roster");
+  const [filters, setFilters] = useState({ academicYearId: "", departmentId: "", status: "", assessmentDateFrom: "", assessmentDateTo: "" });
 
   useEffect(() => {
     let ignore = false;
@@ -51,6 +53,8 @@ export default function CollegeReportsPage() {
     if (filters.academicYearId) values.academicYearId = filters.academicYearId;
     if (filters.departmentId) values.departmentId = filters.departmentId;
     if (filters.status) values.status = filters.status;
+    if (filters.assessmentDateFrom) values.assessmentDateFrom = filters.assessmentDateFrom;
+    if (filters.assessmentDateTo) values.assessmentDateTo = filters.assessmentDateTo;
     return values;
   }, [filters]);
 
@@ -66,13 +70,14 @@ export default function CollegeReportsPage() {
     }
   }
 
-  async function exportStudents() {
+  async function downloadCsvReport() {
     setDownloading(true);
     setError("");
     try {
-      await downloadFile("/college/students/export.csv", params, "careeros-students.csv");
+      const filename = `careeros-${reportType}.csv`;
+      await downloadFile("/college/reports/export.csv", { ...params, type: reportType }, filename);
     } catch (err) {
-      setError(err.message || "Could not export students.");
+      setError(err.message || "Could not download the CSV report.");
     } finally {
       setDownloading(false);
     }
@@ -127,7 +132,7 @@ export default function CollegeReportsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             <Select
               label="Academic year"
               value={filters.academicYearId}
@@ -158,6 +163,14 @@ export default function CollegeReportsPage() {
                 ...ENROLLMENT_STATUSES.map((value) => ({ value, label: prettifyEnum(value) })),
               ]}
             />
+            <label className="space-y-1 text-sm font-medium">
+              <span>Assessment submitted from</span>
+              <Input type="date" value={filters.assessmentDateFrom} onChange={(event) => setFilters((prev) => ({ ...prev, assessmentDateFrom: event.target.value }))} />
+            </label>
+            <label className="space-y-1 text-sm font-medium">
+              <span>Assessment submitted through</span>
+              <Input type="date" value={filters.assessmentDateTo} onChange={(event) => setFilters((prev) => ({ ...prev, assessmentDateTo: event.target.value }))} />
+            </label>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button onClick={downloadCohort} disabled={downloading}>
@@ -165,10 +178,24 @@ export default function CollegeReportsPage() {
               {downloading ? "Generating…" : "Download cohort PDF"}
             </Button>
             {canExport && (
-              <Button variant="outline" onClick={exportStudents} disabled={downloading}>
+              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+                <Select
+                  label="CSV report"
+                  value={reportType}
+                  onChange={(event) => setReportType(event.target.value)}
+                  options={[
+                    { value: "roster", label: "Student roster" },
+                    { value: "assessment-completion", label: "Assessment completion" },
+                    { value: "readiness-summary", label: "Student readiness summary" },
+                    { value: "department-skill-gaps", label: "Department skill gaps" },
+                    { value: "batch-assessment-coverage", label: "Batch assessment coverage" },
+                  ]}
+                />
+                <Button variant="outline" className="self-end" onClick={downloadCsvReport} disabled={downloading}>
                 <Download className="size-3.5" aria-hidden="true" />
-                Export CSV
-              </Button>
+                  {downloading ? "Preparing…" : "Download CSV"}
+                </Button>
+              </div>
             )}
           </div>
         </CardContent>

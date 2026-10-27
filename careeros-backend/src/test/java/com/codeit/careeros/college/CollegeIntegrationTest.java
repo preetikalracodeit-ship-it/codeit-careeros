@@ -50,6 +50,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -226,7 +227,13 @@ class CollegeIntegrationTest {
 
         mockMvc.perform(get("/api/v1/college/students/" + studentA1.getId())
                         .header("Authorization", "Bearer " + hod))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.profile.email").doesNotExist())
+                .andExpect(jsonPath("$.data.profile.mobile").doesNotExist())
+                .andExpect(jsonPath("$.data.profile.dateOfBirth").doesNotExist())
+                .andExpect(jsonPath("$.data.profile.linkedinUrl").doesNotExist())
+                .andExpect(jsonPath("$.data.cvAnalysis").doesNotExist())
+                .andExpect(jsonPath("$.data.linkedInAnalysis").doesNotExist());
         mockMvc.perform(get("/api/v1/college/students/" + studentA2.getId())
                         .header("Authorization", "Bearer " + hod))
                 .andExpect(status().isNotFound());
@@ -300,7 +307,18 @@ class CollegeIntegrationTest {
 
         JsonNode dashboard = getJson("/api/v1/college/dashboard", admin);
         assertThat(dashboard.path("data").path("totalEnrolled").asInt()).isEqualTo(2);
+        assertThat(dashboard.path("data").path("activeStudents").asInt()).isEqualTo(2);
+        assertThat(dashboard.path("data").path("assessmentParticipants").asInt()).isZero();
+        assertThat(dashboard.path("data").path("studentsNotAssessed").asInt()).isEqualTo(2);
+        assertThat(dashboard.path("data").path("assessmentCompletionPercent").asInt()).isZero();
         assertThat(dashboard.path("data").path("definitions").isArray()).isTrue();
+
+        JsonNode notAssessed = getJson("/api/v1/college/students?assessmentCompleted=false", admin);
+        assertThat(notAssessed.path("data").path("totalElements").asInt()).isEqualTo(2);
+        JsonNode assessed = getJson("/api/v1/college/students?assessmentCompleted=true", admin);
+        assertThat(assessed.path("data").path("totalElements").asInt()).isZero();
+        JsonNode noReadiness = getJson("/api/v1/college/students?readinessEvaluated=false", admin);
+        assertThat(noReadiness.path("data").path("totalElements").asInt()).isEqualTo(2);
 
         MvcResult cohort = mockMvc.perform(get("/api/v1/college/reports/cohort.pdf")
                         .header("Authorization", "Bearer " + admin))
@@ -324,6 +342,49 @@ class CollegeIntegrationTest {
         assertThat(events).anyMatch(event -> "REPORT_COHORT_PDF".equals(event.getAction()));
         assertThat(events).anyMatch(event -> "REPORT_STUDENT_PDF".equals(event.getAction()));
         assertThat(second.getId()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("Phase 1 CSV reports are scoped and omit unapproved contact fields")
+    void phaseOneCsvReports_areScopedAndUseFieldAllowlist() throws Exception {
+        Institution institution = institution("CSVREP" + suffix());
+        String admin = bootstrapAdmin(institution, "csv-report-" + suffix() + "@college.test");
+        Department department = department(institution, "CRD" + suffix());
+        AcademicYear year = academicYear(institution, "CRY" + suffix());
+        Program program = program(institution, department, "CRP" + suffix());
+        Batch batch = batch(program, year, "CRB" + suffix());
+        Section section = section(batch, "CRS" + suffix());
+        StudentEnrollment student = student(institution, department, program, batch, section,
+                "CR" + suffix(), "csv-report-student-" + suffix() + "@student.test");
+
+        Map<String, String> expectedHeaders = Map.of(
+                "roster", "Student ID,Roll Number,Full Name,Department",
+                "assessment-completion", "Student ID,Roll Number,Full Name,Department",
+                "readiness-summary", "Student ID,Roll Number,Full Name,Department",
+                "department-skill-gaps", "Department,Skill,Students Below Target",
+                "batch-assessment-coverage", "Department,Program,Batch,Academic Year");
+        for (var entry : expectedHeaders.entrySet()) {
+            MvcResult response = mockMvc.perform(get("/api/v1/college/reports/export.csv")
+                            .param("type", entry.getKey())
+                            .header("Authorization", "Bearer " + admin))
+                    .andExpect(status().isOk())
+                    .andReturn();
+            String csv = response.getResponse().getContentAsString(StandardCharsets.UTF_8);
+            String header = csv.substring(csv.indexOf('\uFEFF') >= 0 ? csv.indexOf('\uFEFF') + 1 : 0,
+                    csv.indexOf('\n'));
+            assertThat(header).startsWith(entry.getValue());
+            assertThat(header).doesNotContain("Email");
+            assertThat(header).doesNotContain("Mobile");
+            if (!"department-skill-gaps".equals(entry.getKey())
+                    && !"batch-assessment-coverage".equals(entry.getKey())) {
+                assertThat(csv).contains(student.getRollNumber());
+            }
+        }
+
+        mockMvc.perform(get("/api/v1/college/reports/export.csv")
+                        .param("type", "unknown")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
@@ -414,6 +475,9 @@ class CollegeIntegrationTest {
         String exported = export.getResponse().getContentAsString(StandardCharsets.UTF_8);
         assertThat(exported).contains("'=HYPERLINK");
         assertThat(exported).doesNotContain("\n=HYPERLINK");
+        String exportHeader = exported.substring(0, exported.indexOf('\n'));
+        assertThat(exportHeader).doesNotContain("Mobile");
+        assertThat(exportHeader).doesNotContain("Email");
 
         // The same file hash cannot be committed again within 24 hours.
         mockMvc.perform(multipart("/api/v1/college/students/import/preview")

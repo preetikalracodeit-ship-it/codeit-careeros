@@ -190,10 +190,7 @@ export default function StudentLinkedInPage() {
     setLoading(true);
     setLoadError("");
     try {
-      const [profile, result] = await Promise.all([
-        api.get("/linkedin/me").catch(() => null),
-        api.get("/linkedin/analysis").catch(() => null),
-      ]);
+      const [profile, result] = await Promise.all([api.get("/linkedin/me"), api.get("/linkedin/analysis")]);
       setForm(fromProfile(profile));
       setAnalysis(result || null);
     } catch (err) {

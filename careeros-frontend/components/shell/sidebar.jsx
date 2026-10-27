@@ -52,7 +52,7 @@ function SidebarContent({ items, variant, user, initials, photoKey = null, photo
       <nav aria-label="Main navigation" className="flex-1 overflow-y-auto px-3 pb-4">
         <ul className="space-y-0.5">
           {items.map((item) => {
-            const active = pathname === item.href;
+            const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
             const Icon = item.icon;
             return (
               <li key={item.href}>

@@ -123,10 +123,7 @@ export default function StudentCvPage() {
     setLoading(true);
     setLoadError("");
     try {
-      const [doc, result] = await Promise.all([
-        api.get("/cvs/me").catch(() => null),
-        api.get("/cvs/analysis").catch(() => null),
-      ]);
+      const [doc, result] = await Promise.all([api.get("/cvs/me"), api.get("/cvs/analysis")]);
       setDocument(doc || null);
       setAnalysis(result || null);
     } catch (err) {

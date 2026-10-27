@@ -11,6 +11,8 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
+import java.util.UUID;
+
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -83,5 +85,43 @@ class AdminAuthorizationIntegrationTest {
                         .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.count").isNumber());
+    }
+
+    @Test
+    @DisplayName("ADMIN student search filters the full result set before pagination")
+    void admin_studentSearch_isAppliedAcrossPages() throws Exception {
+        String email = "search-" + UUID.randomUUID() + "@test.local";
+        mockMvc.perform(post("/api/v1/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "fullName": "Searchable Student",
+                                  "email": "%s",
+                                  "mobile": "9876543210",
+                                  "password": "Password1", "termsAccepted": true}
+                                """.formatted(email)))
+                .andExpect(status().isCreated());
+
+        MvcResult login = mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email": "admin@test.local",
+                                  "password": "Admin@123Test"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andReturn();
+        String adminToken = TestSupport.token(login, "accessToken");
+
+        mockMvc.perform(get("/api/v1/admin/students")
+                        .param("page", "0")
+                        .param("size", "1")
+                        .param("search", email)
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.totalElements").value(1))
+                .andExpect(jsonPath("$.data.content.length()").value(1))
+                .andExpect(jsonPath("$.data.content[0].email").value(email));
     }
 }

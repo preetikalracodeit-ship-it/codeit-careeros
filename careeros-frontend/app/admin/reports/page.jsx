@@ -57,7 +57,7 @@ export default function AdminReportsPage() {
     setLoading(true);
     setLoadError("");
     try {
-      setStats(await api.get("/admin/stats").catch(() => null));
+      setStats(await api.get("/admin/stats"));
     } catch (err) {
       setLoadError(err?.message || "Failed to load report statistics.");
     } finally {

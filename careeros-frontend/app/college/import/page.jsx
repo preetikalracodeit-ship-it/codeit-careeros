@@ -55,7 +55,7 @@ function downloadText(filename, text, type = "text/csv;charset=utf-8") {
   document.body.appendChild(link);
   link.click();
   link.remove();
-  URL.revokeObjectURL(url);
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 function statusTone(status) {

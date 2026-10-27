@@ -47,9 +47,10 @@ public class CollegeReportService {
         doc.addSection("Summary");
         doc.addKeyValue("Total enrolled", String.valueOf(dashboard.totalEnrolled()));
         doc.addKeyValue("Active students", String.valueOf(dashboard.activeStudents()));
-        doc.addKeyValue("Assessment participants", String.valueOf(dashboard.assessmentParticipants())
+        doc.addKeyValue("Assessed active students", String.valueOf(dashboard.assessmentParticipants())
                 + " (" + (dashboard.assessmentCompletionPercent() == null ? "—"
                 : dashboard.assessmentCompletionPercent() + "%") + ")");
+        doc.addKeyValue("Active students not assessed", String.valueOf(dashboard.studentsNotAssessed()));
         doc.addKeyValue("Readiness evaluated", String.valueOf(dashboard.readinessEvaluated()));
         doc.addKeyValue("Readiness unavailable", String.valueOf(dashboard.readinessUnavailable()));
 

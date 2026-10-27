@@ -4,7 +4,10 @@ import com.codeit.careeros.college.dto.StudentDtos;
 import com.codeit.careeros.college.entity.StudentEnrollment;
 import com.codeit.careeros.college.enums.EnrollmentStatus;
 import com.codeit.careeros.college.enums.ScopeType;
+import com.codeit.careeros.assessment.AssessmentAttempt;
+import com.codeit.careeros.common.enums.AttemptStatus;
 import com.codeit.careeros.college.repository.StudentEnrollmentRepository;
+import com.codeit.careeros.repository.AssessmentAttemptRepository;
 import com.codeit.careeros.dto.insight.ReadinessResponse;
 import com.codeit.careeros.entity.StudentProfile;
 import com.codeit.careeros.exception.BusinessException;
@@ -16,6 +19,8 @@ import com.codeit.careeros.service.RoadmapService;
 import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
+import jakarta.persistence.criteria.Subquery;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -26,6 +31,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -55,6 +62,7 @@ public class StudentService {
     private final CvAnalysisService cvAnalysisService;
     private final LinkedInService linkedInService;
     private final AuditService auditService;
+    private final AssessmentAttemptRepository assessmentAttemptRepository;
 
     @Transactional(readOnly = true)
     public StudentDtos.StudentPageResponse list(CollegeScope scope,
@@ -72,7 +80,7 @@ public class StudentService {
                 specification(scope, filter), pageable);
 
         List<StudentDtos.CollegeStudentListItem> items = result.getContent().stream()
-                .map(enrollment -> toListItem(enrollment, scope))
+                .map(enrollment -> toListItem(enrollment, scope, filter))
                 .toList();
         return new StudentDtos.StudentPageResponse(
                 items,
@@ -178,9 +186,25 @@ public class StudentService {
     }
 
     public StudentDtos.CollegeStudentListItem toListItem(StudentEnrollment enrollment, CollegeScope scope) {
+        return toListItem(enrollment, scope, null);
+    }
+
+    public StudentDtos.CollegeStudentListItem toListItem(StudentEnrollment enrollment, CollegeScope scope,
+                                                          StudentDtos.StudentFilter filter) {
         StudentProfile profile = enrollment.getStudentProfile();
         ReadinessResponse readiness = careerInsightService.readinessFor(profile.getUser().getId());
         boolean sensitive = scope.canViewSensitiveProfile();
+        Instant from = filter == null ? null : assessmentBoundary(filter.assessmentDateFrom(), scope.institutionZone());
+        Instant toExclusive = filter == null || filter.assessmentDateTo() == null ? null
+                : filter.assessmentDateTo().plusDays(1).atStartOfDay(scope.institutionZone()).toInstant();
+        boolean assessmentCompleted = from == null && toExclusive == null
+                ? assessmentAttemptRepository.existsByUserIdAndStatus(profile.getUser().getId(), AttemptStatus.SUBMITTED)
+                : assessmentAttemptRepository.findByUserIdAndStatusOrderByStartedAtDesc(
+                                profile.getUser().getId(), AttemptStatus.SUBMITTED).stream()
+                        .map(attempt -> attempt.getSubmittedAt())
+                        .filter(java.util.Objects::nonNull)
+                        .anyMatch(submittedAt -> (from == null || !submittedAt.isBefore(from))
+                                && (toExclusive == null || submittedAt.isBefore(toExclusive)));
         return new StudentDtos.CollegeStudentListItem(
                 enrollment.getId(),
                 profile.getStudentId(),
@@ -199,7 +223,7 @@ public class StudentService {
                 enrollment.getStatus(),
                 profile.getTargetCareer() == null ? null : profile.getTargetCareer().getName(),
                 Boolean.TRUE.equals(readiness.hasTarget()) ? readiness.readinessPercent() : null,
-                readiness.submittedAttempts() != null && readiness.submittedAttempts() > 0);
+                assessmentCompleted);
     }
 
     public StudentDtos.EnrollmentResponse toEnrollmentResponse(StudentEnrollment enrollment) {
@@ -246,6 +270,9 @@ public class StudentService {
             }
 
             if (filter != null) {
+                Instant assessmentFrom = assessmentBoundary(filter.assessmentDateFrom(), scope.institutionZone());
+                Instant assessmentToExclusive = filter.assessmentDateTo() == null ? null
+                        : filter.assessmentDateTo().plusDays(1).atStartOfDay(scope.institutionZone()).toInstant();
                 if (filter.status() != null) {
                     predicates.add(cb.equal(root.get("status"), filter.status()));
                 }
@@ -264,6 +291,41 @@ public class StudentService {
                 if (filter.academicYearId() != null) {
                     predicates.add(cb.equal(root.get("batch").get("academicYear").get("id"),
                             filter.academicYearId()));
+                }
+                if (filter.assessmentCompleted() != null || assessmentFrom != null || assessmentToExclusive != null) {
+                    Subquery<Long> submittedUserIds = query.subquery(Long.class);
+                    Root<AssessmentAttempt> attempt = submittedUserIds.from(AssessmentAttempt.class);
+                    List<Predicate> submittedPredicates = new ArrayList<>();
+                    submittedPredicates.add(cb.equal(attempt.get("user").get("id"),
+                            root.get("studentProfile").get("user").get("id")));
+                    submittedPredicates.add(cb.equal(attempt.get("status"), AttemptStatus.SUBMITTED));
+                    if (assessmentFrom != null) submittedPredicates.add(cb.greaterThanOrEqualTo(
+                            attempt.<Instant>get("submittedAt"), assessmentFrom));
+                    if (assessmentToExclusive != null) submittedPredicates.add(cb.lessThan(
+                            attempt.<Instant>get("submittedAt"), assessmentToExclusive));
+                    submittedUserIds.select(attempt.get("user").get("id")).where(submittedPredicates.toArray(Predicate[]::new));
+                    Predicate submitted = cb.exists(submittedUserIds);
+                    if (filter.assessmentCompleted() != null) {
+                        predicates.add(filter.assessmentCompleted() ? submitted : cb.not(submitted));
+                    } else {
+                        predicates.add(submitted);
+                    }
+                }
+                if (filter.readinessEvaluated() != null) {
+                    Join<Object, Object> profile = root.join("studentProfile", JoinType.INNER);
+                    Join<Object, Object> targetCareer = profile.join("targetCareer", JoinType.LEFT);
+                    Predicate hasTargetCareer = cb.isNotNull(targetCareer.get("id"));
+                    Subquery<Long> submittedForTargetCareer = query.subquery(Long.class);
+                    Root<AssessmentAttempt> attempt = submittedForTargetCareer.from(AssessmentAttempt.class);
+                    List<Predicate> readinessPredicates = new ArrayList<>();
+                    readinessPredicates.add(cb.equal(attempt.get("user").get("id"), profile.get("user").get("id")));
+                    readinessPredicates.add(cb.equal(attempt.get("status"), AttemptStatus.SUBMITTED));
+                    readinessPredicates.add(cb.equal(attempt.get("assessment").get("career").get("id"), targetCareer.get("id")));
+                    if (assessmentFrom != null) readinessPredicates.add(cb.greaterThanOrEqualTo(attempt.<Instant>get("submittedAt"), assessmentFrom));
+                    if (assessmentToExclusive != null) readinessPredicates.add(cb.lessThan(attempt.<Instant>get("submittedAt"), assessmentToExclusive));
+                    submittedForTargetCareer.select(attempt.get("user").get("id")).where(readinessPredicates.toArray(Predicate[]::new));
+                    Predicate evaluated = cb.and(hasTargetCareer, cb.exists(submittedForTargetCareer));
+                    predicates.add(filter.readinessEvaluated() ? evaluated : cb.not(evaluated));
                 }
                 if (filter.search() != null && !filter.search().isBlank()) {
                     String term = "%" + filter.search().trim().toLowerCase(Locale.ROOT) + "%";
@@ -291,6 +353,13 @@ public class StudentService {
     private void validateFilters(CollegeScope scope, StudentDtos.StudentFilter filter) {
         if (filter == null) {
             return;
+        }
+        if (filter.assessmentDateFrom() != null && filter.assessmentDateTo() != null
+                && filter.assessmentDateFrom().isAfter(filter.assessmentDateTo())) {
+            throw BusinessException.badRequest("Assessment submission start date must be on or before end date");
+        }
+        if (LocalDate.MAX.equals(filter.assessmentDateTo())) {
+            throw BusinessException.badRequest("Assessment submission end date is out of range");
         }
         if (filter.departmentId() != null) {
             academicScopeService.requireDepartment(scope.institutionId(), filter.departmentId());
@@ -345,6 +414,10 @@ public class StudentService {
         if (filter.academicYearId() != null) {
             academicScopeService.requireAcademicYear(scope.institutionId(), filter.academicYearId());
         }
+    }
+
+    private static Instant assessmentBoundary(LocalDate date, ZoneId zone) {
+        return date == null ? null : date.atStartOfDay(zone).toInstant();
     }
 
     private static boolean inScope(CollegeScope scope, StudentEnrollment enrollment) {

@@ -26,6 +26,7 @@ import { LoadingState } from "@/components/loading-state";
 import { PageHeader } from "@/components/page-header";
 import api from "@/lib/api";
 import { formatDateTime, prettifyEnum } from "@/lib/format";
+import { hasReadinessEvidence, summarizeSkillGaps } from "@/lib/readiness-metrics.mjs";
 
 const ACTIVITY_LABEL = {
   ASSESSMENT: "Assessment",
@@ -65,6 +66,8 @@ export default function StudentProgressPage() {
   const readiness = data.readiness || {};
   const hasTarget = Boolean(readiness.hasTarget);
   const gaps = Array.isArray(readiness.gaps) ? readiness.gaps : [];
+  const skillSummary = summarizeSkillGaps(gaps);
+  const readinessAvailable = hasReadinessEvidence(readiness);
   const latest = data.latestAttempt || null;
   const previous = data.previousAttempt || null;
   const roadmap = data.roadmap || {};
@@ -78,20 +81,20 @@ export default function StudentProgressPage() {
       ? latest.overallScore - previous.overallScore
       : null;
 
-  const totalGaps = gaps.filter((g) => !g.metTarget).length;
-  const improved = gaps.filter((g) => g.assessed && g.metTarget).length;
+  const totalGaps = skillSummary.needsWorkCount;
+  const improved = skillSummary.onTargetCount;
   const projectTotal = projects.totalProjects ?? 0;
   const projectPct = projectTotal > 0 ? Math.round(((projects.completedProjects ?? 0) / projectTotal) * 100) : 0;
 
-  // Radar graph: biggest gaps first so the weakest areas stand out, max 8 axes.
-  const rankedGaps = [...gaps].sort((a, b) => (b.gapPercent ?? 0) - (a.gapPercent ?? 0));
+  // Radar graph: weakest assessed areas first, max 8 axes.
+  const rankedGaps = [...skillSummary.assessedGaps].sort((a, b) => (a.gapPercent ?? 0) - (b.gapPercent ?? 0));
   const radarSkills = rankedGaps.slice(0, 8).map((g) => ({
     name: g.skillName,
     score: g.assessed ? (g.scorePercent ?? 0) : 0,
     assessed: Boolean(g.assessed),
     target: g.targetPercent ?? 100,
   }));
-  const radarOverflow = gaps.length - radarSkills.length;
+  const radarOverflow = skillSummary.assessedCount - radarSkills.length;
   const biggestGap = rankedGaps.length > 0 ? rankedGaps[0] : null;
 
   return (
@@ -100,7 +103,7 @@ export default function StudentProgressPage() {
         title="My Progress"
         description={hasTarget ? `Tracking your journey towards ${readiness.targetCareerName}.` : "Choose a target career to start tracking real progress."}
         breadcrumb={<Breadcrumb items={[{ label: "Progress" }]} />}
-        actions={hasTarget ? <Badge variant="secondary">{prettifyEnum(readiness.readinessLevel)} · {readiness.readinessPercent}%</Badge> : null}
+        actions={readinessAvailable ? <Badge variant="secondary">{prettifyEnum(readiness.readinessLevel)} · {readiness.readinessPercent}%</Badge> : null}
       />
 
       {!hasTarget && (
@@ -128,6 +131,7 @@ export default function StudentProgressPage() {
             <CardDescription>{hasTarget ? readiness.targetCareerName : "Awaiting career selection"}</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col items-center gap-2 text-center">
+            {readinessAvailable ? (
             <CircularProgress
               value={readiness.readinessPercent ?? 0}
               size={128}
@@ -135,12 +139,17 @@ export default function StudentProgressPage() {
               tone={(readiness.readinessPercent ?? 0) >= 80 ? "green" : "primary"}
               label="Overall career readiness"
             >
-              <span className="text-3xl font-bold tracking-tight text-primary">{readiness.readinessPercent ?? 0}</span>
+              <span className="text-3xl font-bold tracking-tight text-primary">{readiness.readinessPercent}</span>
               <span className="text-[11px] font-medium text-muted-foreground">ready</span>
             </CircularProgress>
-            <p className="text-xs text-muted-foreground">
-              {readiness.assessedSkills ?? 0} of {readiness.totalSkills ?? 0} skills assessed · {readiness.metSkills ?? 0} on target
-            </p>
+            ) : (
+              <p className="max-w-xs py-8 text-sm text-muted-foreground">
+                {hasTarget ? "Submit an assessment to calculate career readiness." : "Choose a target career to calculate readiness."}
+              </p>
+            )}
+            {readinessAvailable && <p className="text-xs text-muted-foreground">
+              {skillSummary.assessedCount} of {readiness.totalSkills ?? 0} skills assessed · {improved} on target
+            </p>}
           </CardContent>
         </Card>
 
@@ -188,9 +197,8 @@ export default function StudentProgressPage() {
             <CardDescription>Required vs current competency</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
-            <div className="flex items-center justify-between"><span>Total gaps</span><span className="font-bold">{totalGaps}</span></div>
+            <div className="flex items-center justify-between"><span>Assessed skill gaps</span><span className="font-bold">{totalGaps}</span></div>
             <div className="flex items-center justify-between"><span>On target</span><span className="font-bold text-chart-3">{improved}</span></div>
-            <div className="flex items-center justify-between"><span>Remaining</span><span className="font-bold">{totalGaps}</span></div>
             {(readiness.strengths || []).length > 0 && (
               <p className="text-xs text-muted-foreground">Strongest: {(readiness.strengths || []).map((s) => s.skillName).join(", ")}</p>
             )}
@@ -218,7 +226,7 @@ export default function StudentProgressPage() {
                 </div>
               </div>
               <Badge variant="secondary" className="bg-emerald-500/10 font-extrabold text-emerald-700 dark:text-emerald-400">
-                {improved} of {gaps.length} skills on target
+                {improved} of {skillSummary.assessedCount} assessed skills on target
               </Badge>
             </div>
           </CardHeader>
@@ -228,8 +236,14 @@ export default function StudentProgressPage() {
               <div className="space-y-3">
                 <div className="rounded-2xl border border-border/60 bg-background/70 p-4">
                   <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Readiness</p>
-                  <p className="mt-1 text-3xl font-extrabold tracking-tight text-primary">{readiness.readinessPercent ?? 0}<span className="text-base font-bold">%</span></p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">{prettifyEnum(readiness.readinessLevel)} · {readiness.metSkills ?? 0}/{readiness.totalSkills ?? 0} skills at target</p>
+                  {readinessAvailable ? (
+                    <>
+                      <p className="mt-1 text-3xl font-extrabold tracking-tight text-primary">{readiness.readinessPercent}<span className="text-base font-bold">%</span></p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">{prettifyEnum(readiness.readinessLevel)} · {improved}/{skillSummary.assessedCount} assessed skills on target</p>
+                    </>
+                  ) : (
+                    <p className="mt-2 text-sm text-muted-foreground">Readiness is available after an assessment.</p>
+                  )}
                 </div>
                 {biggestGap && (
                   <div className="rounded-2xl border border-amber-500/30 bg-amber-500/[0.07] p-4">
@@ -266,7 +280,10 @@ export default function StudentProgressPage() {
             <p className="text-sm text-muted-foreground">No framework skills found. Select a target career first.</p>
           ) : (
             <ul className="space-y-3.5">
-              {[...gaps].sort((a, b) => (a.gapPercent ?? 0) - (b.gapPercent ?? 0)).map((skill) => {
+              {[...gaps].sort((a, b) => {
+                if (Boolean(a.assessed) !== Boolean(b.assessed)) return a.assessed ? -1 : 1;
+                return (a.gapPercent ?? 0) - (b.gapPercent ?? 0);
+              }).map((skill) => {
                 const pct = skill.assessed && skill.targetPercent ? Math.min(100, Math.round((skill.scorePercent / skill.targetPercent) * 100)) : 0;
                 return (
                   <li key={skill.skillId}>

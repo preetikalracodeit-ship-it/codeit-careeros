@@ -21,7 +21,17 @@ public record CollegeScope(
         Long membershipId,
         StaffDesignation designation,
         ScopeType scopeType,
-        Long scopeId) {
+        Long scopeId,
+        String institutionTimezone) {
+
+    public java.time.ZoneId institutionZone() {
+        try {
+            return institutionTimezone == null || institutionTimezone.isBlank()
+                    ? java.time.ZoneOffset.UTC : java.time.ZoneId.of(institutionTimezone);
+        } catch (java.time.DateTimeException ignored) {
+            return java.time.ZoneOffset.UTC;
+        }
+    }
 
     public boolean isInstitutionWide() {
         return scopeType == ScopeType.INSTITUTION;
@@ -40,11 +50,14 @@ public record CollegeScope(
     }
 
     public boolean canViewSensitiveProfile() {
-        return designation != StaffDesignation.FACULTY;
+        // Contact details and personal profile links stay hidden until the
+        // institution's field visibility policy is explicitly approved.
+        return false;
     }
 
     public boolean canViewCvAnalysis() {
-        return designation != StaffDesignation.FACULTY;
+        // CV/LinkedIn-derived data requires an explicit student-data policy.
+        return false;
     }
 
     public boolean canExport() {

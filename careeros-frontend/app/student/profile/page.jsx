@@ -381,12 +381,11 @@ export default function ProfilePage() {
             </CardContent>
           </Card>
 
-          <Card className="shadow-card">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Completion checklist</CardTitle>
-              <CardDescription>Real profile fields only.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-0">
+          <details className="rounded-xl border border-border/60 bg-card px-4 py-3 shadow-sm">
+            <summary className="cursor-pointer text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              Completion checklist <span className="ml-1 font-normal text-muted-foreground">{completion}%</span>
+            </summary>
+            <div className="mt-3">
               <ul className="space-y-1.5">
                 {checklist.map((item) => {
                   const done = String(form[item.key] || "").trim().length > 0;
@@ -402,8 +401,8 @@ export default function ProfilePage() {
                   );
                 })}
               </ul>
-            </CardContent>
-          </Card>
+            </div>
+          </details>
         </aside>
 
         <form onSubmit={handleSubmit} noValidate className="space-y-4">

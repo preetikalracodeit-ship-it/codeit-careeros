@@ -51,6 +51,7 @@ public class CollegeAccessService {
                 membership.getId(),
                 membership.getDesignation(),
                 membership.getScopeType(),
-                membership.getScopeId());
+                membership.getScopeId(),
+                membership.getInstitution().getTimezone());
     }
 }

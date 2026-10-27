@@ -18,5 +18,7 @@ public interface AssessmentAttemptRepository extends JpaRepository<AssessmentAtt
 
     long countByStatus(AttemptStatus status);
 
+    boolean existsByUserIdAndStatus(Long userId, AttemptStatus status);
+
     boolean existsByAssessmentId(Long assessmentId);
 }

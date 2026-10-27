@@ -6,11 +6,9 @@ import { useParams } from "next/navigation";
 import {
   ArrowLeft,
   Download,
-  ExternalLink,
   FileText,
   Gauge,
   Lock,
-  MapPin,
   Route,
   Share2,
   Target,
@@ -39,25 +37,6 @@ function InfoRow({ label, value }) {
     <div className="flex items-start justify-between gap-3 border-b border-border/40 py-2 text-sm last:border-0">
       <dt className="shrink-0 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</dt>
       <dd className="min-w-0 break-words text-right">{value}</dd>
-    </div>
-  );
-}
-
-function LinkRow({ label, href }) {
-  if (!href) return null;
-  return (
-    <div className="flex items-center justify-between gap-3 border-b border-border/40 py-2 text-sm last:border-0">
-      <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</dt>
-      <dd>
-        <a
-          href={href}
-          target="_blank"
-          rel="noreferrer"
-          className="inline-flex items-center gap-1 font-medium text-primary hover:underline"
-        >
-          Open <ExternalLink className="size-3" aria-hidden="true" />
-        </a>
-      </dd>
     </div>
   );
 }
@@ -100,11 +79,13 @@ export default function CollegeStudentDetailPage() {
     setLoading(true);
     setError("");
     try {
-      const [meData, detailData] = await Promise.all([
-        api.get("/college/me"),
-        api.get(`/college/students/${id}`),
-      ]);
+      const meData = await api.get("/college/me");
       setMe(meData);
+      if (!meData?.permissions?.includes("VIEW_STUDENTS")) {
+        setError("Your college role does not have permission to view student records.");
+        return;
+      }
+      const detailData = await api.get(`/college/students/${id}`);
       setDetail(detailData);
       setStatus(detailData?.enrollment?.status || "");
     } catch (err) {
@@ -172,7 +153,7 @@ export default function CollegeStudentDetailPage() {
   const linkedin = detail?.linkedInAnalysis;
   const permissions = detail?.permissions || {};
   const canManage = me?.permissions?.includes("MANAGE_STUDENTS");
-  const canReport = permissions.canViewReports || me?.permissions?.includes("GENERATE_REPORTS");
+  const canReport = me?.permissions?.includes("GENERATE_REPORTS");
 
   return (
     <div className="space-y-6">
@@ -219,31 +200,15 @@ export default function CollegeStudentDetailPage() {
             <dl>
               <InfoRow label="Student ID" value={profile.studentId} />
               <InfoRow label="Email" value={profile.email} />
-              <InfoRow label="Mobile" value={profile.mobile} />
-              <InfoRow label="Date of birth" value={profile.dateOfBirth ? formatDate(profile.dateOfBirth) : null} />
               <InfoRow label="College" value={profile.college} />
               <InfoRow label="Degree / branch" value={[profile.degree, profile.branch].filter(Boolean).join(" · ")} />
               <InfoRow label="Graduation" value={profile.graduationYear ? `Class of ${profile.graduationYear}` : null} />
               <InfoRow label="Semester" value={profile.semester ? `Semester ${profile.semester}` : null} />
-              <InfoRow
-                label="Location"
-                value={
-                  profile.location ? (
-                    <span className="inline-flex items-center gap-1">
-                      <MapPin className="size-3.5" aria-hidden="true" />
-                      {profile.location}
-                    </span>
-                  ) : null
-                }
-              />
-              <LinkRow label="GitHub" href={profile.githubUrl} />
-              <LinkRow label="LinkedIn" href={profile.linkedinUrl} />
-              <LinkRow label="Portfolio" href={profile.portfolioUrl} />
             </dl>
             {!permissions.canViewSensitiveProfile && (
               <p className="mt-3 flex items-start gap-2 rounded-lg bg-muted/60 p-2.5 text-xs text-muted-foreground">
                 <Lock className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
-                Contact details and CV analysis are hidden for faculty accounts.
+                Email, contact details and profile links are hidden until your institution approves their use.
               </p>
             )}
           </CardContent>

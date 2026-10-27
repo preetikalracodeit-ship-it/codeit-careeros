@@ -2,11 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Bell, ChevronRight, Menu, Search } from "lucide-react";
+import { ChevronRight, Menu, Search } from "lucide-react";
 import { StudentAvatar } from "@/components/student-avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { EmptyState } from "@/components/empty-state";
 import { usePathname } from "next/navigation";
 import { cn } from "cn";
 
@@ -39,7 +38,7 @@ function CommandSearch({ items }) {
     : items;
 
   return (
-    <div ref={boxRef} className="relative hidden w-full max-w-xs md:block">
+    <div ref={boxRef} className="relative hidden w-full max-w-xs lg:block">
       <Search
         className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground"
         aria-hidden="true"
@@ -96,78 +95,56 @@ function CommandSearch({ items }) {
   );
 }
 
-function NotificationsMenu() {
-  const [open, setOpen] = useState(false);
-  const [unread] = useState(0);
-  const boxRef = useRef(null);
-
-  useEffect(() => {
-    function onClickOutside(event) {
-      if (boxRef.current && !boxRef.current.contains(event.target)) {
-        setOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", onClickOutside);
-    return () => document.removeEventListener("mousedown", onClickOutside);
-  }, []);
-
-  return (
-    <div ref={boxRef} className="relative">
-      <Button
-        variant="ghost"
-        size="icon"
-        aria-label={unread > 0 ? `Notifications (${unread} unread)` : "Notifications"}
-        aria-haspopup="true"
-        aria-expanded={open}
-        className="relative rounded-full text-muted-foreground hover:text-foreground"
-        onClick={() => setOpen((v) => !v)}
-      >
-        <Bell className="size-5" aria-hidden="true" />
-        {unread > 0 && (
-          <span className="absolute top-1.5 right-1.5 flex size-2 rounded-full bg-chart-1 ring-2 ring-background" aria-hidden="true" />
-        )}
-      </Button>
-      {open && (
-        <div className="absolute top-12 right-0 z-40 w-80 rounded-2xl border border-border bg-card p-2 shadow-popover">
-          <div className="rounded-xl">
-            <EmptyState
-              compact
-              icon={Bell}
-              title="You're all caught up"
-              description="Notifications will appear here as your roadmap, assessments and reports progress."
-            />
-          </div>
-        </div>
-      )}
-    </div>
-  );
+function titleForPath(pathname, items, variant, fallback) {
+  if (pathname === "/college/import") return "Import students";
+  const match = items.find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`));
+  if (!match) {
+    const segment = pathname.split("/").filter(Boolean).at(-1) || "Dashboard";
+    return segment.replace(/[-_]/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+  }
+  if (pathname === match.href) return match.label;
+  if (pathname.startsWith(`${match.href}/`)) {
+    const suffix = pathname.slice(match.href.length).split("/").filter(Boolean);
+    if (suffix.includes("attempt")) return "Assessment attempt";
+    if (suffix.includes("students") && suffix.length > 1) return "Student profile";
+    if (suffix.includes("assessments") && suffix.length > 1) return "Question bank";
+    return `${match.label} details`;
+  }
+  return variant === "student" ? "CareerOS" : fallback || match.label;
 }
 
-function TopHeader({ items, title, user, initials, photoKey = null, photoVersion = 0, onMenuClick, variant = "student" }) {
+function TopHeader({ items, title, user, initials, photoKey = null, photoVersion = 0, menuButtonRef, menuOpen = false, onMenuClick, variant = "student" }) {
   const isStaff = variant === "admin" || variant === "college";
   const staffLabel = variant === "admin" ? "Administrator" : "College staff";
+  const pathname = usePathname();
+  const pageTitle = titleForPath(pathname, items, variant, title);
+
+  useEffect(() => {
+    document.title = `${pageTitle} | CODEIT CareerOS`;
+  }, [pageTitle]);
 
   return (
     <header className="glass-bar sticky top-0 z-30 flex h-16 shrink-0 items-center gap-3 border-b border-border/60 px-4 md:px-6">
       <Button
+        ref={menuButtonRef}
         variant="outline"
         size="icon"
-        className="rounded-full md:hidden"
+        className="rounded-full lg:hidden"
         onClick={onMenuClick}
         aria-label="Open navigation menu"
+        aria-controls="mobile-navigation"
+        aria-expanded={menuOpen}
       >
         <Menu className="size-5" aria-hidden="true" />
       </Button>
 
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-semibold">{title || "Dashboard"}</p>
+        <p className="truncate text-sm font-semibold">{pageTitle}</p>
       </div>
 
       <CommandSearch items={items} />
 
       <div className="flex items-center gap-1.5">
-        <NotificationsMenu />
-
         {isStaff ? (
           <div className="hidden items-center gap-2.5 rounded-full py-1 pr-2.5 pl-1.5 transition hover:bg-accent sm:flex">
             <StudentAvatar

@@ -12,7 +12,6 @@ import com.codeit.careeros.college.entity.Program;
 import com.codeit.careeros.college.entity.Section;
 import com.codeit.careeros.college.enums.ImportJobStatus;
 import com.codeit.careeros.college.enums.ImportRowStatus;
-import com.codeit.careeros.college.enums.StaffDesignation;
 import com.codeit.careeros.college.repository.AcademicYearRepository;
 import com.codeit.careeros.college.repository.BatchRepository;
 import com.codeit.careeros.college.repository.CsvImportJobRepository;
@@ -84,12 +83,8 @@ public class StudentCsvService {
         }
     }
 
-    private static final List<String> EXPORT_HEADERS_ADMIN = List.of(
-            "Student ID", "Roll Number", "Full Name", "Email", "Mobile",
-            "Department", "Program", "Batch", "Section", "Academic Year",
-            "Status", "Target Career", "Readiness %", "Assessment Completed");
     private static final List<String> EXPORT_HEADERS_STAFF = List.of(
-            "Student ID", "Roll Number", "Full Name", "Email",
+            "Student ID", "Roll Number", "Full Name",
             "Department", "Program", "Batch", "Section", "Academic Year",
             "Status", "Target Career", "Readiness %", "Assessment Completed");
 
@@ -121,21 +116,18 @@ public class StudentCsvService {
                             + " rows; narrow the filters to 10,000 rows or fewer");
         }
 
-        boolean includeMobile = scope.designation() == StaffDesignation.COLLEGE_ADMIN;
-        List<String> headers = includeMobile ? EXPORT_HEADERS_ADMIN : EXPORT_HEADERS_STAFF;
+        // Contact fields require an approved institutional policy and are not
+        // included in the shared role-based export.
+        List<String> headers = EXPORT_HEADERS_STAFF;
         StringBuilder csv = new StringBuilder();
         appendRow(csv, headers);
 
         for (var enrollment : enrollments) {
-            StudentDtos.CollegeStudentListItem item = studentService.toListItem(enrollment, scope);
+            StudentDtos.CollegeStudentListItem item = studentService.toListItem(enrollment, scope, filter);
             List<String> values = new ArrayList<>();
             values.add(item.studentId());
             values.add(item.rollNumber());
             values.add(item.fullName());
-            values.add(item.email());
-            if (includeMobile) {
-                values.add(enrollment.getStudentProfile().getMobile());
-            }
             values.add(item.departmentName());
             values.add(item.programName());
             values.add(item.batchLabel());

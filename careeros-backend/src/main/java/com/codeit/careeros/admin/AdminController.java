@@ -27,8 +27,9 @@ public class AdminController {
     @GetMapping("/students")
     public ApiResponse<PageResponse<StudentProfileResponse>> listStudents(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
-        return ApiResponse.success(adminStudentService.listStudents(page, size));
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String search) {
+        return ApiResponse.success(adminStudentService.listStudents(page, size, search));
     }
 
     @Operation(summary = "Student count (admin)")

@@ -109,7 +109,11 @@ public final class StudentDtos {
             Long programId,
             Long batchId,
             Long sectionId,
-            EnrollmentStatus status) {
+            EnrollmentStatus status,
+            Boolean assessmentCompleted,
+            Boolean readinessEvaluated,
+            java.time.LocalDate assessmentDateFrom,
+            java.time.LocalDate assessmentDateTo) {
     }
 
     public record StudentPageResponse(

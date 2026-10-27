@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { SidebarContent } from "@/components/shell/sidebar";
@@ -28,9 +28,56 @@ function AppShell({ items, variant = "student", title, children }) {
   const [photoKey, setPhotoKey] = useState(null);
   const [photoVersion, setPhotoVersion] = useState(0);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const menuButtonRef = useRef(null);
+  const drawerRef = useRef(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const isStaff = variant === "admin" || variant === "college";
+
+  useEffect(() => {
+    if (!drawerOpen) return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const focusableSelector =
+      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+    const drawer = drawerRef.current;
+    const menuButton = menuButtonRef.current;
+    const desktopMedia = window.matchMedia("(min-width: 64rem)");
+    const focusable = drawer?.querySelectorAll(focusableSelector);
+    focusable?.[0]?.focus();
+
+    function onBreakpointChange(event) {
+      if (event.matches) setDrawerOpen(false);
+    }
+
+    function onKeyDown(event) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setDrawerOpen(false);
+        return;
+      }
+      if (event.key !== "Tab" || !focusable?.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+
+    document.addEventListener("keydown", onKeyDown);
+    desktopMedia.addEventListener("change", onBreakpointChange);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", onKeyDown);
+      desktopMedia.removeEventListener("change", onBreakpointChange);
+      if (!desktopMedia.matches) menuButton?.focus();
+    };
+  }, [drawerOpen]);
 
   useEffect(() => {
     const id = setTimeout(() => setUser(auth.getUser() || {}), 0);
@@ -88,8 +135,9 @@ function AppShell({ items, variant = "student", title, children }) {
   return (
     <div className="min-h-screen bg-background">
       <aside
+        inert={drawerOpen}
         className={cn(
-          "fixed top-0 bottom-0 left-0 z-30 hidden w-64 border-r md:block",
+          "fixed top-0 bottom-0 left-0 z-30 hidden w-64 border-r lg:block",
           isStaff ? "border-pine-800 bg-pine-950" : "border-border/60 bg-card",
         )}
       >
@@ -106,21 +154,25 @@ function AppShell({ items, variant = "student", title, children }) {
 
       <div
         className={cn(
-          "fixed inset-0 z-40 bg-pine-950/60 transition-opacity md:hidden",
+          "fixed inset-0 z-40 bg-pine-950/60 transition-opacity lg:hidden",
           drawerOpen ? "opacity-100" : "pointer-events-none opacity-0",
         )}
         onClick={() => setDrawerOpen(false)}
         aria-hidden="true"
       />
       <aside
+        id="mobile-navigation"
+        ref={drawerRef}
         className={cn(
-          "fixed top-0 bottom-0 left-0 z-50 w-72 md:hidden",
+          "fixed top-0 bottom-0 left-0 z-50 w-[min(18rem,calc(100vw-2rem))] lg:hidden",
           isStaff ? "bg-pine-950 text-white" : "bg-card",
           "transition-transform duration-250 ease-out",
           drawerOpen ? "translate-x-0" : "-translate-x-full",
         )}
         aria-label="Mobile navigation"
-        aria-modal="true"
+        aria-modal={drawerOpen ? "true" : undefined}
+        aria-hidden={!drawerOpen}
+        inert={!drawerOpen}
         role="dialog"
       >
         <SidebarContent
@@ -138,7 +190,7 @@ function AppShell({ items, variant = "student", title, children }) {
         />
       </aside>
 
-      <div className="flex min-h-screen flex-col md:pl-64">
+      <div className="flex min-h-screen flex-col lg:pl-64" inert={drawerOpen}>
         <TopHeader
           items={items}
           title={title}
@@ -147,6 +199,8 @@ function AppShell({ items, variant = "student", title, children }) {
           photoKey={isStaff ? null : photoKey}
           photoVersion={photoVersion}
           variant={variant}
+          menuButtonRef={menuButtonRef}
+          menuOpen={drawerOpen}
           onMenuClick={() => setDrawerOpen(true)}
         />
         <main className="flex-1 px-4 py-6 md:px-8 md:py-8">

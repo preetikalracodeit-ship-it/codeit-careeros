@@ -2,10 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
-  ClipboardList,
-  FileBarChart,
   RefreshCw,
-  Route,
   TriangleAlert,
   Users,
 } from "lucide-react";
@@ -13,8 +10,6 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
-import { EmptyState } from "@/components/empty-state";
 import { StatCard } from "@/components/stat-card";
 import api from "@/lib/api";
 import { cn } from "cn";
@@ -33,16 +28,6 @@ function initialsOf(student) {
     .map((part) => part[0])
     .join("")
     .toUpperCase();
-}
-
-function topBranches(students, max = 5) {
-  const counts = new Map();
-  for (const student of students) {
-    const branch = String(student?.branch || "").trim();
-    if (!branch) continue;
-    counts.set(branch, (counts.get(branch) || 0) + 1);
-  }
-  return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, max);
 }
 
 export default function AdminDashboard() {
@@ -93,9 +78,6 @@ export default function AdminDashboard() {
     }
   }
 
-  const branchRows = topBranches(students);
-  const maxBranchCount = branchRows.length > 0 ? branchRows[0][1] : 1;
-
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -124,7 +106,7 @@ export default function AdminDashboard() {
         </Card>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4">
         <StatCard
           icon={Users}
           label="Registered students"
@@ -133,31 +115,10 @@ export default function AdminDashboard() {
           tone="primary"
           loading={loading}
         />
-        <StatCard
-          locked
-          lockLabel="Sprint 2–3"
-          icon={ClipboardList}
-          label="Assessments completed"
-          sub="Unlocks with the assessment engine"
-        />
-        <StatCard
-          locked
-          lockLabel="Sprint 4"
-          icon={Route}
-          label="Active roadmaps"
-          sub="Unlocks with roadmap generation"
-        />
-        <StatCard
-          locked
-          lockLabel="Sprint 6"
-          icon={FileBarChart}
-          label="Reports generated"
-          sub="Unlocks with the report module"
-        />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-5">
-        <Card className="lg:col-span-3">
+      <div className="grid gap-4">
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between gap-3">
             <div>
               <CardTitle className="text-base">Latest Students</CardTitle>
@@ -217,41 +178,6 @@ export default function AdminDashboard() {
           </CardContent>
         </Card>
 
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="text-base">Students by Branch</CardTitle>
-            <CardDescription>From the {students.length} most recent registrations.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {branchRows.length === 0 ? (
-              <EmptyState
-                compact
-                icon={Users}
-                title="No branch data yet"
-                description="Registered students will appear here once students start joining CareerOS."
-              />
-            ) : (
-              <div className="space-y-4">
-                {branchRows.map(([branch, branchCount]) => (
-                  <div key={branch}>
-                    <div className="mb-1.5 flex items-center justify-between gap-2 text-sm">
-                      <span className="truncate font-medium">{branch}</span>
-                      <span className="tnum text-xs font-semibold text-muted-foreground">
-                        {branchCount}
-                      </span>
-                    </div>
-                    <Progress
-                      value={(branchCount / maxBranchCount) * 100}
-                      tone="primary"
-                      className="h-2"
-                      aria-label={`${branch}: ${branchCount} students`}
-                    />
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
       </div>
     </div>
   );
