@@ -37,8 +37,7 @@ class RegisterMobileValidationTest {
                   "fullName": "Mobile Check",
                   "email": "%s",
                   "mobile": %s,
-                  "password": "Password1"
-                }
+                  "password": "Password1", "termsAccepted": true}
                 """.formatted(email, mobileFragment);
     }
 
@@ -92,8 +91,7 @@ class RegisterMobileValidationTest {
                                 {
                                   "fullName": "Mobile Check",
                                   "email": "%s",
-                                  "password": "Password1"
-                                }
+                                  "password": "Password1", "termsAccepted": true}
                                 """.formatted(email())))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errorCode").value("VALIDATION_ERROR"))

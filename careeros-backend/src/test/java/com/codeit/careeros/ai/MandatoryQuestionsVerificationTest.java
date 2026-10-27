@@ -145,7 +145,7 @@ class MandatoryQuestionsVerificationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"fullName":"Verify Student","email":"%s",
-                                 "mobile":"9876543210","password":"Password1"}""".formatted(email)))
+                                 "mobile":"9876543210","password":"Password1","termsAccepted":true}""".formatted(email)))
                 .andExpect(status().isCreated()).andReturn();
         return TestSupport.token(r, "accessToken");
     }

@@ -1,21 +1,24 @@
 # CODEIT CareerOS — Technical Discovery
 
-> **Audit-only document.** This file records what exists in the repository and what was observed on the live site. It does not implement, migrate, deploy, or change any application behavior. No production credentials or private student data were used.
+> **Audit record with a post-audit remediation addendum.** This file records what existed at the audit baseline and what was observed on the live site. The audit itself did not implement, migrate, deploy, or change application behavior. Later stabilization changes are uncommitted and are summarized in [CAREEROS_AUDIT_SUMMARY.md](CAREEROS_AUDIT_SUMMARY.md); the baseline findings retain their historical evidence value.
+
+> **Current working tree (2026-10-27):** Next.js `16.4.3`; backend `mvn -B verify` = 298 tests, 0 failures; `npm audit --audit-level=high` = 0 vulnerabilities; CI workflow, build-version endpoint, health probes, request IDs, consent gates, role cookie, and report-only CSP added. The live deployment has **not** been re-verified or redeployed. See the summary for current status.
 
 ## 0. Audit metadata
 
 | Item | Value |
 |---|---|
-| Audit date | 2026-10-26 |
+| Audit window | 2026-10-26 to 2026-10-27 |
 | Repository | `H:\Careeros` |
 | Branch | `main` |
-| Latest commit | `72f9a8d51205604b12591e21f0c8ae3ae1861c23` — 2026-10-16 12:33:47 +0530 |
-| Commit subject | Google Sign-In runtime fallback: public GET /auth/config plus frontend fallback and deploy logging |
+| Audit baseline commit | `72f9a8d` — 2026-10-16 12:33:47 +0530; this is the code the tests and review were run against |
+| Final repository HEAD | `1e00bdb` — 2026-10-26 16:57:57 +0530; adds privacy/terms pages and footer links after the initial review |
+| Baseline subject | Google Sign-In runtime fallback: public GET /auth/config plus frontend fallback and deploy logging |
 | Live site checked | `https://careeros.codeitinfotech.com` |
 | Backend | Spring Boot 3.5.4, Java 21, MySQL 8, Maven |
-| Frontend | Next.js 16.3.5, React 19.2.8, JavaScript/JSX |
+| Frontend | Next.js 16.3.5 at audit baseline; 16.4.3 in the current uncommitted working tree; React 19.2.8, JavaScript/JSX |
 | Audit method | Repository inspection, code-path review, existing automated tests, production build, `npm audit`, and unauthenticated public HTTP checks |
-| Change policy | No application code, schema, production data, migration, deployment, or secret was changed |
+| Change policy | The audit itself changed no application code, schema, production data, migration, deployment, or secret; subsequent remediation is uncommitted and listed in the audit summary |
 
 **Evidence limits**
 
@@ -24,6 +27,7 @@
 - No server/container access was available, so the deployed backend commit and nginx configuration could not be read directly.
 - No penetration test, fuzzing, load test, or browser automation suite was run.
 - The available product PDF is not the same requirement set as the audit brief. The conflict is documented in section 2.
+- The repository received unrelated privacy-policy/terms/footer commits during the audit. They were rechecked; they do not change the Phase 1 gap analysis, but they add a legal/consent finding and are not deployed live (`/legal/privacy` and `/legal/terms` return 404).
 
 ---
 
@@ -120,7 +124,7 @@ The browser normally calls the frontend's own `/api/*` path; Next rewrites that 
 | JWT | JJWT 0.12.6 | `pom.xml` |
 | Database | MySQL 8 | `application-prod.yml`, `docker-compose.prod.yml` |
 | Test DB | H2 in MySQL mode | `application-test.yml` |
-| Frontend | Next.js 16.3.5 | `careeros-frontend/package.json` |
+| Frontend | Next.js 16.3.5 baseline; 16.4.3 current working tree | `careeros-frontend/package.json` |
 | UI runtime | React 19.2.8 | `package.json` |
 | Production Node image | `node:22-alpine` | `careeros-frontend/Dockerfile` |
 | PDF generation | OpenPDF (`com.lowagie`) | `ReportService.java` |
@@ -291,9 +295,9 @@ Reports are owner-scoped to the authenticated student. PDF generation is real Op
 
 ### 5.1 Routes
 
-The production build contains 28 static pages plus dynamic routes:
+The production build contains 30 static pages plus dynamic routes:
 
-- Public: `/`, `/login`, `/register`.
+- Public: `/`, `/login`, `/register`, `/legal/privacy`, `/legal/terms`.
 - Student: dashboard, profile, careers, assessment, assessment attempt, roadmap, projects, CV, LinkedIn, progress, reports, AI, settings.
 - Admin: dashboard, students, careers, skills, assessments, assessment detail, roadmaps, projects, reports, AI, settings.
 - Catch-all section pages for unimplemented sections.
@@ -319,6 +323,25 @@ There are no college, TPO, professor, department, batch, import, audit, or mock-
 - The branch chart is computed from the 10 most recently fetched students, not the full population.
 - The admin reports page explicitly says student reports remain private; it is an overview, not report access.
 - Roadmaps and projects pages are explicitly read-only; PDF Phase 1 calls for management.
+
+### 5.5 Legal pages and consent (post-audit commit)
+
+The repository now contains static Privacy Policy and Terms of Service pages:
+
+- `app/legal/privacy/page.jsx` and `app/legal/terms/page.jsx`
+- `components/legal/privacy-part-1.js`, `privacy-part-2.js`, `terms-part-1.js`, and `terms-part-2.js`
+- footer links from the repository home page (`app/page.js`)
+
+They are a useful notice, but they are **not operational compliance**:
+
+- The contact details are placeholders: `admin@your-college.edu` and `https://careeros.your-college.edu`.
+- The privacy policy claims access/correction/deletion/portability rights, retention, and institutional sharing, but there is no request workflow, deletion path, retention job, or consent record in the code.
+- The registration checkbox text (“Terms” and “Privacy Policy”) is rendered as plain spans, not links (`app/register/page.jsx:216-222`).
+- The Google sign-up button is a separate path and does not require the checkbox. Consent can therefore be bypassed.
+- The policy says "By accessing or using the Service, you consent" (implied consent); it does not describe an AI-specific consent, data-processing contact, or opt-out.
+- The live site does not serve these pages yet: `/legal/privacy` and `/legal/terms` return 404.
+
+This should be treated as a partial privacy-notice improvement, not as completed consent/retention compliance.
 
 ---
 
@@ -373,6 +396,8 @@ These checks were unauthenticated and public. No credentials or private data wer
 | `GET /api/v1/auth/config` | **`401 UNAUTHORIZED`** — repository expects `200` public config |
 | `POST /api/v1/auth/google` with `{}` | **`404 NOT_FOUND`** — repository has this route; live backend does not |
 | `POST /api/v1/auth/login` with `{}` | `400 VALIDATION_ERROR` — live login route exists and validates input |
+| `GET /legal/privacy` | **`404`** — legal page exists in HEAD but is not deployed |
+| `GET /legal/terms` | **`404`** — legal page exists in HEAD but is not deployed |
 | `GET /actuator/health` through the site | Frontend 404 (not rewritten); backend health not public through the site |
 | `http://careeros.codeitinfotech.com:8080/actuator/health` | Connection timed out |
 | `https://careeros.codeitinfotech.com:8080/...` | Connection timed out |
@@ -381,10 +406,10 @@ These checks were unauthenticated and public. No credentials or private data wer
 
 **Interpretation**
 
-- The frontend is newer than the backend, or nginx routes `/api` to a stale backend. The live backend does not expose the Oct-16 Google routes.
+- The live frontend contains the Oct-16 Google code but not the newer legal pages. The live backend is older still: it does not expose the Oct-16 Google routes. This is a multi-version deployment drift, not a single stale container.
 - Google Sign-In is broken live: the button can render from the baked client ID, but the credential POST hits a 404.
 - Email/password login still exists live, but a successful login was not attempted.
-- The live site cannot be treated as a faithful deployment of commit `72f9a8d` until deployment parity is established.
+- The live site cannot be treated as a faithful deployment of either commit `72f9a8d` or HEAD until deployment parity is established.
 
 ---
 
@@ -392,7 +417,7 @@ These checks were unauthenticated and public. No credentials or private data wer
 
 | Claim | Status | Evidence |
 |---|---|---|
-| Student email/password auth works | **Verified by automated tests** | 278-test suite; auth integration tests |
+| Student email/password auth works | **Verified by automated tests** | 298-test current suite (278 at audit baseline); auth integration tests |
 | Student profile CRUD works | Verified by tests | profile integration tests |
 | Assessment start/submit/scoring/ownership | Verified by tests | assessment integration tests |
 | Readiness weighted calculation | Verified by tests and code review | `CareerInsightService`, test suite |
@@ -408,8 +433,11 @@ These checks were unauthenticated and public. No credentials or private data wer
 | Audit log exists | **Disproved** | no audit entity/table; only application logs |
 | Mock interviews exist | **Disproved** | no module, route, or table |
 | Tenant isolation exists | **Disproved** | no institution/tenant key or scoped query |
+| Privacy Policy and Terms pages exist in the repository | **Verified** | `app/legal/*` and `components/legal/*`; build includes both routes |
+| Privacy Policy and Terms are live | **Disproved** | public `GET /legal/privacy` and `/legal/terms` return 404 |
+| Operational consent/retention/deletion exists | **Disproved** | static policy text only; no consent record, request workflow, retention job, or deletion path |
 | Backend is production-ready for college PII | **Not established** | missing tenant model, staff roles, audit, export controls; critical dependency issue |
-| All tests pass | **Disproved** | 1 of 278 tests fails |
+| All tests pass | **Disproved** | Baseline: 1 of 278 failed; current working tree: 298/0 |
 
 ---
 
@@ -424,8 +452,9 @@ If the brief's college/TPO Phase 1 is approved, the minimum architecture work is
 5. **College read models** — scoped student search/360, assessment/readiness aggregates, skill-gap aggregation, dashboard filters and drill-down.
 6. **Reports and exports** — authorized staff report access, CSV exports with formula-injection defenses, field-level permissions, export audit.
 7. **Mock interviews** — clarify scheduling/outcome tracking versus AI simulation; either way, the current code has no module.
-8. **Operational hardening** — migrations, CI, backup/restore test, monitoring, deployment parity, CSP/token hardening, dependency remediation.
-9. **Isolation tests** — at least two institutions, forged IDs, cross-college denied access, export scoping, audit events.
+8. **Privacy and consent** — correct the placeholder legal contacts, link the registration terms/privacy text, require consent for Google sign-up too, record consent server-side where required, and implement the access/deletion/retention rights the policy describes.
+9. **Operational hardening** — migrations, CI, backup/restore test, monitoring, deployment parity, CSP/token hardening, dependency remediation.
+10. **Isolation tests** — at least two institutions, forged IDs, cross-college denied access, export scoping, audit events.
 
 None of these should be built as a separate app or by duplicating the existing student services. The college workspace should reuse the existing CareerOS read models through new staff-authorized service methods.
 
@@ -461,6 +490,13 @@ Primary code and documentation references:
 - `careeros-frontend/app/admin/reports/page.jsx`
 - `careeros-frontend/app/admin/roadmaps/page.jsx`
 - `careeros-frontend/app/admin/projects/page.jsx`
+- `careeros-frontend/app/legal/privacy/page.jsx`
+- `careeros-frontend/app/legal/terms/page.jsx`
+- `careeros-frontend/components/legal/privacy-part-1.js`
+- `careeros-frontend/components/legal/privacy-part-2.js`
+- `careeros-frontend/components/legal/terms-part-1.js`
+- `careeros-frontend/components/legal/terms-part-2.js`
+- `careeros-frontend/app/register/page.jsx`
 - `docker-compose.prod.yml`
 - `deploy-prod.sh`
 - `docs/BACKUP_RESTORE.md`

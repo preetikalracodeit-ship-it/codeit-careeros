@@ -215,8 +215,7 @@ class AssessmentExpiryIntegrationTest {
                                   "fullName": "Expiry Student",
                                   "email": "%s",
                                   "mobile": "9876543220",
-                                  "password": "Password1"
-                                }
+                                  "password": "Password1", "termsAccepted": true}
                                 """.formatted(email)))
                 .andExpect(status().isCreated())
                 .andReturn();

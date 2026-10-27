@@ -173,6 +173,17 @@ set -a; . "./$ENV_FILE"; set +a
 # leak into the frontend build through the exported environment.
 export FRONTEND_API_URL=""
 export API_PROXY_URL="http://backend:8080"
+# Record the deployed identity when the operator has not supplied one. This is
+# public, non-sensitive, and lets /api/v1/meta/version and /health prove which
+# build is actually serving traffic.
+if [ "${APP_BUILD_COMMIT:-unknown}" = "unknown" ] && command -v git >/dev/null 2>&1; then
+  APP_BUILD_COMMIT="$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
+  export APP_BUILD_COMMIT
+fi
+if [ "${APP_VERSION:-unknown}" = "unknown" ] && command -v git >/dev/null 2>&1; then
+  APP_VERSION="$(git describe --tags --always --dirty 2>/dev/null || echo unknown)"
+  export APP_VERSION
+fi
 # Google Sign-In: NEXT_PUBLIC_GOOGLE_CLIENT_ID is baked into the frontend at
 # BUILD time (docker-compose.prod.yml maps GOOGLE_CLIENT_ID -> build-arg).
 # Sourcing backend.env above exports it, but make it explicit + visible so a
@@ -253,6 +264,7 @@ echo
 echo "================ DEPLOY COMPLETE ================"
 echo "Open the app : $FRONTEND_ORIGIN"
 echo "API (proxied): $FRONTEND_ORIGIN/api/v1/... (same origin, no mixed content)"
+echo "Build identity: version=${APP_VERSION:-unknown} commit=${APP_BUILD_COMMIT:-unknown}"
 if [ -n "${GOOGLE_CLIENT_ID:-}" ]; then
   echo "Google button: enabled (GOOGLE_CLIENT_ID set; also served at runtime via /api/v1/auth/config)."
 else

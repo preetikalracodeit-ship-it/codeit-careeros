@@ -130,14 +130,14 @@ Build arg: `API_PROXY_URL=http://backend:8080` (server-side target).
 
 1. Provision MySQL 8, create DB + least-privilege user.
 2. Apply schema (validated migrations, `JPA_DDL_AUTO=validate`).
-3. Create `backend.env` from `.env.example` (strong `JWT_SECRET`, real DB creds, exact CORS origins).
+3. Create `backend.env` from `.env.example` (strong `JWT_SECRET`, real DB creds, exact CORS origins, approved `LEGAL_CONTACT_EMAIL`/`LEGAL_WEBSITE`, and `APP_BUILD_COMMIT`/`APP_VERSION` if not auto-derived).
 4. First boot creates the admin from `ADMIN_EMAIL/ADMIN_PASSWORD` only if no users exist; rotate afterwards.
 5. `./deploy-prod.sh <public-host-or-ip>` from the repo root (recommended —
    creates `backend.env`, generates first-run secrets, aligns
    `FRONTEND_API_URL`/`CORS_ALLOWED_ORIGINS`, bootstraps an empty DB once,
    rebuilds and health-checks). Manual equivalent:
    `docker compose -f docker-compose.prod.yml up -d --build`.
-6. Verify: `GET /actuator/health` → `{"status":"UP"}` (no details exposed), login flow, key student pages.
+6. Verify from the host: `FRONTEND_URL=https://<host> BACKEND_URL=http://127.0.0.1:8080 ./scripts/smoke-deployment.sh`. It checks frontend `/health`, legal routes, public auth config, build identity, protected-route denial, Google-route existence, and backend liveness/readiness. Compare `/api/v1/meta/version` with the tested commit.
 7. Confirm Swagger is off in prod (`springdoc … enabled: false`).
 
 ## 13–14. Database backup / restore

@@ -1,6 +1,8 @@
 # CODEIT CareerOS — Implementation Roadmap
 
-> **Planning document only.** No feature is implemented by this roadmap. It preserves the existing MySQL + Spring Boot + Next.js architecture and assumes the audit's recommendation to re-baseline the brief's Phase 1 before building.
+> **Planning document plus Phase 0 status.** The College/TPO phases below are not implemented. It preserves the existing MySQL + Spring Boot + Next.js architecture and assumes the audit's recommendation to re-baseline the brief's Phase 1 before building. Phase 0 stabilization work is in the working tree but is uncommitted and undeployed; see [CAREEROS_AUDIT_SUMMARY.md](CAREEROS_AUDIT_SUMMARY.md).
+
+> **Phase 0 status (2026-10-27):** dependency/test stabilization, build/version visibility, health probes, request IDs, consent enforcement, role-cookie migration, report-only CSP, rate-limiter hardening, CI workflow, and a deployment smoke script are locally implemented and verified (backend 298/0; frontend build/lint pass; npm audit 0; local smoke 9/9). Phase 1A remains blocked on an approved role/membership matrix and migration strategy.
 
 ## 0. Principles
 
@@ -26,6 +28,7 @@
 - Is placement status part of Phase 1? There is no placement model today.
 - Which fields may each designation see (mobile, DOB, CV, AI chat, LinkedIn)?
 - Which institution is the pilot, and who owns data mapping/approval?
+- Who owns the privacy/terms text, consent model, retention schedule, and data-subject request process? The current pages use placeholder contacts and the Google signup path bypasses the consent checkbox.
 
 **Exit criteria:** written scope, role matrix, field-visibility matrix, pilot institution, and acceptance criteria. Do not implement dashboards before this gate.
 
@@ -33,7 +36,7 @@
 
 ## 2. Phase 0 — Release stabilization (before college code)
 
-Target: 1–3 working days, assuming no framework-upgrade surprises.
+Target: 2–4 working days, assuming no framework-upgrade surprises.
 
 ### 2.1 Fix the release blockers
 
@@ -72,14 +75,22 @@ Target: 1–3 working days, assuming no framework-upgrade surprises.
    - Keep HSTS and existing headers.
    - Longer-term: move staff sessions toward HttpOnly/server-validated cookies or a BFF; do not pretend the current localStorage scheme is XSS-safe.
 
+7. **Legal/consent alignment**
+   - Replace placeholder privacy/terms contacts (`admin@your-college.edu`, `careeros.your-college.edu`) with approved details.
+   - Make the registration Terms/Privacy text actual links.
+   - Require the consent checkbox for email **and** Google sign-up.
+   - Record consent server-side where required, and implement the access/deletion/retention rights the policy claims.
+   - Deploy `/legal/privacy` and `/legal/terms`; they currently return 404 live.
+
 **Phase 0 exit criteria**
 
 - `mvn test` green (278+ tests).
-- `npm run lint` and `npm run build` green.
+- `npm run lint` and `npm run build` green (current HEAD builds 30 static pages).
 - No critical/high frontend advisory unresolved without a written exception.
-- Live frontend/backend commit parity demonstrated.
+- Live frontend/backend commit parity demonstrated, including legal and auth routes.
 - Migration mechanism tested on a copy.
 - CI runs on the default branch.
+- Privacy contacts are accurate and consent is enforced on all signup paths.
 
 ---
 
@@ -351,7 +362,7 @@ Target: 1 week.
 - CSP enforcement; token storage decision.
 - Dependency audit and image scan.
 - Audit-log review and retention.
-- Privacy notice/consent and DPA input.
+- Privacy-policy accuracy, linked consent, retention/deletion workflow, and DPA input.
 - Backup/restore drill on a copy.
 - Migration rehearsal and rollback note.
 - Load test with realistic cohort sizes; check dashboard query plans and indexes.
@@ -365,6 +376,7 @@ Target: 1 week.
 - [ ] Migrations applied on a copy and verified.
 - [ ] Backup/restore drill passes.
 - [ ] Deployed frontend/backend commit parity verified.
+- [ ] Privacy pages deployed with accurate contacts; consent enforced for email and Google signup; retention/deletion defined.
 - [ ] Staging acceptance by a real TPO/faculty proxy user.
 - [ ] No critical/high security exception open.
 - [ ] Rollback and incident contacts documented.
@@ -378,7 +390,7 @@ These are planning ranges, not commitments. Validate after Gate 0.
 | Phase | Indicative effort | Depends on |
 |---|---:|---|
 | Gate 0 — scope/role/field decisions | 1–2 days | Product/college owner |
-| Phase 0 — stabilization | 1–3 days | Gate 0 not strictly required for dependency/test fixes |
+| Phase 0 — stabilization | 2–4 days | Gate 0 not strictly required for dependency/test/legal fixes |
 | Phase 1A — tenant foundation | 1–2 weeks | Phase 0, Gate 0 |
 | Phase 1B — CSV import | 1–2 weeks | Phase 1A |
 | Phase 1C — student management/360 | 1–2 weeks | Phase 1A, 1B |
@@ -429,8 +441,8 @@ Concretely:
 
 1. Get written Phase 1 scope and role/field-matrix approval.
 2. Patch Next.js to `16.4.3+`, fix the stale Gemini test, and make CI green.
-3. Redeploy/repair the backend so live Google Sign-In and `/auth/config` match the tested frontend.
-4. Approve the tenant data model and migration approach.
+3. Redeploy/repair the backend so live Google Sign-In and `/auth/config` match the tested frontend, and deploy the legal pages.
+4. Fix the placeholder privacy contacts and consent bypass, and approve the tenant data model and migration approach.
 5. Implement Phase 1A (institution + `PROFESSOR`/membership + invite-only onboarding + isolation tests) before any dashboard, import, or export work.
 
 This order protects student data, avoids building on a global admin service, and gives the team a defensible release gate.

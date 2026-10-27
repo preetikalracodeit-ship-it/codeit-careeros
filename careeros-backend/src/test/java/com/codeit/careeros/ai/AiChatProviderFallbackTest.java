@@ -62,8 +62,7 @@ class AiChatProviderFallbackTest {
                                   "fullName": "Fallback Student",
                                   "email": "fallback@test.local",
                                   "mobile": "9876543210",
-                                  "password": "Password1"
-                                }
+                                  "password": "Password1", "termsAccepted": true}
                                 """))
                 .andExpect(status().isCreated())
                 .andReturn();
@@ -102,8 +101,7 @@ class AiChatProviderFallbackTest {
                                   "fullName": "General Fallback Student",
                                   "email": "fallback-general@test.local",
                                   "mobile": "9876543210",
-                                  "password": "Password1"
-                                }
+                                  "password": "Password1", "termsAccepted": true}
                                 """))
                 .andExpect(status().isCreated())
                 .andReturn();
@@ -142,8 +140,7 @@ class AiChatProviderFallbackTest {
                                   "fullName": "Honest Fallback Student",
                                   "email": "fallback-honest@test.local",
                                   "mobile": "9876543210",
-                                  "password": "Password1"
-                                }
+                                  "password": "Password1", "termsAccepted": true}
                                 """))
                 .andExpect(status().isCreated())
                 .andReturn();

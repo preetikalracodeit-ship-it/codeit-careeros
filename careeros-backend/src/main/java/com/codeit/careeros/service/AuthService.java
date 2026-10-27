@@ -47,9 +47,13 @@ public class AuthService {
     @Value("${app.jwt.refresh-expiration-ms:604800000}")
     private long refreshExpirationMs;
 
+    @Value("${app.privacy.policy-version:2026-10-26}")
+    private String privacyPolicyVersion;
+
     @Transactional
     public AuthResponse register(RegisterRequest request) {
         String email = request.email().toLowerCase().trim();
+        requireTerms(request.termsAccepted());
         if (userRepository.existsByEmail(email)) {
             throw BusinessException.conflict("An account with this email already exists");
         }
@@ -73,6 +77,8 @@ public class AuthService {
         studentProfileRepository.save(profile);
 
         log.info("Registered student {} ({})", user.getEmail(), user.getId());
+        log.info("Terms/Privacy consent recorded for user {} policy={} method=password",
+                user.getId(), privacyPolicyVersion);
         return issueTokens(user);
     }
 
@@ -94,11 +100,14 @@ public class AuthService {
      * stays disabled for them — they must keep using Google).
      */
     @Transactional
-    public AuthResponse googleLogin(String idToken) {
+    public AuthResponse googleLogin(String idToken, Boolean termsAccepted) {
         GoogleTokenVerifier.VerifiedGoogleUser googleUser = googleTokenVerifier.verify(idToken);
         String email = googleUser.email();
         User user = userRepository.findByEmail(email).orElse(null);
         if (user == null) {
+            // Google authentication proves identity, not acceptance of the
+            // Terms/Privacy Policy. Only new accounts must opt in explicitly.
+            requireTerms(termsAccepted);
             user = User.builder()
                     .email(email)
                     .passwordHash(passwordEncoder.encode(UUID.randomUUID().toString() + "-google-oauth"))
@@ -115,10 +124,19 @@ public class AuthService {
                     .build();
             studentProfileRepository.save(profile);
             log.info("Registered student via Google {} ({})", user.getEmail(), user.getId());
+            log.info("Terms/Privacy consent recorded for user {} policy={} method=google",
+                    user.getId(), privacyPolicyVersion);
         } else {
             log.info("Logged in user via Google {} ({})", user.getEmail(), user.getId());
         }
         return issueTokens(user);
+    }
+
+    private static void requireTerms(Boolean accepted) {
+        if (!Boolean.TRUE.equals(accepted)) {
+            throw BusinessException.badRequest(
+                    "You must accept the Terms of Service and Privacy Policy to create an account");
+        }
     }
 
     private static String truncate(String value, int max) {

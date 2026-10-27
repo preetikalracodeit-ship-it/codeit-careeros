@@ -22,6 +22,10 @@ public record RegisterRequest(
 
         @NotBlank(message = "Password is required")
         @StrongPassword
-        String password
+        String password,
+
+        // Must be explicitly true for a new account. Existing accounts are
+        // unaffected because this only applies to registration.
+        Boolean termsAccepted
 ) {
 }

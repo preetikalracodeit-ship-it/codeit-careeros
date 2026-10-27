@@ -68,8 +68,7 @@ class AiChatGeminiInvalidKeyTest {
                                   "fullName": "Bad Gemini Key Student",
                                   "email": "geminibadkey@test.local",
                                   "mobile": "9876543210",
-                                  "password": "Password1"
-                                }
+                                  "password": "Password1", "termsAccepted": true}
                                 """))
                 .andExpect(status().isCreated())
                 .andReturn();

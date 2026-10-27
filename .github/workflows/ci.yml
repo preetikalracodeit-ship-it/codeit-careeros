@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    name: Frontend lint, build, dependency audit
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: careeros-frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: careeros-frontend/package-lock.json
+
+      - name: Install from lockfile
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Production build
+        run: npm run build
+        env:
+          API_PROXY_URL: http://localhost:8080
+          NEXT_TELEMETRY_DISABLED: "1"
+
+      - name: Dependency audit (fail on high/critical)
+        run: npm audit --audit-level=high
+
+  backend:
+    name: Backend tests and package
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: careeros-backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - name: Verify (compile, tests, package)
+        run: mvn -B verify
+        env:
+          MAVEN_OPTS: -Djava.awt.headless=true

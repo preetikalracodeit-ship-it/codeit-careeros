@@ -40,8 +40,7 @@ class AuthControllerIntegrationTest {
                                   "fullName": "Test Student",
                                   "email": "auth1@test.local",
                                   "mobile": "9876543210",
-                                  "password": "Password1"
-                                }
+                                  "password": "Password1", "termsAccepted": true}
                                 """))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.success").value(true))
@@ -65,8 +64,7 @@ class AuthControllerIntegrationTest {
                                   "fullName": "First User",
                                   "email": "dup@test.local",
                                   "mobile": "9876543210",
-                                  "password": "Password1"
-                                }
+                                  "password": "Password1", "termsAccepted": true}
                                 """))
                 .andExpect(status().isCreated());
 
@@ -77,12 +75,30 @@ class AuthControllerIntegrationTest {
                                   "fullName": "Duplicate User",
                                   "email": "dup@test.local",
                                   "mobile": "9876543210",
-                                  "password": "Password1"
-                                }
+                                  "password": "Password1", "termsAccepted": true}
                                 """))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.errorCode").value("CONFLICT"));
+    }
+
+    @Test
+    @DisplayName("Register without Terms/Privacy consent returns 400")
+    void register_withoutConsent_rejected() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "fullName": "No Consent",
+                                  "email": "no-consent@test.local",
+                                  "mobile": "9876543210",
+                                  "password": "Password1"
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value(
+                        org.hamcrest.Matchers.containsString("Terms")));
     }
 
     @Test
@@ -135,6 +151,25 @@ class AuthControllerIntegrationTest {
                                 """))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.errorCode").value("UNAUTHORIZED"));
+    }
+
+    @Test
+    @DisplayName("Public auth config is available without a session")
+    void authConfig_isPublic() throws Exception {
+        mockMvc.perform(get("/api/v1/auth/config"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.googleConfigured").isBoolean());
+    }
+
+    @Test
+    @DisplayName("Google sign-in route exists and validates an empty body")
+    void googleRoute_validatesBody() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/google")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errorCode").value("VALIDATION_ERROR"));
     }
 
     @Test
@@ -201,8 +236,7 @@ class AuthControllerIntegrationTest {
                                   "fullName": "Student %s",
                                   "email": "%s",
                                   "mobile": "9876543210",
-                                  "password": "Password1"
-                                }
+                                  "password": "Password1", "termsAccepted": true}
                                 """.formatted(email, email)))
                 .andExpect(status().isCreated())
                 .andReturn();

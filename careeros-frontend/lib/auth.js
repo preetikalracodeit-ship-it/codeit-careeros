@@ -1,7 +1,11 @@
 const ACCESS_KEY = "careeros_access";
 const REFRESH_KEY = "careeros_refresh";
 const USER_KEY = "careeros_user";
-const COOKIE_NAME = "careeros_token";
+// Non-sensitive routing hint only. The access token is deliberately NOT
+// copied into a JavaScript-readable cookie; the backend remains the sole
+// authority for authentication and authorization.
+const ROLE_COOKIE_NAME = "careeros_role";
+const LEGACY_COOKIE_NAME = "careeros_token";
 
 function decodeJwt(token) {
   try {
@@ -38,7 +42,10 @@ export const auth = {
     localStorage.setItem(ACCESS_KEY, accessToken);
     if (refreshToken) localStorage.setItem(REFRESH_KEY, refreshToken);
     if (user) localStorage.setItem(USER_KEY, JSON.stringify(user));
-    setCookie(COOKIE_NAME, accessToken);
+    const role = user?.role || decodeJwt(accessToken)?.role;
+    if (role) setCookie(ROLE_COOKIE_NAME, role);
+    // Remove the old token-in-cookie copy on the next successful session save.
+    clearCookie(LEGACY_COOKIE_NAME);
   },
 
   getAccessToken() {
@@ -77,8 +84,9 @@ export const auth = {
     localStorage.removeItem(ACCESS_KEY);
     localStorage.removeItem(REFRESH_KEY);
     localStorage.removeItem(USER_KEY);
-    clearCookie(COOKIE_NAME);
+    clearCookie(ROLE_COOKIE_NAME);
+    clearCookie(LEGACY_COOKIE_NAME);
   },
 };
 
-export { decodeJwt, COOKIE_NAME };
+export { decodeJwt, ROLE_COOKIE_NAME, LEGACY_COOKIE_NAME };

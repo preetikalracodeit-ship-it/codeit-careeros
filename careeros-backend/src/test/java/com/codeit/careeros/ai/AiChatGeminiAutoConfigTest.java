@@ -56,6 +56,8 @@ class AiChatGeminiAutoConfigTest {
         // tests; the Gemini provider reuses it when GEMINI_API_KEY is blank.
         assertThat(aiProperties.effectiveApiKey()).isEqualTo("test-key-for-stubbed-chat-model");
         assertThat(aiProperties.isConfigured()).isTrue();
-        assertThat(aiProperties.effectiveModel()).isEqualTo("gemini-2.0-flash");
+        // application.yml uses gemini-2.5-flash (the GA default); 2.0-flash was
+        // shut down on 2026-06-01 and must not be selected implicitly.
+        assertThat(aiProperties.effectiveModel()).isEqualTo("gemini-2.5-flash");
     }
 }

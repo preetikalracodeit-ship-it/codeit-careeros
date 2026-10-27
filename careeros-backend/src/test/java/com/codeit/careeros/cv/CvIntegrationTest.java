@@ -309,8 +309,7 @@ class CvIntegrationTest {
                                   "fullName": "CV Student",
                                   "email": "%s",
                                   "mobile": "9876543219",
-                                  "password": "Password1"
-                                }
+                                  "password": "Password1", "termsAccepted": true}
                                 """.formatted(email)))
                 .andExpect(status().isCreated())
                 .andReturn();

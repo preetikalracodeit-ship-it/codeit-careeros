@@ -175,7 +175,7 @@ class ProgressIntegrationTest {
         MvcResult reg = mockMvc.perform(post("/api/v1/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"fullName": "Progress Student", "email": "%s", "mobile": "9876543219", "password": "Password1"}
+                                {"fullName": "Progress Student", "email": "%s", "mobile": "9876543219", "password": "Password1", "termsAccepted": true}
                                 """.formatted(email)))
                 .andExpect(status().isCreated()).andReturn();
         return TestSupport.token(reg, "accessToken");

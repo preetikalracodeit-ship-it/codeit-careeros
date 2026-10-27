@@ -1,6 +1,8 @@
 # CODEIT CareerOS — Security and Production Audit
 
-> **Audit-only document.** Findings are based on code review, existing automated tests, the production build, `npm audit`, and unauthenticated public HTTP checks. No exploit was run against production, no credentials were used, and no data was changed.
+> **Audit record with a remediation addendum.** Findings below describe the audit baseline and remain the evidence of record. Safe remediation was later implemented locally and is **uncommitted and undeployed**; see [CAREEROS_AUDIT_SUMMARY.md](CAREEROS_AUDIT_SUMMARY.md). No exploit was run against production, no credentials were used, and no production data was changed.
+
+> **Remediation snapshot (2026-10-27):** `next` upgraded to `16.4.3` and npm audit is clean; backend suite is 298/0; CI workflow added but not run on the host; build-version and health probes, request IDs, consent gates, role cookie, report-only CSP, COOP, and rate-limiter hardening are present. Still open: S1 tenant model, S3 live parity, S4 durable audit, S5 migrations, S7 localStorage token exposure, S13 published backend port, S20 privacy operations, S21 backend SCA, S23 durable consent/approved contacts. No migration or tenant schema was added.
 
 ## 0. Scope and method
 
@@ -14,6 +16,7 @@
 - Secrets, uploads, AI data flow, and dependency posture.
 - Deployment, migrations, backups, monitoring, and release readiness.
 - Live deployment consistency where it could be checked without credentials.
+- Late repository changes: privacy-policy/terms pages and footer links were added during the audit and rechecked. They are static notice pages, and the live routes return 404.
 
 ### Out of scope / not performed
 
@@ -42,7 +45,7 @@
 |---|---|---|---|---|
 | S1 | **Critical (Phase 1 design blocker)** | No tenant/institution model or staff authorization. | `Role.java` has only `STUDENT, ADMIN`; no institution/department/enrollment/membership tables; admin list is global. | Build canonical institution/enrollment/membership model and server-derived scoping before any TPO endpoint. Add two-institution isolation tests. |
 | S2 | **Critical** | `next@16.3.5` has multiple critical advisories, including unauthenticated RCE paths; direct production dependency. | `npm audit`: critical `next`, range `16.0.0–16.4.0`; fix `16.4.3`. App uses `next/image`. | Upgrade to `16.4.3` (or later patched), reinstall, run lint/build, re-audit. Do not deploy the current pin. |
-| S3 | **High** | Live backend is stale/inconsistent with the live frontend. | Public `GET /auth/config` = 401; `POST /auth/google` = 404; repo has both routes and permits config. Frontend bundle contains the newer Google code. | Establish deployment parity, expose a commit/version identifier, redeploy backend, verify routes. |
+| S3 | **High** | Live deployment is inconsistent across frontend, backend, and HEAD. | Public `GET /auth/config` = 401; `POST /auth/google` = 404; frontend bundle contains the Oct-16 Google code but `/legal/privacy` and `/legal/terms` return 404 even though they exist in HEAD. | Establish deployment parity, expose a commit/version identifier, redeploy backend and frontend, verify routes. |
 | S4 | **High** | No durable audit trail for sensitive actions. | No audit table/entity; only application logs for some admin/auth/AI events. No actor/institution/before-after/request ID. | Add append-only audit events for staff/admin reads and writes, imports, exports, invitations, role changes, report/CV access. |
 | S5 | **High** | No versioned migrations; prod schema changes are manual. | No `db/migration`; first deploy uses `ddl-auto=update`, then `validate`; a past column change is documented as a manual `ALTER TABLE`. | Introduce a migration mechanism and runbook; test forward migration and rollback on a copy. |
 | S6 | **High** | Backend test suite is red and there is no CI gate. | 278 tests, 1 failure in `AiChatGeminiAutoConfigTest`; no `.github` pipeline. | Fix stale expectation, make `mvn test` green, add CI for backend tests + frontend lint/build + audit. |
@@ -51,7 +54,7 @@
 | S9 | **Medium** | Auth rate limiter trusts the first `X-Forwarded-For` and keeps an unbounded IP map. | `AuthRateLimitFilter.java:93-100`; in-memory map never evicts keys. | Trust only a configured proxy header; use the rightmost trusted IP or edge rate limiting; bound/expire the map; consider Redis if multi-instance. |
 | S10 | **Medium (High for staff)** | No email verification, password reset, or MFA. | No mail sender/token flows; staff onboarding absent. | Add verified email, one-time reset tokens, and MFA for staff/admin before college rollout. |
 | S11 | **Medium** | Uploads are allowlisted but not malware-scanned; parsing is heuristic. | CV: PDF/DOC/DOCX, 5 MB; profile photo local; no AV/content-disarm. | Add malware scanning/quarantine, magic-byte checks, parser timeouts, and retention. |
-| S12 | **Medium** | Student profile data and chat content can leave the platform to AI providers without a consent/data-processing record. | AI tools include name/college/degree/branch and analysis summaries; chat persisted in MySQL; no consent model. | Add AI consent, provider/data-region disclosure, redaction/minimization, retention, and a no-AI option. |
+| S12 | **Medium** | Student profile data and chat content can leave the platform to AI providers without an AI-specific consent/data-processing record. | AI tools include name/college/degree/branch and analysis summaries; chat persisted in MySQL; only a general static privacy policy exists. | Add AI consent, provider/data-region disclosure, redaction/minimization, retention, and a no-AI option. |
 | S13 | **Medium** | Backend port `8080` is published by Compose on all interfaces. | `docker-compose.prod.yml:38-39`; public probe timed out, but Compose does not enforce private-only. | Bind to `127.0.0.1` or remove the host mapping; keep backend internal; verify with an external scan. |
 | S14 | **Medium** | Backups are documented but not automated/tested. | `docs/BACKUP_RESTORE.md`; no cron/job or restore drill evidence. | Schedule encrypted backups, test restore quarterly, record RPO/RTO. |
 | S15 | **Medium** | Monitoring is health/logs only. | `/actuator/health` and app logs; no metrics/tracing/alerting/error tracking. | Add structured logs, request IDs, uptime/error alerts, DB/storage metrics, and a release marker. |
@@ -59,9 +62,10 @@
 | S17 | **Medium** | Local storage fallback has no offsite redundancy; production docs prefer S3 but deploy can fall back silently. | `deploy-prod.sh:103-112` sets local storage when no bucket; local volume only. | Require explicit acknowledgement for local fallback; use S3/versioning or documented volume backups. |
 | S18 | **Low/Medium** | First-run admin password is printed to the deploy console and not forced to rotate. | `deploy-prod.sh:261-265`; bootstrap says rotate immediately. | Force rotation on first login, avoid printing, store only a one-time secret. |
 | S19 | **Low/Medium** | `X-Powered-By: Next.js` is exposed and CSP is absent. | Live headers; `next.config.mjs:4-13`. | Add CSP and disable `poweredByHeader`. |
-| S20 | **Medium** | No privacy retention/deletion/export workflow. | No consent, retention, or deletion code. | Define data map, retention, subject access/deletion, and audit. |
+| S20 | **Medium** | No privacy retention/deletion/export workflow. | Static privacy policy claims rights/retention; no request, deletion, retention, or audit code. | Define data map, retention, subject access/deletion, and audit. |
 | S21 | **Medium** | No backend dependency/vulnerability process. | No SCA plugin; Spring Boot/Spring AI versions pinned but not routinely audited. | Add dependency scanning to CI and a patch cadence. |
 | S22 | **Medium** | No staging environment or synthetic data set. | Repo has prod Compose plus local dev; no staging topology. | Add a staging environment with synthetic data and migration rehearsal. |
+| S23 | **Medium** | Legal pages are static, partly placeholder, and consent can be bypassed. | `components/legal/privacy-part-2.js` uses `admin@your-college.edu` and `careeros.your-college.edu`; register text is not a link; `GoogleSignInButton` signup bypasses the checkbox; no server consent record; live legal routes return 404. | Replace placeholders with approved contacts; link and enforce the checkbox; require consent for Google signup; record consent; implement rights/deletion; deploy the pages. |
 
 ---
 
@@ -291,7 +295,7 @@ Requirements:
 - MySQL is not published to the host.
 - TLS/HSTS is present at the public edge.
 - Backend traffic to MySQL uses `useSSL=false` on the private Compose network. This is acceptable only while the network is truly private; it would be inadequate for a remote DB.
-- There is no field-level access policy, data classification, consent, retention, or deletion workflow.
+- There is no field-level access policy, data classification, operational consent, retention, or deletion workflow. A static Privacy Policy/Terms page was added late in the audit, but it is not backed by these controls.
 - The admin student projection exposes mobile, DOB, college, and personal URLs platform-wide.
 
 ### 6.2 Uploads
@@ -307,7 +311,7 @@ Requirements:
 - The AI tool allowlist limits reads to the current student's data.
 - Raw CV text is not sent by the assistant tools; profile fields and analysis summaries can be.
 - Chat history is persisted.
-- There is no consent screen, data-processing notice, provider retention control, or no-AI fallback for students who object.
+- There is no AI-specific consent screen, provider retention control, or no-AI fallback for students who object. A general static privacy policy exists but does not implement consent or choice.
 - Prompt injection can cause incorrect guidance and unwanted tool calls, but the reviewed tools are read-only and student-scoped. Do not add write/action tools without explicit confirmation and authorization.
 - Provider errors are sanitized; live provider configuration was not verified.
 
@@ -392,14 +396,15 @@ Action:
 
 ### 8.3 Deployment parity finding
 
-The live frontend and backend are not from the same effective build:
+The live frontend, backend, and repository HEAD are not from the same effective build:
 
-- live frontend JavaScript contains `auth/config` and Google Identity code;
+- live frontend JavaScript contains `auth/config` and Google Identity code (the Oct-16 baseline);
 - live `GET /api/v1/auth/config` returns `401`;
 - live `POST /api/v1/auth/google` returns `404`;
-- repository code exposes both routes and permits config.
+- live `/legal/privacy` and `/legal/terms` return `404`, although both pages exist in HEAD;
+- repository code exposes the auth routes and permits config.
 
-This is a concrete production-control failure. The deploy script has no commit marker, no version endpoint, and no post-deploy route smoke test for auth config/Google. Add a deploy manifest and smoke checks.
+This is a concrete production-control failure. The deploy script has no commit marker, no version endpoint, and no post-deploy route smoke test for auth/legal routes. Add a deploy manifest and smoke checks.
 
 ### 8.4 Backend network exposure
 
@@ -411,9 +416,19 @@ Compose publishes `8080:8080`. A public probe timed out, which suggests a host f
 
 The current product can collect name, email, mobile, DOB, college, degree, branch, graduation year, semester, location, GitHub/LinkedIn/portfolio, CV, profile photo, assessment results, AI chat, and career plans. For a college rollout, this becomes education records and staff-accessible PII.
 
-Missing:
+A static Privacy Policy and Terms page now exists in the repository (added after the initial review), but it is not operational compliance:
 
-- consent/notice for collection and AI processing;
+- Contact details are placeholders: `admin@your-college.edu` and `https://careeros.your-college.edu`.
+- The policy claims access/correction/deletion/portability, retention, and institution sharing, but there is no request workflow, deletion path, retention job, or consent record.
+- The registration checkbox text is plain spans, not links (`app/register/page.jsx:216-222`).
+- Google sign-up is a separate path that does not require the checkbox.
+- There is no AI-specific consent, provider retention control, or no-AI opt-out.
+- The live site returns 404 for `/legal/privacy` and `/legal/terms`, so users cannot currently read the policy.
+- No processor agreements/data-region disclosure, staff-access audit review, breach runbook, or backup key-management statement was found.
+
+Still missing or partial:
+
+- operational consent/notice for collection and AI processing;
 - role-based field minimization;
 - data retention and deletion;
 - subject access/export;
@@ -423,7 +438,7 @@ Missing:
 - backup encryption/key management statement;
 - consequence/access review for staff.
 
-This is not just a legal formality: the absence of field-level policy would let a broad faculty role see mobile/DOB/CV data it does not need.
+This is not just a legal formality: the absence of field-level policy would let a broad faculty role see mobile/DOB/CV data it does not need, and the current placeholder policy would be misleading if presented as compliance.
 
 ---
 
@@ -445,6 +460,7 @@ Do not call the college Phase 1 production-ready until all are true:
 - [ ] Staging exists with synthetic data.
 - [ ] Deployment exposes the tested commit and post-deploy smoke tests pass.
 - [ ] CSP, token storage, rate limiting, and trusted-proxy configuration are hardened.
+- [ ] Privacy policy contacts/claims are accurate and the pages are deployed; consent is captured for all signup paths, including Google.
 - [ ] AI consent, retention, and data-minimization are documented.
 - [ ] Staff field-level access and audit review are approved by the college.
 
@@ -457,7 +473,7 @@ Commands/results are recorded in the summary. The security conclusions rely on:
 - code review of `SecurityConfig`, JWT/filter/rate-limiter code, controller/service ownership checks, storage, and admin services;
 - existing integration tests for auth, authorization, CV, reports, roadmap/projects, AI, and settings;
 - frontend lint/build and `npm audit`;
-- unauthenticated live HTTP checks for headers, routes, and the Google mismatch.
+- unauthenticated live HTTP checks for headers, routes, the Google mismatch, and the 404 responses for `/legal/privacy` and `/legal/terms`.
 
 Not performed:
 

@@ -1,15 +1,19 @@
 import { NextResponse } from "next/server";
-import { decodeJwt, COOKIE_NAME } from "@/lib/auth";
+import { decodeJwt, ROLE_COOKIE_NAME, LEGACY_COOKIE_NAME } from "@/lib/auth";
 
 const STUDENT_HOME = "/student/dashboard";
 const ADMIN_HOME = "/admin/dashboard";
 const LOGIN = "/login";
 
 function roleFromRequest(request) {
-  const token = request.cookies.get(COOKIE_NAME)?.value;
-  if (!token) return null;
-  const payload = decodeJwt(token);
-  return payload?.role ?? null;
+  // The role cookie is only a routing hint. Backend authorization remains
+  // authoritative. Read the legacy token cookie during migration so existing
+  // sessions are not logged out; auth.save() removes that copy.
+  const role = request.cookies.get(ROLE_COOKIE_NAME)?.value;
+  if (role === "STUDENT" || role === "ADMIN") return role;
+  const legacyToken = request.cookies.get(LEGACY_COOKIE_NAME)?.value;
+  if (!legacyToken) return null;
+  return decodeJwt(legacyToken)?.role ?? null;
 }
 
 export function proxy(request) {

@@ -41,7 +41,12 @@ function loadGsi() {
  * Sends the ID token to POST /auth/google, which verifies it server-side
  * and returns the normal CareerOS session (access + refresh + user).
  */
-export function GoogleSignInButton({ mode = "signin", onError }) {
+export function GoogleSignInButton({
+  mode = "signin",
+  onError,
+  disabled = false,
+  termsAccepted = false,
+}) {
   const router = useRouter();
   const btnRef = useRef(null);
   const [loading, setLoading] = useState(false);
@@ -86,7 +91,7 @@ export function GoogleSignInButton({ mode = "signin", onError }) {
       setLoading(true);
       setBlocked("");
       try {
-        const data = await api.post("/auth/google", { idToken });
+        const data = await api.post("/auth/google", { idToken, termsAccepted });
         auth.save(data);
         router.replace(data.user?.role === "ADMIN" ? "/admin/dashboard" : "/student/dashboard");
       } catch (err) {
@@ -97,11 +102,11 @@ export function GoogleSignInButton({ mode = "signin", onError }) {
         setLoading(false);
       }
     },
-    [onError, router],
+    [onError, router, termsAccepted],
   );
 
   useEffect(() => {
-    if (!clientId) return;
+    if (disabled || !clientId) return;
     let cancelled = false;
     loadGsi()
       .then(() => {
@@ -127,7 +132,22 @@ export function GoogleSignInButton({ mode = "signin", onError }) {
     return () => {
       cancelled = true;
     };
-  }, [clientId, mode, handleCredential]);
+  }, [clientId, mode, handleCredential, disabled]);
+
+  if (disabled) {
+    return (
+      <div className="space-y-2">
+        <div className="flex items-center gap-3" aria-hidden="true">
+          <span className="h-px flex-1 bg-border" />
+          <span className="text-xs font-medium text-muted-foreground">or continue with</span>
+          <span className="h-px flex-1 bg-border" />
+        </div>
+        <p className="rounded-xl border border-dashed px-3.5 py-3 text-center text-xs text-muted-foreground">
+          Accept the Terms and Privacy Policy above to continue with Google.
+        </p>
+      </div>
+    );
+  }
 
   if (!configChecked) return null;
   if (!clientId) return null;

@@ -5,6 +5,18 @@ import { PRIVACY_PART_1 } from "./privacy-part-1.js";
 
 const LAST_UPDATED = "October 26, 2026";
 
+// Owner-provided public contact details, supplied at build time. Never invent
+// a legal address; when unset, the page says so plainly instead of showing a
+// fake placeholder address.
+const LEGAL_EMAIL = (process.env.NEXT_PUBLIC_LEGAL_CONTACT_EMAIL || "").trim();
+const LEGAL_WEBSITE = (process.env.NEXT_PUBLIC_LEGAL_WEBSITE || "").trim();
+const CONTACT_DETAILS = LEGAL_EMAIL
+  ? [
+      `- **Email:** ${LEGAL_EMAIL}`,
+      LEGAL_WEBSITE ? `- **Website:** ${LEGAL_WEBSITE}` : null,
+    ].filter(Boolean).join("\n")
+  : "- **Contact:** This deployment has not been configured with a monitored privacy contact. Please use your institution's designated support channel.";
+
 export const PRIVACY_PART_2 = `## 6. Your Privacy Rights
 
 Depending on your jurisdiction, you may have the right to:
@@ -36,8 +48,7 @@ We may update this Privacy Policy from time to time to reflect changes in our pr
 If you have any questions about this Privacy Policy or your data, please contact us:
 
 - **Services:** CODEIT CareerOS
-- **Email:** admin@your-college.edu
-- **Website:** https://careeros.your-college.edu
+${CONTACT_DETAILS}
 
 `;
 

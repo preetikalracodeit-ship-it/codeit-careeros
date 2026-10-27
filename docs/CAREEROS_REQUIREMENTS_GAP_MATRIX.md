@@ -1,6 +1,8 @@
 # CODEIT CareerOS — Requirements Gap Matrix
 
-> **Audit-only document.** Status is based on repository evidence, existing automated tests, the production build, and unauthenticated live checks. A feature is not marked complete merely because a file, table, route, or UI label exists.
+> **Audit-plus-remediation status.** The baseline rows below are based on repository evidence, existing automated tests, the production build, and unauthenticated live checks. Later stabilization work is uncommitted and locally verified only; a feature is not marked complete merely because a file, table, route, or UI label exists, and local tests do not establish live deployment parity. See [CAREEROS_AUDIT_SUMMARY.md](CAREEROS_AUDIT_SUMMARY.md).
+
+> **Post-audit remediation snapshot (2026-10-27):** the college/TPO functional totals are unchanged (0 of 49 complete). Phase 0 improvements are local and uncommitted: backend 298/0, frontend build/lint pass, npm audit 0, CI workflow added but not executed remotely, build-version endpoint and health probes added, consent enforced for new accounts and logged (not durably stored), role cookie and report-only CSP added, rate limiter hardened. Live deployment parity remains unresolved and no migration was added.
 
 ## 0. Status definitions
 
@@ -26,6 +28,8 @@ This matrix reports both:
 - **Section 2:** brief's expanded college/TPO Phase 1.
 - **Section 3:** the repository PDF's narrower Phase 1 baseline.
 - **Section 4:** cross-cutting security/production requirements.
+
+**Late repository change (baseline):** privacy-policy and terms pages were committed during the audit, after the baseline tests. At that point they changed only the privacy/consent row from MISSING to PARTIAL; they were static notice pages, not an operational consent/retention system, and were not deployed live. The subsequent uncommitted working tree links and enforces consent for new accounts, removes fake contacts, and logs consent, but still lacks durable consent storage and live verification.
 
 ## 2. Brief Phase 1 — college/TPO requirements
 
@@ -139,20 +143,20 @@ The admin dashboard UI is also inconsistent: it locks assessment, roadmap, and r
 | P1 | Durable audit log | **MISSING** | No audit table/entity. Application logs exist but are not a durable, queryable trail with actor/scope/before/after. |
 | P2 | Audit coverage for staff/admin actions | **MISSING** | No staff actions; admin logs omit actor ID, institution, IP, request ID, and before/after values. |
 | P3 | Versioned database migrations | **MISSING** | No `db/migration`; prod bootstraps once with `ddl-auto=update`, then `validate` (`deploy-prod.sh:195-208`). |
-| P4 | CI quality gate | **MISSING** | No `.github` directory or equivalent pipeline. |
-| P5 | Frontend dependency remediation | **MISSING** | `next@16.3.5` is direct and critical; fix is 16.4.3. See security audit. |
-| P6 | Backend test suite green | **PARTIAL** | 278 tests run; 1 failure (`AiChatGeminiAutoConfigTest`, stale Gemini model expectation). |
-| P7 | Deployment parity and version verification | **PARTIAL** | Live frontend has newer Google code; live backend returns 401/404 for the newer routes. No deployed-commit check. |
-| P8 | Token storage and CSP hardening | **PARTIAL** | Security headers/HSTS exist, but no CSP; tokens in localStorage and a JS-readable non-HttpOnly cookie. |
+| P4 | CI quality gate | **PARTIAL** | `.github/workflows/ci.yml` now runs frontend lint/build/audit and backend `mvn -B verify`; it has not been executed on the repository host or proven as a protected branch gate. |
+| P5 | Frontend dependency remediation | **COMPLETE AND VERIFIED (local)** | `next@16.4.3`, `eslint-config-next@16.4.3`, `shadcn@4.22.1`; `npm audit --audit-level=high` reports 0. Deployment not verified. |
+| P6 | Backend test suite green | **COMPLETE AND VERIFIED (local)** | `mvn -B verify`: 298 tests, 0 failures, BUILD SUCCESS on JDK 21/H2. Live deployment not verified. |
+| P7 | Deployment parity and version verification | **PARTIAL** | Public build-version and frontend health endpoints plus a smoke script were added locally. Prior live 401/404/404 observations remain unresolved; no deployed-commit verification has happened. |
+| P8 | Token storage and CSP hardening | **PARTIAL** | Access-token cookie replaced by a non-sensitive role hint; report-only CSP and COOP added. Tokens still live in `localStorage`, and CSP is not enforced. |
 | P9 | Email verification and password reset | **MISSING** | No mail sender, verification token, forgot-password flow, or reset flow. |
 | P10 | Staff MFA | **MISSING** | No MFA. |
 | P11 | Backup automation and tested restore | **PARTIAL** | Manual runbook only (`docs/BACKUP_RESTORE.md`); no scheduled job or restore drill evidence. |
 | P12 | Monitoring and alerting | **PARTIAL** | Health endpoint and application logs only; no metrics, tracing, error tracking, or alerting. |
-| P13 | Privacy, consent, retention, deletion | **MISSING** | No consent model, retention policy, export/deletion workflow, or data-processing record. |
-| P14 | Rate-limit hardening | **PARTIAL** | In-memory, per-IP limiter; trusts the first `X-Forwarded-For` value and has an unbounded key map (`AuthRateLimitFilter.java:93-100`). |
+| P13 | Privacy, consent, retention, deletion | **PARTIAL** | Registration and new Google identities now require consent; legal pages are linked and fake contacts were removed in favor of owner-supplied values. Consent is logged only, with no durable table, retention job, access/deletion workflow, or data-processing record. Live legal routes remain unverified. |
+| P14 | Rate-limit hardening | **PARTIAL** | Limiter now trusts only configured proxy CIDRs, uses the closest untrusted hop, bounds tracked clients, purges periodically, and no longer crashes on 429. Still in-memory and not reliable across instances. |
 | P15 | Documentation/runbook parity | **PARTIAL** | `README.md` still says admin controllers do not exist and describes a smaller route set; `PRODUCTION.md` is more current. |
 
-**Production total: 0 of 15 gates complete; 7 partial; 8 missing.**
+**Production total: 0 of 15 fully release-verified; 2 locally complete and verified; 8 partial; 5 missing.** Local completion does not establish deployment parity.
 
 ---
 
@@ -214,8 +218,9 @@ Even under the narrower PDF Phase 1, the following are not complete:
 3. **The existing student ownership model is a strength.** Reports, attempts, CVs, roadmaps, projects, and AI sessions are owner-scoped and tested. Reuse those service reads rather than duplicating them.
 4. **Admin is not a college role.** Reusing `ADMIN` for professors/TPO would expose platform-wide PII and content controls.
 5. **"No CSV" is not "CSV safe."** The requirement is absent. Any implementation must include formula-injection defenses, scoped permissions, and audit.
-6. **A green build is not a green release.** The frontend builds and lint passes, but the backend suite has one failure, there is no CI, Next has critical advisories, and the live deployment is inconsistent.
+6. **A green local build is not a green release.** The current working tree has 298/0 backend tests, frontend lint/build passing, and a clean npm audit, but the CI workflow has not run on the host and the live deployment remains inconsistent. Deployment parity is still a release gate.
 7. **The PDF's example PostgreSQL stack is not a reason to migrate.** MySQL remains appropriate; the missing tenant model is the real architectural gap.
+8. **Consent enforcement is not yet consent operations.** New accounts now require acceptance and legal pages are linked, but consent is only logged, owner contacts are unset, and rights/deletion/retention workflows plus live verification are still missing.
 
 ---
 

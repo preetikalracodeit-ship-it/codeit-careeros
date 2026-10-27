@@ -224,8 +224,7 @@ class CareerSelectionIntegrationTest {
                                   "fullName": "Student %s",
                                   "email": "%s",
                                   "mobile": "9876543210",
-                                  "password": "Password1"
-                                }
+                                  "password": "Password1", "termsAccepted": true}
                                 """.formatted(email, email)))
                 .andExpect(status().isCreated())
                 .andReturn();

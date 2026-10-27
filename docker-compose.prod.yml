@@ -55,7 +55,16 @@ services:
         # GOOGLE_CLIENT_ID from backend.env, so setting it there enables both
         # backend verification and the frontend button. Empty = button hidden.
         NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+        # Public owner-provided legal contact. Empty is surfaced honestly on
+        # the legal pages; it is never replaced with an invented address.
+        NEXT_PUBLIC_LEGAL_CONTACT_EMAIL: ${LEGAL_CONTACT_EMAIL:-}
+        NEXT_PUBLIC_LEGAL_WEBSITE: ${LEGAL_WEBSITE:-}
+        APP_VERSION: ${APP_VERSION:-unknown}
     restart: unless-stopped
+    environment:
+      # Runtime value for the public frontend /health endpoint. NEXT_PUBLIC_*
+      # values are already inlined at build time and are not repeated here.
+      APP_VERSION: ${APP_VERSION:-unknown}
     ports:
       - "3000:3000"
     depends_on:

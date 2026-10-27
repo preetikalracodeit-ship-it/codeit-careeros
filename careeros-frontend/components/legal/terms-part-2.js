@@ -5,6 +5,18 @@ import { TERMS_PART_1 } from "./terms-part-1.js";
 
 const LAST_UPDATED = "October 26, 2026";
 
+// Owner-provided public contact details, supplied at build time. Never invent
+// a legal address; when unset, the page says so plainly instead of showing a
+// fake placeholder address.
+const LEGAL_EMAIL = (process.env.NEXT_PUBLIC_LEGAL_CONTACT_EMAIL || "").trim();
+const LEGAL_WEBSITE = (process.env.NEXT_PUBLIC_LEGAL_WEBSITE || "").trim();
+const CONTACT_DETAILS = LEGAL_EMAIL
+  ? [
+      `- **Email:** ${LEGAL_EMAIL}`,
+      LEGAL_WEBSITE ? `- **Website:** ${LEGAL_WEBSITE}` : null,
+    ].filter(Boolean).join("\n")
+  : "- **Contact:** This deployment has not been configured with a monitored legal contact. Please use your institution's designated support channel.";
+
 export const TERMS_PART_2 = `## 9. Termination
 
 We may terminate or suspend your account and bar access to the Service immediately, without prior notice or liability, for any reason, including breach of these Terms. Upon termination, your right to use the Service will cease. Subject to applicable law, all provisions of these Terms that are intended to survive termination shall survive termination.
@@ -22,8 +34,7 @@ We reserve the right to modify these Terms at any time. We will notify users of 
 If you have any questions about these Terms, please contact us:
 
 - **Services:** CODEIT CareerOS
-- **Email:** admin@your-college.edu
-- **Website:** https://careeros.your-college.edu
+${CONTACT_DETAILS}
 
 `;
 

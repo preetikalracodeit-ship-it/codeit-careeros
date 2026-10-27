@@ -65,8 +65,7 @@ class AiChatGeminiNotConfiguredTest {
                                   "fullName": "No Gemini Key Student",
                                   "email": "gemininokey@test.local",
                                   "mobile": "9876543210",
-                                  "password": "Password1"
-                                }
+                                  "password": "Password1", "termsAccepted": true}
                                 """))
                 .andExpect(status().isCreated())
                 .andReturn();

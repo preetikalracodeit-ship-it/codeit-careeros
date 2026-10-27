@@ -41,8 +41,7 @@ class AdminAuthorizationIntegrationTest {
                                   "fullName": "Blocked Student",
                                   "email": "blocked@test.local",
                                   "mobile": "9876543210",
-                                  "password": "Password1"
-                                }
+                                  "password": "Password1", "termsAccepted": true}
                                 """))
                 .andExpect(status().isCreated())
                 .andReturn();

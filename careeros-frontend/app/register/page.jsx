@@ -103,6 +103,7 @@ export default function RegisterPage() {
         email: form.email.trim(),
         mobile: form.mobile.trim(),
         password: form.password,
+        termsAccepted: true,
       });
       auth.save(data);
       router.replace("/student/dashboard");
@@ -217,7 +218,14 @@ export default function RegisterPage() {
           <label className={cn("flex cursor-pointer items-center gap-2.5 rounded-xl border px-3.5 py-3 text-left transition-colors", fieldErrors.agreed ? "border-destructive/50 bg-destructive/[0.04]" : "border-border/60 hover:border-foreground/20")}>
             <input type="checkbox" checked={agreed} onChange={(e) => { setAgreed(e.target.checked); if (fieldErrors.agreed) setFieldErrors((p) => ({ ...p, agreed: undefined })); }} className="size-4 shrink-0 cursor-pointer accent-green-700" aria-invalid={Boolean(fieldErrors.agreed)} />
             <span className="text-[13px] leading-snug text-muted-foreground">
-              I agree to the <span className="font-semibold text-foreground underline-offset-2 hover:underline">Terms</span> and <span className="font-semibold text-foreground underline-offset-2 hover:underline">Privacy Policy</span>
+              I agree to the{" "}
+              <Link href="/legal/terms" target="_blank" className="font-semibold text-foreground underline underline-offset-2 hover:text-brand-700">
+                Terms
+              </Link>{" "}
+              and{" "}
+              <Link href="/legal/privacy" target="_blank" className="font-semibold text-foreground underline underline-offset-2 hover:text-brand-700">
+                Privacy Policy
+              </Link>
             </span>
           </label>
           {fieldErrors.agreed && <p className="mt-1.5 text-xs text-destructive" role="alert">{fieldErrors.agreed}</p>}
@@ -229,7 +237,12 @@ export default function RegisterPage() {
           </Button>
         </div>
 
-        <GoogleSignInButton mode="signup" onError={setError} />
+        <GoogleSignInButton
+          mode="signup"
+          onError={setError}
+          disabled={!agreed}
+          termsAccepted={agreed}
+        />
 
         <p className="text-center text-xs text-muted-foreground sm:hidden">
           Already have an account?{" "}

@@ -86,7 +86,7 @@ class AiChatRetryTest {
         MvcResult result = mockMvc.perform(post("/api/v1/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"fullName\":\"Retry Student\",\"email\":\"" + email
-                                + "\",\"mobile\":\"9876543210\",\"password\":\"Password1\"}"))
+                                + "\",\"mobile\":\"9876543210\",\"password\":\"Password1\",\"termsAccepted\":true}"))
                 .andExpect(status().isCreated())
                 .andReturn();
         return TestSupport.token(result, "accessToken");
