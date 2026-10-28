@@ -9,7 +9,7 @@
 
 ## 1. Executive decision
 
-### Approved target: strict MERN
+### Target: strict MERN
 
 Use a **strict MERN SPA**:
 
@@ -23,7 +23,7 @@ The existing Next.js application is the source for the React conversion, not the
 
 ### What “ReactJS” means here
 
-- React 19 with Vite.
+- React 19 with Vite, not Create React App.
 - JavaScript/JSX by default to match the existing codebase; TypeScript is optional.
 - React Router for routing.
 - The existing Tailwind/CSS, component library, API client, and visual design are retained.
@@ -55,7 +55,7 @@ The current system has:
 - About **48** frontend page files / **45** built routes.
 - A working tenant-isolation, invitation, CSV, audit, improvement-plan, placement, and analytics model.
 
-A big-bang rewrite would put those guarantees at risk. The plan below uses staged parity, golden API tests, a data-migration rehearsal, and a controlled cutover.
+A big-bang rewrite would put those guarantees at risk. The plan below uses staged parity, golden API tests, a data-migration rehearsal, and two controlled cutovers: backend first, React SPA second.
 
 ---
 
@@ -208,6 +208,18 @@ Replace the Next.js runtime with a Vite-built React SPA. Keep the existing visua
 - **Headers:** port the current security headers and CSP report-only policy to the SPA host; keep Google Identity origins allowed.
 
 This keeps the browser same-origin with the API and avoids introducing CORS.
+
+Build the React SPA incrementally on a separate host, but cut users over only after route, auth, and critical-flow parity pass. Do not run two frontends against production for different user groups unless there is a tested rollback plan.
+
+#### Recommended sequencing
+
+Separate the two risks:
+
+1. Move the backend and data to Express/Mongo while the existing Next.js frontend still serves users through its `/api` rewrite.
+2. Verify backend parity, tenant isolation, and data migration in production-like staging.
+3. Cut over the frontend to the React SPA once backend behavior is stable.
+
+This lets the team isolate data/API failures from UI failures. The React SPA can still be built in parallel; it just does not have to be the first production cutover.
 
 ### 5.2 Preserve the API contract
 
@@ -590,7 +602,7 @@ Exit criteria:
 - Assessment scoring and readiness match golden fixtures.
 - File-size/type and CV-content protections pass.
 - Student self-service cannot access another student’s data.
-- Frontend student routes pass smoke tests against Express.
+- React student routes pass smoke tests against Express.
 
 ### Phase 5 — College core and tenant isolation (5 weeks)
 
@@ -874,26 +886,38 @@ MySQL remains the source of truth until cutover.
 
 ### Cutover strategy
 
-Recommended: **maintenance-window cutover**.
+Recommended: **two maintenance-window cutovers**.
+
+#### Cutover A — backend and data
 
 1. Announce a read-only window.
 2. Stop writes to MySQL.
 3. Take a final backup.
 4. Run delta export/load.
 5. Verify counts and smoke tests.
-6. Deploy the React SPA build and switch the SPA host `/api` upstream to Express.
-7. Switch DNS/traffic from the Next.js host to the React SPA host.
-8. Run smoke tests and security checks.
-9. Reopen writes.
-10. Monitor error rate, latency, and audit volume.
+6. Switch the Next.js host `/api` upstream from Spring Boot to Express.
+7. Run smoke tests and security checks.
+8. Reopen writes.
+9. Monitor error rate, latency, and audit volume.
 
-Do not reopen writes until verification passes. Once writes resume, rollback requires a reverse migration or replay; treat post-reopen rollback as an incident procedure, not a routine step.
+At this point the existing Next.js frontend is still the UI. This isolates data/API risk.
+
+#### Cutover B — React SPA
+
+1. Deploy the React SPA build to the staging SPA host.
+2. Run route, deep-link, role-guard, and critical-flow tests.
+3. Switch DNS/traffic from the Next.js host to the React SPA host.
+4. Run smoke tests, accessibility checks, and download checks.
+5. Keep the Next.js host available for rollback for an agreed observation period.
+
+Do not reopen writes until Cutover A verification passes. Once writes resume, rollback requires a reverse migration or replay; treat post-reopen rollback as an incident procedure, not a routine step.
 
 ### Rollback
 
 - Keep the Spring Boot deployment, MySQL database, and Next.js host intact and read-only.
-- Keep the previous proxy target, DNS record, and environment configuration.
-- If cutover fails before writes resume, switch both the SPA host and API upstream back immediately.
+- Keep the previous API upstream, DNS record, and environment configuration.
+- If Cutover A fails before writes resume, switch the API upstream back immediately.
+- If Cutover B fails, switch DNS/traffic back to the Next.js host; the Express API can remain live.
 - If failure occurs after writes resume, freeze Express, preserve Mongo data, and execute the documented reverse-reconciliation procedure.
 - Never run destructive Mongo or MySQL operations during rollback.
 
@@ -948,6 +972,8 @@ Playwright critical paths:
 - Faculty denial.
 - Invitation acceptance.
 - Platform admin institution management.
+- Hard refresh on nested routes and role-guard redirects.
+- Login/logout redirects for each role.
 
 ### Performance tests
 
@@ -1065,7 +1091,7 @@ Indicative timeline with the assumed team:
 
 **Single senior engineer:** roughly 12–15 months for production-grade parity, because the React SPA is now in scope.
 
-**Keeping Next.js instead of the React SPA** would save roughly 4–8 weeks, but it is not the approved target.
+**Keeping Next.js instead of the React SPA** would save roughly 4–8 weeks, but it is not the target.
 
 These are planning estimates, not commitments.
 
@@ -1162,12 +1188,13 @@ The migration is complete only when:
 
 No production migration proceeds without:
 
-- Gate 0: architecture and ID strategy approved.
+- Gate 0: architecture, React target, and ID strategy approved.
 - Gate 1: auth/tenant/audit parity signed off.
-- Gate 2: student and college parity signed off.
+- Gate 2: student and college API parity signed off.
 - Gate 3: placement and analytics parity signed off.
-- Gate 4: migration rehearsal and rollback rehearsal passed.
-- Gate 5: security and privacy sign-off.
-- Gate 6: explicit production cutover authorization.
+- Gate 4: React route, role-guard, and deep-link parity signed off.
+- Gate 5: migration rehearsal and rollback rehearsal passed.
+- Gate 6: security and privacy sign-off.
+- Gate 7: explicit production cutover authorization.
 
 Until then, the Spring Boot + MySQL system remains the source of truth.
