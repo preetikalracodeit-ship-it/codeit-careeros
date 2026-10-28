@@ -68,6 +68,17 @@ jobs:
           # exact commit tested; it is not a secret.
           APP_BUILD_COMMIT: ${{ github.sha }}
 
+      - name: Upload backend test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-reports
+          path: |
+            careeros-backend/target/surefire-reports/
+            careeros-backend/target/*.dump*
+          if-no-files-found: ignore
+          retention-days: 7
+
   migration-mysql:
     name: MySQL migrations (fresh schema + Hibernate validate)
     runs-on: ubuntu-latest
@@ -110,6 +121,17 @@ jobs:
           MYSQL_TEST_PASSWORD: careeros-ci-only
           MAVEN_OPTS: -Djava.awt.headless=true
 
+      - name: Upload MySQL migration test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mysql-migration-test-reports
+          path: |
+            careeros-backend/target/surefire-reports/
+            careeros-backend/target/*.dump*
+          if-no-files-found: ignore
+          retention-days: 7
+
   backend-sca:
     name: Backend dependency scan (fail on HIGH/CRITICAL)
     runs-on: ubuntu-latest
@@ -129,6 +151,14 @@ jobs:
           distribution: temurin
           java-version: "21"
           cache: maven
+
+      - name: Cache NVD data
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository/org/owasp/dependency-check-data
+          key: dependency-check-data-${{ runner.os }}-${{ hashFiles('careeros-backend/pom.xml') }}
+          restore-keys: |
+            dependency-check-data-${{ runner.os }}-
 
       - name: OWASP Dependency-Check (direct + transitive)
         # Threshold: CVSS >= 7.0 fails. Suppressions require review and an
