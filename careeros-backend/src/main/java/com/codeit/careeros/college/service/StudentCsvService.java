@@ -155,6 +155,17 @@ public class StudentCsvService {
         if (file == null || file.isEmpty()) {
             throw BusinessException.badRequest("A CSV file is required");
         }
+        String filename = file.getOriginalFilename();
+        if (filename == null || !filename.toLowerCase(Locale.ROOT).endsWith(".csv")) {
+            throw BusinessException.badRequest("Upload a file with the .csv extension");
+        }
+        String contentType = file.getContentType();
+        String mediaType = contentType == null ? null : contentType.split(";", 2)[0].trim().toLowerCase(Locale.ROOT);
+        if (mediaType != null && !Set.of("text/csv", "application/csv",
+                "application/vnd.ms-excel", "application/octet-stream")
+                .contains(mediaType)) {
+            throw BusinessException.badRequest("The uploaded file must be a CSV file");
+        }
         if (file.getSize() > MAX_FILE_BYTES) {
             throw BusinessException.badRequest("CSV files are limited to 2 MB");
         }
@@ -459,6 +470,7 @@ public class StudentCsvService {
         List<String> row = new ArrayList<>();
         StringBuilder cell = new StringBuilder();
         boolean quoted = false;
+        boolean closedQuote = false;
         String text = content == null ? "" : content;
         if (text.startsWith("\uFEFF")) {
             text = text.substring(1);
@@ -472,12 +484,30 @@ public class StudentCsvService {
                         i++;
                     } else {
                         quoted = false;
+                        closedQuote = true;
                     }
                 } else {
                     cell.append(c);
                 }
-            } else if (c == '"') {
+            } else if (closedQuote && c == ',') {
+                row.add(cell.toString());
+                cell.setLength(0);
+                closedQuote = false;
+            } else if (closedQuote && (c == '\n' || c == '\r')) {
+                row.add(cell.toString());
+                cell.setLength(0);
+                closedQuote = false;
+                if (c == '\r' && i + 1 < text.length() && text.charAt(i + 1) == '\n') {
+                    i++;
+                }
+                addCsvRow(rows, row);
+                row = new ArrayList<>();
+            } else if (closedQuote) {
+                throw BusinessException.badRequest("CSV contains unexpected characters after a quoted field");
+            } else if (c == '"' && cell.isEmpty()) {
                 quoted = true;
+            } else if (c == '"') {
+                throw BusinessException.badRequest("CSV contains a quote inside an unquoted field");
             } else if (c == ',') {
                 row.add(cell.toString());
                 cell.setLength(0);
@@ -487,19 +517,24 @@ public class StudentCsvService {
                 }
                 row.add(cell.toString());
                 cell.setLength(0);
-                if (!(row.size() == 1 && row.get(0).isEmpty())) {
-                    rows.add(row);
-                }
+                addCsvRow(rows, row);
                 row = new ArrayList<>();
             } else {
                 cell.append(c);
             }
         }
+        if (quoted) {
+            throw BusinessException.badRequest("CSV contains an unclosed quoted field");
+        }
         row.add(cell.toString());
+        addCsvRow(rows, row);
+        return rows;
+    }
+
+    private static void addCsvRow(List<List<String>> rows, List<String> row) {
         if (!(row.size() == 1 && row.get(0).isEmpty())) {
             rows.add(row);
         }
-        return rows;
     }
 
     private static Map<String, Integer> headerIndex(List<String> headerRow) {
@@ -507,7 +542,9 @@ public class StudentCsvService {
         for (int i = 0; i < headerRow.size(); i++) {
             String key = headerRow.get(i) == null ? "" : headerRow.get(i).trim()
                     .toLowerCase(Locale.ROOT).replace(' ', '_');
-            index.put(key, i);
+            if (index.putIfAbsent(key, i) != null) {
+                throw BusinessException.badRequest("CSV contains a duplicate column: " + key);
+            }
         }
         requireHeader(index, "full_name");
         requireHeader(index, "email");

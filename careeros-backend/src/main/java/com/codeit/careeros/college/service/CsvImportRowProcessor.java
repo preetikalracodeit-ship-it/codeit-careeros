@@ -97,7 +97,7 @@ public class CsvImportRowProcessor {
                 StudentProfile profile = createProfile(created, resolved);
                 createEnrollment(profile, institutionId, resolved);
                 row.setStatus(ImportRowStatus.CREATED);
-                row.setMessage("Created student account and enrollment");
+                row.setMessage("Student account and enrollment created. This import did not issue a credential or activation link; verify student access through an approved sign-in flow.");
             }
             return rowRepository.save(row);
         } catch (BusinessException e) {

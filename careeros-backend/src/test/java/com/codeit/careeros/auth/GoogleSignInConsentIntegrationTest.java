@@ -75,7 +75,7 @@ class GoogleSignInConsentIntegrationTest {
     }
 
     @Test
-    @DisplayName("A new Google registration with explicit consent stores GOOGLE_REGISTRATION evidence")
+    @DisplayName("A new Google registration with explicit button consent stores GOOGLE_REGISTRATION evidence")
     void newGoogleUser_withConsent_persistsEvidence() throws Exception {
         String email = "google-consent@test.local";
         verifyGoogleIdentity(email, "Google Student");
@@ -91,7 +91,7 @@ class GoogleSignInConsentIntegrationTest {
         assertThat(records.get(0).getMethod()).isEqualTo(ConsentMethod.GOOGLE_REGISTRATION);
         assertThat(records.get(0).getConsentType()).isEqualTo(ConsentType.TERMS_AND_PRIVACY);
         assertThat(records.get(0).getEvidence())
-                .isEqualTo(ConsentRecord.EVIDENCE_GOOGLE_SIGNUP_CHECKBOX);
+                .isEqualTo(ConsentRecord.EVIDENCE_GOOGLE_SIGNUP_BUTTON);
     }
 
     @Test

@@ -33,6 +33,7 @@ const emptyFilters = {
   departmentId: "",
   programId: "",
   batchId: "",
+  sectionId: "",
   status: "",
   assessmentCompleted: "",
   assessmentDateFrom: "",
@@ -137,6 +138,16 @@ export default function CollegeDashboardPage() {
     [filters.programId, structure],
   );
 
+  const sectionOptions = useMemo(
+    () => [
+      { value: "", label: "All sections" },
+      ...(structure?.sections || [])
+        .filter((section) => !filters.batchId || String(section.batchId) === filters.batchId)
+        .map((section) => ({ value: String(section.id), label: section.name })),
+    ],
+    [filters.batchId, structure],
+  );
+
   function studentHref(overrides = {}) {
     const values = { ...filters, ...overrides };
     const params = new URLSearchParams();
@@ -201,20 +212,27 @@ export default function CollegeDashboardPage() {
               departmentId: event.target.value,
               programId: "",
               batchId: "",
+              sectionId: "",
             }))}
             options={departmentOptions}
           />
           <Select
             label="Program"
             value={filters.programId}
-            onChange={(event) => setFilters((prev) => ({ ...prev, programId: event.target.value, batchId: "" }))}
+            onChange={(event) => setFilters((prev) => ({ ...prev, programId: event.target.value, batchId: "", sectionId: "" }))}
             options={programOptions}
           />
           <Select
             label="Batch"
             value={filters.batchId}
-            onChange={(event) => setFilters((prev) => ({ ...prev, batchId: event.target.value }))}
+            onChange={(event) => setFilters((prev) => ({ ...prev, batchId: event.target.value, sectionId: "" }))}
             options={batchOptions}
+          />
+          <Select
+            label="Section"
+            value={filters.sectionId}
+            onChange={(event) => setFilters((prev) => ({ ...prev, sectionId: event.target.value }))}
+            options={sectionOptions}
           />
           <Select
             label="Enrollment status"
@@ -372,7 +390,20 @@ export default function CollegeDashboardPage() {
                   <tbody>
                     {dashboard.commonGaps.map((gap) => (
                       <tr key={gap.skillId} className="border-b border-border/40 last:border-0">
-                        <td className="py-2.5 pr-3 font-medium">{gap.skillName}</td>
+                        <td className="py-2.5 pr-3 font-medium">
+                          <Link
+                            href={studentHref({
+                              status: "ACTIVE",
+                              assessmentCompleted: "true",
+                              readinessEvaluated: "true",
+                              skillId: gap.skillId,
+                              skillName: gap.skillName,
+                            })}
+                            className="text-primary hover:underline"
+                          >
+                            {gap.skillName}
+                          </Link>
+                        </td>
                         <td className="tnum py-2.5 pr-3 text-muted-foreground">
                           {gap.studentsBelowTarget} / {gap.assessedStudents}
                         </td>
@@ -416,7 +447,11 @@ export default function CollegeDashboardPage() {
                 <tbody>
                   {dashboard.departmentComparisons.map((row) => (
                     <tr key={row.departmentId} className="border-b border-border/40 last:border-0">
-                      <td className="py-2.5 pr-3 font-medium">{row.departmentName}</td>
+                      <td className="py-2.5 pr-3 font-medium">
+                        <Link href={studentHref({ departmentId: String(row.departmentId) })} className="text-primary hover:underline">
+                          {row.departmentName}
+                        </Link>
+                      </td>
                       <td className="tnum py-2.5 pr-3">{row.enrolled}</td>
                       <td className="tnum py-2.5 pr-3">{row.active}</td>
                       <td className="tnum py-2.5 pr-3">{row.assessmentParticipants}</td>

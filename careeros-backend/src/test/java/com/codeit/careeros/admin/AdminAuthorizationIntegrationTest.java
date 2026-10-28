@@ -102,6 +102,18 @@ class AdminAuthorizationIntegrationTest {
                                 """.formatted(email)))
                 .andExpect(status().isCreated());
 
+        String newerEmail = "newer-" + UUID.randomUUID() + "@test.local";
+        mockMvc.perform(post("/api/v1/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "fullName": "Newer Nonmatch",
+                                  "email": "%s",
+                                  "mobile": "9876543211",
+                                  "password": "Password1", "termsAccepted": true}
+                                """.formatted(newerEmail)))
+                .andExpect(status().isCreated());
+
         MvcResult login = mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""

@@ -22,6 +22,9 @@ import com.codeit.careeros.repository.ProjectProgressRepository;
 import com.codeit.careeros.repository.ProjectRepository;
 import com.codeit.careeros.repository.ProjectSkillRepository;
 import com.codeit.careeros.repository.QuestionOptionRepository;
+import com.codeit.careeros.repository.RoadmapItemProgressRepository;
+import com.codeit.careeros.repository.RoadmapItemRepository;
+import com.codeit.careeros.repository.RoadmapPhaseRepository;
 import com.codeit.careeros.repository.SkillRepository;
 import com.codeit.careeros.repository.SkillScoreRepository;
 import com.codeit.careeros.repository.StudentProfileRepository;
@@ -108,6 +111,15 @@ class CvIntegrationTest {
     @Autowired
     private ProjectProgressRepository projectProgressRepository;
 
+    @Autowired
+    private RoadmapItemProgressRepository roadmapProgressRepository;
+
+    @Autowired
+    private RoadmapItemRepository roadmapItemRepository;
+
+    @Autowired
+    private RoadmapPhaseRepository roadmapPhaseRepository;
+
     private final ObjectMapper mapper = new ObjectMapper();
 
     private Long careerId;
@@ -134,6 +146,9 @@ class CvIntegrationTest {
         projectSkillRepository.deleteAll();
         projectRepository.deleteAll();
         studentProfileRepository.deleteAll();
+        roadmapProgressRepository.deleteAll();
+        roadmapItemRepository.deleteAll();
+        roadmapPhaseRepository.deleteAll();
         careerRepository.deleteAll();
         skillRepository.deleteAll();
 

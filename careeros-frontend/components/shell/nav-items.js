@@ -31,6 +31,8 @@ const studentNav = [
   { label: "Career Selection", href: "/student/careers", icon: Target, section: "Growth" },
   { label: "Assessment", href: "/student/assessment", icon: ClipboardList, section: "Growth" },
   { label: "Roadmap", href: "/student/roadmap", icon: Route, section: "Growth" },
+  { label: "Improvement Plan", href: "/student/improvement-plan", icon: ClipboardList, section: "Growth" },
+  { label: "Placements", href: "/student/placements", icon: Briefcase, section: "Growth" },
   { label: "Projects", href: "/student/projects", icon: FolderKanban, section: "Growth" },
 
   { label: "CV Analysis", href: "/student/cv", icon: FileText, section: "Analysis" },
@@ -64,6 +66,9 @@ const adminNav = [
 const collegeNav = [
   { label: "Overview", href: "/college/dashboard", icon: LayoutDashboard, section: "Overview" },
   { label: "Students", href: "/college/students", icon: Users, section: "Overview", permission: "VIEW_STUDENTS" },
+  { label: "Improvement Plans", href: "/college/plans", icon: ClipboardList, section: "Students", permission: "VIEW_IMPROVEMENT_PLANS" },
+  { label: "Placement", href: "/college/placement", icon: Briefcase, section: "Placement", permission: "VIEW_PLACEMENT" },
+  { label: "Placement Analytics", href: "/college/placement/analytics", icon: TrendingUp, section: "Placement", permission: "VIEW_PLACEMENT_REPORTS" },
   { label: "Staff & Access", href: "/college/staff", icon: UserCog, section: "Institution", permission: "MANAGE_STAFF" },
   { label: "Academic Structure", href: "/college/structure", icon: Building2, section: "Institution", permission: "MANAGE_STRUCTURE" },
   { label: "Reports", href: "/college/reports", icon: FileBarChart, section: "Analysis", permission: "GENERATE_REPORTS" },

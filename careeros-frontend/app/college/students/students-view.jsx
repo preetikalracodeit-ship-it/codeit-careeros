@@ -43,6 +43,7 @@ export default function CollegeStudentsPage() {
   const [departmentId, setDepartmentId] = useState(() => searchParams.get("departmentId") || "");
   const [programId, setProgramId] = useState(() => searchParams.get("programId") || "");
   const [batchId, setBatchId] = useState(() => searchParams.get("batchId") || "");
+  const [sectionId, setSectionId] = useState(() => searchParams.get("sectionId") || "");
   const [status, setStatus] = useState(() => searchParams.get("status") || "");
   const [assessmentCompleted, setAssessmentCompleted] = useState(() => searchParams.get("assessmentCompleted") || "");
   const [readinessEvaluated, setReadinessEvaluated] = useState(() => searchParams.get("readinessEvaluated") || "");
@@ -52,6 +53,8 @@ export default function CollegeStudentsPage() {
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState("");
   const requestId = useRef(0);
+  const skillId = searchParams.get("skillId") || "";
+  const skillName = searchParams.get("skillName") || "";
 
   useEffect(() => {
     let ignore = false;
@@ -85,13 +88,15 @@ export default function CollegeStudentsPage() {
     if (departmentId) values.departmentId = departmentId;
     if (programId) values.programId = programId;
     if (batchId) values.batchId = batchId;
+    if (sectionId) values.sectionId = sectionId;
+    if (skillId) values.skillId = skillId;
     if (status) values.status = status;
     if (assessmentCompleted) values.assessmentCompleted = assessmentCompleted;
     if (readinessEvaluated) values.readinessEvaluated = readinessEvaluated;
     if (assessmentDateFrom) values.assessmentDateFrom = assessmentDateFrom;
     if (assessmentDateTo) values.assessmentDateTo = assessmentDateTo;
     return values;
-  }, [page, search, academicYearId, departmentId, programId, batchId, status, assessmentCompleted, readinessEvaluated, assessmentDateFrom, assessmentDateTo]);
+  }, [page, search, academicYearId, departmentId, programId, batchId, sectionId, skillId, status, assessmentCompleted, readinessEvaluated, assessmentDateFrom, assessmentDateTo]);
 
   const load = useCallback(async () => {
     if (!me?.permissions?.includes("VIEW_STUDENTS")) return;
@@ -99,7 +104,8 @@ export default function CollegeStudentsPage() {
     setLoading(true);
     setError("");
     try {
-      const data = await api.get("/college/students", { params });
+      const endpoint = params.skillId ? "/college/students/skill-gap" : "/college/students";
+      const data = await api.get(endpoint, { params });
       if (currentRequestId !== requestId.current) return;
       setResult(data);
     } catch (err) {
@@ -181,6 +187,16 @@ export default function CollegeStudentsPage() {
     [programId, structure],
   );
 
+  const sectionOptions = useMemo(
+    () => [
+      { value: "", label: "All sections" },
+      ...(structure?.sections || [])
+        .filter((section) => !batchId || String(section.batchId) === batchId)
+        .map((section) => ({ value: String(section.id), label: section.name })),
+    ],
+    [batchId, structure],
+  );
+
   const canExport = me?.permissions?.includes("EXPORT_STUDENTS");
   const canImport = me?.permissions?.includes("IMPORT_STUDENTS");
   const items = result?.items || [];
@@ -216,7 +232,9 @@ export default function CollegeStudentsPage() {
       <PageHeader
         title="Students"
         description={
-          result
+          skillId
+            ? `${result?.totalElements ?? 0} active student${result?.totalElements === 1 ? "" : "s"} assessed below target for ${skillName || `skill #${skillId}`} in your scope.`
+            : result
             ? `${result.totalElements} student${result.totalElements === 1 ? "" : "s"} in your scope.`
             : "Students inside your institution and academic scope."
         }
@@ -229,7 +247,7 @@ export default function CollegeStudentsPage() {
                 Import CSV
               </Button>
             )}
-            {canExport && (
+            {canExport && !skillId && (
               <Button variant="outline" size="sm" onClick={exportCsv} disabled={exporting || items.length === 0}>
                 <Download className="size-3.5" aria-hidden="true" />
                 {exporting ? "Exporting…" : "Export CSV"}
@@ -268,6 +286,7 @@ export default function CollegeStudentsPage() {
                 setDepartmentId(event.target.value);
                 setProgramId("");
                 setBatchId("");
+                setSectionId("");
                 setPage(0);
               }}
               options={departmentOptions}
@@ -278,6 +297,7 @@ export default function CollegeStudentsPage() {
               onChange={(event) => {
                 setProgramId(event.target.value);
                 setBatchId("");
+                setSectionId("");
                 setPage(0);
               }}
               options={programOptions}
@@ -285,9 +305,19 @@ export default function CollegeStudentsPage() {
             <Select
               aria-label="Filter by batch"
               value={batchId}
-              onChange={(event) => changeFilter(setBatchId, event.target.value)}
+            onChange={(event) => {
+              setBatchId(event.target.value);
+              setSectionId("");
+              setPage(0);
+            }}
               options={batchOptions}
             />
+          <Select
+            aria-label="Filter by section"
+            value={sectionId}
+            onChange={(event) => changeFilter(setSectionId, event.target.value)}
+            options={sectionOptions}
+          />
             <Select
               aria-label="Filter by enrollment status"
               value={status}

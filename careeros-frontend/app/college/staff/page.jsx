@@ -30,7 +30,7 @@ import { designationLabel, DESIGNATIONS, labelOf, SCOPES } from "@/lib/college";
 import { formatDateTime, prettifyEnum } from "@/lib/format";
 import { cn } from "cn";
 
-const emptyInvite = { email: "", designation: "FACULTY", scopeType: "DEPARTMENT", scopeId: "" };
+const emptyInvite = { email: "", designation: "FACULTY", scopeType: "SECTION", scopeId: "" };
 
 function scopeOptionsFor(structure, type) {
   if (type === "DEPARTMENT") {
@@ -113,7 +113,7 @@ export default function CollegeStaffPage() {
       return {
         ...prev,
         designation: value,
-        scopeType: prev.scopeType === "INSTITUTION" ? "DEPARTMENT" : prev.scopeType,
+        scopeType: "SECTION",
         scopeId: "",
       };
     });
@@ -301,7 +301,7 @@ export default function CollegeStaffPage() {
               options={SCOPES.filter((scope) => {
                 if (invite.designation === "COLLEGE_ADMIN" || invite.designation === "TPO") return scope === "INSTITUTION";
                 if (invite.designation === "HOD") return scope === "DEPARTMENT";
-                return scope !== "INSTITUTION";
+                return scope === "SECTION";
               }).map((value) => ({ value, label: labelOf(value) }))}
             />
             {invite.scopeType === "INSTITUTION" ? (

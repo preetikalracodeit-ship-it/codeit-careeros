@@ -54,8 +54,8 @@ public class ConsentRecord {
     /** Evidence value for the explicit checkbox on the registration form. */
     public static final String EVIDENCE_REGISTRATION_CHECKBOX = "explicit_registration_checkbox";
 
-    /** Evidence value for the explicit Google sign-up checkbox. */
-    public static final String EVIDENCE_GOOGLE_SIGNUP_CHECKBOX = "explicit_google_signup_checkbox";
+    /** Evidence value for the explicit Google sign-up button click after the Terms/Privacy notice. */
+    public static final String EVIDENCE_GOOGLE_SIGNUP_BUTTON = "explicit_google_signup_button";
 
     /** Evidence value for the authenticated re-consent endpoint. */
     public static final String EVIDENCE_AUTHENTICATED_CONSENT = "authenticated_consent_request";

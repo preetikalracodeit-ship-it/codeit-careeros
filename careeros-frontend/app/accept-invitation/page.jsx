@@ -99,19 +99,25 @@ function InvitationContent() {
     return (
       <AuthSplit
         eyebrow="Staff invitation"
-        title="This invitation cannot be used"
-        description="The invitation link is missing its token."
+        title="Activate your staff account"
+        description="College administrator, TPO, HOD and faculty accounts are created by invitation."
         footer={
           <Link href="/login" className="text-sm font-semibold text-primary hover:underline">
-            Back to sign in
+            Already activated? Sign in
           </Link>
         }
       >
-        <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
-          <p className="flex items-start gap-2">
-            <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-            Open the complete link from your invitation. Contact the college administrator who invited you if the link
-            is still incomplete.
+        <div className="space-y-3 text-sm text-muted-foreground">
+          <p>
+            Open the complete one-time link issued by your college administrator. The link is single-use and expires
+            after 48 hours.
+          </p>
+          <p>
+            Students can create an account directly. Platform administrator accounts are provisioned by CODEIT and do
+            not use this page.
+          </p>
+          <p className="rounded-xl border border-border/60 bg-muted/40 p-3 text-xs">
+            If your link is incomplete or expired, ask the college administrator who invited you to issue a new one.
           </p>
         </div>
       </AuthSplit>

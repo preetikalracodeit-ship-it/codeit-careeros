@@ -63,12 +63,21 @@ export default function LoginPage() {
       title="Welcome back"
       description="Sign in to continue your career journey."
       footer={
-        <p className="text-sm text-muted-foreground">
-          New to CareerOS?{" "}
-          <Link href="/register" className="font-semibold text-chart-1 hover:underline">
-            Create a student account
-          </Link>
-        </p>
+        <div className="space-y-2 text-sm text-muted-foreground">
+          <p>
+            New to CareerOS?{" "}
+            <Link href="/register" className="font-semibold text-chart-1 hover:underline">
+              Create a student account
+            </Link>
+          </p>
+          <p className="text-xs leading-relaxed">
+            College staff and administrators sign in here too. Staff accounts are activated from the one-time
+            invitation link issued by a college administrator.{" "}
+            <Link href="/accept-invitation" className="font-semibold text-foreground underline underline-offset-2">
+              Activate an invitation
+            </Link>
+          </p>
+        </div>
       }
     >
       <form onSubmit={handleSubmit} className="space-y-5" noValidate>

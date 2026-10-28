@@ -31,4 +31,6 @@ public interface StaffInvitationRepository extends JpaRepository<StaffInvitation
             Long institutionId, String email);
 
     List<StaffInvitation> findByExpiresAtBeforeAndAcceptedAtIsNullAndRevokedAtIsNull(Instant cutoff);
+
+    long countByAcceptedAtIsNullAndRevokedAtIsNullAndExpiresAtAfter(Instant cutoff);
 }

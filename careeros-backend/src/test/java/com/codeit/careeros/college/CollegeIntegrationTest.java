@@ -58,6 +58,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -246,10 +247,27 @@ class CollegeIntegrationTest {
                         .param("departmentId", String.valueOf(a2.getId()))
                         .header("Authorization", "Bearer " + hod))
                 .andExpect(status().isNotFound());
+        mockMvc.perform(get("/api/v1/college/students/skill-gap")
+                        .param("skillId", "1")
+                        .param("departmentId", String.valueOf(a2.getId()))
+                        .header("Authorization", "Bearer " + hod))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(get("/api/v1/college/students/skill-gap")
+                        .param("skillId", "1")
+                        .param("departmentId", String.valueOf(b1d.getId()))
+                        .header("Authorization", "Bearer " + adminA))
+                .andExpect(status().isNotFound());
 
         // Faculty gets read access without sensitive fields, and cannot export/report/mutate.
         String facultyEmail = "faculty-" + suffix() + "@college.test";
-        JsonNode facultyInvite = createInvitation(adminA, "FACULTY", "DEPARTMENT", a1.getId(), facultyEmail);
+        mockMvc.perform(post("/api/v1/college/staff/invitations")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"too-broad-" + suffix()
+                                + "@college.test\",\"designation\":\"FACULTY\","
+                                + "\"scopeType\":\"DEPARTMENT\",\"scopeId\":" + a1.getId() + "}")
+                        .header("Authorization", "Bearer " + adminA))
+                .andExpect(status().isBadRequest());
+        JsonNode facultyInvite = createInvitation(adminA, "FACULTY", "SECTION", s1.getId(), facultyEmail);
         String faculty = accept(tokenFromPath(facultyInvite.path("data").path("activationPath").asText()),
                 "Faculty Person", PASSWORD).path("data").path("accessToken").asText();
 
@@ -393,10 +411,14 @@ class CollegeIntegrationTest {
         Institution institution = institution("LNK" + suffix());
         String admin = bootstrapAdmin(institution, "lnk-admin-" + suffix() + "@college.test");
         Department department = department(institution, "LD" + suffix());
+        AcademicYear year = academicYear(institution, "LY" + suffix());
+        Program program = program(institution, department, "LP" + suffix());
+        Batch batch = batch(program, year, "LB" + suffix());
+        Section section = section(batch, "LS" + suffix());
         String email = "existing-" + suffix() + "@college.test";
         User existing = user(email, Role.STUDENT);
 
-        JsonNode created = createInvitation(admin, "FACULTY", "DEPARTMENT", department.getId(), email);
+        JsonNode created = createInvitation(admin, "FACULTY", "SECTION", section.getId(), email);
         String token = tokenFromPath(created.path("data").path("activationPath").asText());
 
         mockMvc.perform(post("/api/v1/invitations/" + token + "/accept")
@@ -429,6 +451,79 @@ class CollegeIntegrationTest {
     }
 
     // ------------------------------------------------------------------
+    // Platform administration
+    // ------------------------------------------------------------------
+
+    @Test
+    @DisplayName("Platform admin manages institution profile and authorized college administrators")
+    void platformAdmin_managesInstitutionAndAdministrators() throws Exception {
+        Institution institution = institution("ADM" + suffix());
+        String platformAdmin = login(ADMIN_EMAIL, ADMIN_PASSWORD);
+        String renamed = "Renamed " + suffix();
+
+        mockMvc.perform(put("/api/v1/admin/institutions/" + institution.getId())
+                        .header("Authorization", "Bearer " + platformAdmin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"" + renamed + "\",\"timezone\":\"Asia/Kolkata\","
+                                + "\"contactEmail\":\"ops-" + suffix() + "@college.test\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.name").value(renamed));
+
+        String firstAdmin = bootstrapAdmin(institution, "first-admin-" + suffix() + "@college.test");
+        JsonNode memberships = getJson(
+                "/api/v1/admin/institutions/" + institution.getId() + "/memberships", platformAdmin);
+        assertThat(memberships.path("data").size()).isEqualTo(1);
+        long firstMembershipId = memberships.path("data").get(0).path("id").asLong();
+
+        // The last active administrator cannot be suspended.
+        mockMvc.perform(patch("/api/v1/admin/institutions/" + institution.getId()
+                                + "/memberships/" + firstMembershipId + "/status")
+                        .param("status", "INACTIVE")
+                        .header("Authorization", "Bearer " + platformAdmin))
+                .andExpect(status().isConflict());
+
+        // A college administrator can invite a second administrator.
+        String secondEmail = "second-admin-" + suffix() + "@college.test";
+        JsonNode invitation = createInvitation(firstAdmin, "COLLEGE_ADMIN", "INSTITUTION", null, secondEmail);
+        accept(tokenFromPath(invitation.path("data").path("activationPath").asText()), "Second Admin", PASSWORD);
+
+        memberships = getJson(
+                "/api/v1/admin/institutions/" + institution.getId() + "/memberships", platformAdmin);
+        assertThat(memberships.path("data").size()).isEqualTo(2);
+        long secondMembershipId = -1;
+        for (JsonNode item : memberships.path("data")) {
+            if (secondEmail.equalsIgnoreCase(item.path("email").asText())) {
+                secondMembershipId = item.path("id").asLong();
+            }
+        }
+        assertThat(secondMembershipId).isPositive();
+
+        mockMvc.perform(patch("/api/v1/admin/institutions/" + institution.getId()
+                                + "/memberships/" + firstMembershipId + "/status")
+                        .param("status", "INACTIVE")
+                        .header("Authorization", "Bearer " + platformAdmin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("INACTIVE"));
+
+        // The remaining active administrator is protected.
+        mockMvc.perform(patch("/api/v1/admin/institutions/" + institution.getId()
+                                + "/memberships/" + secondMembershipId + "/status")
+                        .param("status", "INACTIVE")
+                        .header("Authorization", "Bearer " + platformAdmin))
+                .andExpect(status().isConflict());
+
+        JsonNode stats = getJson("/api/v1/admin/stats", platformAdmin);
+        assertThat(stats.path("data").has("institutions")).isTrue();
+        assertThat(stats.path("data").has("collegeAdmins")).isTrue();
+        assertThat(stats.path("data").has("pendingInvitations")).isTrue();
+
+        // Platform administrators still have no implicit student access.
+        mockMvc.perform(get("/api/v1/college/students")
+                        .header("Authorization", "Bearer " + platformAdmin))
+                .andExpect(status().isForbidden());
+    }
+
+    // ------------------------------------------------------------------
     // CSV import/export
     // ------------------------------------------------------------------
 
@@ -455,6 +550,26 @@ class CollegeIntegrationTest {
                 + "Wrong Program,csv3-" + suffix() + "@student.test,,R3" + suffix() + ","
                 + d1.getCode() + "," + p2.getCode() + "," + batch.getLabel() + ",,\n";
 
+        mockMvc.perform(multipart("/api/v1/college/students/import/preview")
+                        .file(new MockMultipartFile("file", "students.txt", "text/plain",
+                                csv.getBytes(StandardCharsets.UTF_8)))
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(multipart("/api/v1/college/students/import/preview")
+                        .file(new MockMultipartFile("file", "malformed.csv", "text/csv",
+                                ("full_name,email,roll_number,department_code,program_code,batch_label\n"
+                                        + "\"unclosed,email,R1," + d1.getCode() + "," + p1.getCode()
+                                        + "," + batch.getLabel()).getBytes(StandardCharsets.UTF_8)))
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(multipart("/api/v1/college/students/import/preview")
+                        .file(new MockMultipartFile("file", "duplicate-header.csv", "text/csv",
+                                ("full_name,full_name,email,roll_number,department_code,program_code,batch_label\n"
+                                        + "One,Two,duplicate-header@student.test,R1," + d1.getCode() + ","
+                                        + p1.getCode() + "," + batch.getLabel()).getBytes(StandardCharsets.UTF_8)))
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isBadRequest());
+
         JsonNode preview = uploadPreview(admin, csv.getBytes(StandardCharsets.UTF_8));
         long jobId = preview.path("data").path("jobId").asLong();
         assertThat(preview.path("data").path("totalRows").asInt()).isEqualTo(3);
@@ -464,6 +579,8 @@ class CollegeIntegrationTest {
         JsonNode commit = postJson("/api/v1/college/students/import/" + jobId + "/commit", null, admin);
         assertThat(commit.path("data").path("createdRows").asInt()).isEqualTo(1);
         assertThat(commit.path("data").path("rejectedRows").asInt()).isEqualTo(2);
+        assertThat(commit.path("data").path("rows").get(0).path("message").asText())
+                .contains("did not issue a credential or activation link");
 
         // The created student is visible and the export neutralises the formula.
         JsonNode list = getJson("/api/v1/college/students", admin);

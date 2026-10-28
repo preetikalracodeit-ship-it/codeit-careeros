@@ -7,9 +7,12 @@ import {
   CheckCircle2,
   Copy,
   MailPlus,
+  Pencil,
   Plus,
   Power,
   RefreshCw,
+  ShieldCheck,
+  UserCog,
 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -48,6 +51,13 @@ export default function AdminInstitutionsPage() {
   const [inviting, setInviting] = useState(false);
   const [created, setCreated] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [editFor, setEditFor] = useState(null);
+  const [editForm, setEditForm] = useState(emptyInstitution);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [adminFor, setAdminFor] = useState(null);
+  const [admins, setAdmins] = useState([]);
+  const [adminsLoading, setAdminsLoading] = useState(false);
+  const [adminActionId, setAdminActionId] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -95,6 +105,70 @@ export default function AdminInstitutionsPage() {
       await load();
     } catch (err) {
       setError(err.message || "Could not update the institution status.");
+    }
+  }
+
+  function openEdit(institution) {
+    setEditFor(institution);
+    setEditForm({
+      code: institution.code,
+      name: institution.name,
+      timezone: institution.timezone || "",
+      contactEmail: institution.contactEmail || "",
+      status: institution.status,
+    });
+  }
+
+  async function saveInstitution(event) {
+    event.preventDefault();
+    if (!editFor) return;
+    setSavingEdit(true);
+    setError("");
+    try {
+      await api.put(`/admin/institutions/${editFor.id}`, {
+        name: editForm.name.trim(),
+        timezone: editForm.timezone.trim() || null,
+        contactEmail: editForm.contactEmail.trim() || null,
+      });
+      setEditFor(null);
+      await load();
+    } catch (err) {
+      setError(err.message || "Could not update the institution.");
+    } finally {
+      setSavingEdit(false);
+    }
+  }
+
+  async function openAdministrators(institution) {
+    setAdminFor(institution);
+    setAdmins([]);
+    setAdminsLoading(true);
+    setError("");
+    try {
+      const data = await api.get(`/admin/institutions/${institution.id}/memberships`);
+      setAdmins((data || []).filter((member) => member.designation === "COLLEGE_ADMIN"));
+    } catch (err) {
+      setError(err.message || "Could not load the institution's administrators.");
+    } finally {
+      setAdminsLoading(false);
+    }
+  }
+
+  async function toggleAdministrator(member) {
+    setAdminActionId(member.id);
+    setError("");
+    try {
+      await api.patch(
+        `/admin/institutions/${adminFor.id}/memberships/${member.id}/status`,
+        null,
+        { params: { status: member.status === "ACTIVE" ? "INACTIVE" : "ACTIVE" } },
+      );
+      const data = await api.get(`/admin/institutions/${adminFor.id}/memberships`);
+      setAdmins((data || []).filter((item) => item.designation === "COLLEGE_ADMIN"));
+    } catch (err) {
+      setError(err.message || "Could not update this administrator.");
+    } finally {
+      setAdminActionId(null);
     }
   }
 
@@ -216,6 +290,14 @@ export default function AdminInstitutionsPage() {
                   </div>
                 </dl>
                 <div className="flex flex-wrap gap-2">
+                  <Button variant="outline" size="sm" onClick={() => openAdministrators(institution)}>
+                    <UserCog className="size-3.5" aria-hidden="true" />
+                    Administrators
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => openEdit(institution)}>
+                    <Pencil className="size-3.5" aria-hidden="true" />
+                    Edit
+                  </Button>
                   <Button
                     variant="outline"
                     size="sm"
@@ -382,6 +464,130 @@ export default function AdminInstitutionsPage() {
               </p>
             </form>
           )}
+        </div>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(editFor)}
+        onOpenChange={(open) => {
+          if (!open) setEditFor(null);
+        }}
+        title="Edit institution"
+        description={editFor ? `${editFor.code} · the code is permanent` : undefined}
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setEditFor(null)} disabled={savingEdit}>
+              Cancel
+            </Button>
+            <Button onClick={saveInstitution} disabled={savingEdit || !editForm.name.trim()}>
+              {savingEdit ? "Saving…" : "Save changes"}
+            </Button>
+          </>
+        }
+      >
+        <form onSubmit={saveInstitution} className="mt-4 space-y-3">
+          <Field id="edit-institution-name" label="Name" required>
+            {(inputId) => (
+              <Input
+                id={inputId}
+                value={editForm.name}
+                onChange={(event) => setEditForm((prev) => ({ ...prev, name: event.target.value }))}
+                required
+                maxLength={200}
+              />
+            )}
+          </Field>
+          <Field id="edit-institution-timezone" label="Timezone">
+            {(inputId) => (
+              <Input
+                id={inputId}
+                value={editForm.timezone}
+                onChange={(event) => setEditForm((prev) => ({ ...prev, timezone: event.target.value }))}
+                placeholder="Asia/Kolkata"
+              />
+            )}
+          </Field>
+          <Field id="edit-institution-contact" label="Contact email">
+            {(inputId) => (
+              <Input
+                id={inputId}
+                type="email"
+                value={editForm.contactEmail}
+                onChange={(event) => setEditForm((prev) => ({ ...prev, contactEmail: event.target.value }))}
+              />
+            )}
+          </Field>
+          <p className="text-xs text-muted-foreground">
+            Institution status is managed separately so deactivation stays an explicit, audited action.
+          </p>
+        </form>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(adminFor)}
+        onOpenChange={(open) => {
+          if (!open) setAdminFor(null);
+        }}
+        title="College administrators"
+        description={adminFor ? `${adminFor.name} · authorized platform-managed administrators` : undefined}
+        footer={
+          <Button variant="outline" onClick={() => setAdminFor(null)}>
+            Close
+          </Button>
+        }
+      >
+        <div className="mt-4 space-y-3">
+          {adminsLoading ? (
+            <p className="text-sm text-muted-foreground">Loading administrators…</p>
+          ) : admins.length === 0 ? (
+            <p className="rounded-xl border border-border/60 bg-muted/40 p-3 text-sm text-muted-foreground">
+              No college administrator yet. Use “Bootstrap administrator” to issue the first invitation.
+            </p>
+          ) : (
+            <ul className="space-y-2">
+              {admins.map((member) => (
+                <li
+                  key={member.id}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border/60 p-3"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold">{member.fullName || member.email}</p>
+                    <p className="truncate text-xs text-muted-foreground">{member.email}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">{member.scopeLabel}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge
+                      className={cn(
+                        "border-0",
+                        member.status === "ACTIVE"
+                          ? "bg-chart-3/15 text-chart-3"
+                          : "bg-muted text-muted-foreground",
+                      )}
+                    >
+                      {labelOf(member.status)}
+                    </Badge>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => toggleAdministrator(member)}
+                      disabled={adminActionId === member.id}
+                    >
+                      {adminActionId === member.id
+                        ? "Saving…"
+                        : member.status === "ACTIVE"
+                          ? "Deactivate"
+                          : "Activate"}
+                    </Button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="flex items-start gap-2 text-xs text-muted-foreground">
+            <ShieldCheck className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+            The last active college administrator cannot be deactivated. Platform administrators cannot use this
+            console to read student records.
+          </p>
         </div>
       </Dialog>
     </div>

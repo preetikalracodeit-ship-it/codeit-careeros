@@ -346,6 +346,58 @@ public class StaffService {
 
     // ---- memberships ----
 
+    /**
+     * Platform-admin view of the institution's authorized administrators.
+     * It deliberately returns college-administrator membership metadata only;
+     * it never exposes student data or unrelated staff records.
+     */
+    @Transactional(readOnly = true)
+    public List<StaffDtos.MembershipResponse> listInstitutionMemberships(Long institutionId) {
+        requireInstitution(institutionId);
+        return membershipRepository.findByInstitutionIdOrderByCreatedAtDesc(institutionId).stream()
+                .filter(membership -> membership.getDesignation() == StaffDesignation.COLLEGE_ADMIN)
+                .map(membership -> toResponse(institutionId, membership))
+                .toList();
+    }
+
+    /**
+     * Platform administrators can suspend or reactivate an authorized college
+     * administrator. They cannot manage other staff designations and cannot
+     * remove the last active administrator, which would lock the institution
+     * out of its own console.
+     */
+    @Transactional
+    public StaffDtos.MembershipResponse updateInstitutionMembershipStatusAsAdmin(
+            Long institutionId, Long membershipId, MembershipStatus status) {
+        requireInstitution(institutionId);
+        if (status == null) {
+            throw BusinessException.badRequest("Membership status is required");
+        }
+        InstitutionMembership membership = membershipRepository
+                .findByIdAndInstitutionId(membershipId, institutionId)
+                .orElseThrow(() -> BusinessException.notFound("Membership not found"));
+        if (membership.getDesignation() != StaffDesignation.COLLEGE_ADMIN) {
+            throw BusinessException.forbidden(
+                    "Platform administrators can manage only college administrator memberships");
+        }
+        if (membership.getStatus() == MembershipStatus.ACTIVE && status != MembershipStatus.ACTIVE
+                && membershipRepository.countByInstitutionIdAndDesignationAndStatus(
+                        institutionId, StaffDesignation.COLLEGE_ADMIN, MembershipStatus.ACTIVE) <= 1) {
+            throw BusinessException.conflict(
+                    "The institution must keep at least one active college administrator");
+        }
+        membership.setStatus(status);
+        membership = membershipRepository.save(membership);
+        auditService.success("MEMBERSHIP_UPDATE", "MEMBERSHIP", String.valueOf(membershipId),
+                institutionId, null, "platformAdminStatus=" + status);
+        return toResponse(institutionId, membership);
+    }
+
+    private Institution requireInstitution(Long institutionId) {
+        return institutionRepository.findById(institutionId)
+                .orElseThrow(() -> BusinessException.notFound("Institution not found"));
+    }
+
     @Transactional(readOnly = true)
     public List<StaffDtos.MembershipResponse> listMemberships(CollegeScope scope) {
         scope.requireManageStaff();
@@ -423,9 +475,8 @@ public class StaffService {
                 }
             }
             case FACULTY -> {
-                if (scopeType == ScopeType.INSTITUTION) {
-                    throw BusinessException.badRequest(
-                            "Faculty must be limited to a department, program, batch or section");
+                if (scopeType != ScopeType.SECTION) {
+                    throw BusinessException.badRequest("Faculty must be assigned to a section");
                 }
             }
         }

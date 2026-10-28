@@ -3,6 +3,7 @@ package com.codeit.careeros.controller;
 import com.codeit.careeros.college.dto.AcademicDtos;
 import com.codeit.careeros.college.dto.StaffDtos;
 import com.codeit.careeros.college.enums.InstitutionStatus;
+import com.codeit.careeros.college.enums.MembershipStatus;
 import com.codeit.careeros.college.service.AcademicStructureService;
 import com.codeit.careeros.college.service.StaffService;
 import com.codeit.careeros.common.ApiResponse;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -50,12 +52,38 @@ public class AdminInstitutionController {
         return ApiResponse.success(academicStructureService.listInstitutions());
     }
 
+    @Operation(summary = "Update an institution's own profile")
+    @PutMapping("/{id}")
+    public ApiResponse<AcademicDtos.InstitutionResponse> update(
+            @PathVariable Long id, @RequestBody AcademicDtos.InstitutionRequest request) {
+        return ApiResponse.success("Institution updated",
+                academicStructureService.updateInstitutionAsAdmin(id, request));
+    }
+
     @Operation(summary = "Activate or deactivate an institution")
     @PatchMapping("/{id}/status")
     public ApiResponse<AcademicDtos.InstitutionResponse> status(
             @PathVariable Long id, @RequestParam InstitutionStatus status) {
         return ApiResponse.success("Institution status updated",
                 academicStructureService.updateInstitutionStatus(id, status));
+    }
+
+    @Operation(summary = "List institution staff memberships (platform admin)")
+    @GetMapping("/{id}/memberships")
+    public ApiResponse<List<StaffDtos.MembershipResponse>> memberships(@PathVariable Long id) {
+        return ApiResponse.success(staffService.listInstitutionMemberships(id));
+    }
+
+    @Operation(summary = "Activate or deactivate an authorized college administrator",
+            description = "Platform administrators may manage only college-administrator "
+                    + "memberships and may never remove the last active administrator.")
+    @PatchMapping("/{id}/memberships/{membershipId}/status")
+    public ApiResponse<StaffDtos.MembershipResponse> membershipStatus(
+            @PathVariable Long id,
+            @PathVariable Long membershipId,
+            @RequestParam MembershipStatus status) {
+        return ApiResponse.success("Membership status updated",
+                staffService.updateInstitutionMembershipStatusAsAdmin(id, membershipId, status));
     }
 
     @Operation(summary = "Bootstrap the institution's first college administrator",

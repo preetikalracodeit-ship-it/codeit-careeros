@@ -34,6 +34,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -53,6 +54,7 @@ public class StudentService {
     private static final Set<String> SORTABLE = Set.of(
             "fullName", "studentId", "rollNumber", "status", "createdAt");
     private static final int MAX_PAGE_SIZE = 100;
+    private static final int MAX_SKILL_GAP_COHORT_SIZE = 5000;
 
     private final StudentEnrollmentRepository enrollmentRepository;
     private final AcademicScopeService academicScopeService;
@@ -82,6 +84,8 @@ public class StudentService {
         List<StudentDtos.CollegeStudentListItem> items = result.getContent().stream()
                 .map(enrollment -> toListItem(enrollment, scope, filter))
                 .toList();
+        auditService.success("STUDENT_LIST_READ", "STUDENT_ENROLLMENT", null,
+                scope.institutionId(), scope, "rows=" + items.size() + ",total=" + result.getTotalElements());
         return new StudentDtos.StudentPageResponse(
                 items,
                 result.getTotalElements(),
@@ -94,6 +98,71 @@ public class StudentService {
     public List<StudentEnrollment> allInScope(CollegeScope scope, StudentDtos.StudentFilter filter) {
         validateFilters(scope, filter);
         return enrollmentRepository.findAll(specification(scope, filter));
+    }
+
+    @Transactional(readOnly = true)
+    public StudentDtos.StudentPageResponse listBelowSkillTarget(CollegeScope scope,
+                                                               StudentDtos.StudentFilter filter,
+                                                               Long skillId,
+                                                               int page,
+                                                               int size) {
+        if (skillId == null || skillId < 1) {
+            throw BusinessException.badRequest("A valid skill id is required");
+        }
+        List<StudentEnrollment> cohort = allInScope(scope, filter);
+        if (cohort.size() > MAX_SKILL_GAP_COHORT_SIZE) {
+            throw BusinessException.badRequest("This skill drill-down exceeds 5,000 students; narrow the cohort filters");
+        }
+
+        Instant from = filter == null ? null : assessmentBoundary(filter.assessmentDateFrom(), scope.institutionZone());
+        Instant toExclusive = filter == null || filter.assessmentDateTo() == null ? null
+                : filter.assessmentDateTo().plusDays(1).atStartOfDay(scope.institutionZone()).toInstant();
+        List<StudentEnrollment> matching = cohort.stream()
+                .filter(enrollment -> enrollment.getStatus() == EnrollmentStatus.ACTIVE)
+                .filter(enrollment -> hasSubmittedTargetAttempt(enrollment, from, toExclusive))
+                .filter(enrollment -> {
+                    ReadinessResponse readiness = careerInsightService.readinessFor(
+                            enrollment.getStudentProfile().getUser().getId());
+                    return readiness.readinessPercent() != null && readiness.gaps() != null
+                            && readiness.gaps().stream().anyMatch(gap -> skillId.equals(gap.skillId())
+                            && Boolean.TRUE.equals(gap.assessed())
+                            && !Boolean.TRUE.equals(gap.metTarget()));
+                })
+                .sorted(Comparator.comparing(
+                                (StudentEnrollment enrollment) -> enrollment.getStudentProfile().getFullName(),
+                                String.CASE_INSENSITIVE_ORDER)
+                        .thenComparing(enrollment -> enrollment.getStudentProfile().getStudentId()))
+                .toList();
+
+        int safePage = Math.max(0, page);
+        int safeSize = Math.min(Math.max(1, size), MAX_PAGE_SIZE);
+        long startLong = (long) safePage * safeSize;
+        int start = startLong >= matching.size() ? matching.size() : (int) startLong;
+        int end = Math.min(start + safeSize, matching.size());
+        List<StudentDtos.CollegeStudentListItem> items = matching.subList(start, end).stream()
+                .map(enrollment -> toListItem(enrollment, scope, filter))
+                .toList();
+
+        auditService.success("SKILL_GAP_STUDENT_DRILLDOWN", "SKILL", String.valueOf(skillId),
+                scope.institutionId(), scope, "students=" + matching.size());
+        return new StudentDtos.StudentPageResponse(items, matching.size(), safePage, safeSize,
+                matching.isEmpty() ? 0 : (matching.size() + safeSize - 1) / safeSize);
+    }
+
+    private boolean hasSubmittedTargetAttempt(StudentEnrollment enrollment, Instant from, Instant toExclusive) {
+        if (enrollment.getStudentProfile().getTargetCareer() == null) {
+            return false;
+        }
+        Long careerId = enrollment.getStudentProfile().getTargetCareer().getId();
+        return assessmentAttemptRepository.findByUserIdAndStatusOrderByStartedAtDesc(
+                        enrollment.getStudentProfile().getUser().getId(), AttemptStatus.SUBMITTED).stream()
+                .filter(attempt -> attempt.getAssessment() != null
+                        && attempt.getAssessment().getCareer() != null
+                        && careerId.equals(attempt.getAssessment().getCareer().getId()))
+                .map(AssessmentAttempt::getSubmittedAt)
+                .filter(java.util.Objects::nonNull)
+                .anyMatch(submittedAt -> (from == null || !submittedAt.isBefore(from))
+                        && (toExclusive == null || submittedAt.isBefore(toExclusive)));
     }
 
     @Transactional(readOnly = true)
@@ -158,15 +227,9 @@ public class StudentService {
         enrollment.setStatus(request.status());
         enrollment = enrollmentRepository.save(enrollment);
 
-        String reason = request.reason() == null ? null
-                : request.reason().replaceAll("[\\r\\n\\t]+", " ").strip();
-        if (reason != null && reason.length() > 200) {
-            reason = reason.substring(0, 200);
-        }
         auditService.success("STUDENT_STATUS_UPDATE", "STUDENT_ENROLLMENT",
                 String.valueOf(enrollment.getId()), scope.institutionId(), scope,
-                "from=" + previous + ",to=" + enrollment.getStatus()
-                        + (reason == null || reason.isBlank() ? "" : ",reason=" + reason));
+                "from=" + previous + ",to=" + enrollment.getStatus());
         return new StudentDtos.EnrollmentStatusResponse(
                 enrollment.getId(), enrollment.getStatus(), enrollment.getUpdatedAt());
     }

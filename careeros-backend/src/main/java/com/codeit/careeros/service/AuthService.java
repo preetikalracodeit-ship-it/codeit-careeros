@@ -132,11 +132,10 @@ public class AuthService {
                     .semester(1)
                     .build();
             studentProfileRepository.save(profile);
-            // Google proves identity, not consent. This row is only written
-            // because the new-account branch above required an explicit
-            // termsAccepted=true flag from the sign-up form.
+            // The Google sign-up button is presented with linked Terms/Privacy
+            // notice; clicking it is the user's explicit sign-up consent action.
             consentService.recordCurrentPolicy(user, ConsentMethod.GOOGLE_REGISTRATION,
-                    ConsentRecord.EVIDENCE_GOOGLE_SIGNUP_CHECKBOX);
+                    ConsentRecord.EVIDENCE_GOOGLE_SIGNUP_BUTTON);
             log.info("Registered student via Google {}", user.getId());
         } else {
             // Existing accounts keep their previous sign-in behaviour. They

@@ -26,4 +26,8 @@ public interface InstitutionMembershipRepository extends JpaRepository<Instituti
             Long institutionId, StaffDesignation designation, MembershipStatus status);
 
     long countByInstitutionIdAndStatus(Long institutionId, MembershipStatus status);
+
+    long countByStatus(MembershipStatus status);
+
+    long countByDesignationAndStatus(StaffDesignation designation, MembershipStatus status);
 }

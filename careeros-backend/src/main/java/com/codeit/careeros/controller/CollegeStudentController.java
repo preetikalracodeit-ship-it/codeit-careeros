@@ -65,6 +65,30 @@ public class CollegeStudentController {
                 page, size, sortBy, sortDir));
     }
 
+    @Operation(summary = "Open the scoped students below a selected skill target")
+    @GetMapping("/skill-gap")
+    public ApiResponse<StudentDtos.StudentPageResponse> skillGapStudents(
+            @RequestParam Long skillId,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) Long academicYearId,
+            @RequestParam(required = false) Long departmentId,
+            @RequestParam(required = false) Long programId,
+            @RequestParam(required = false) Long batchId,
+            @RequestParam(required = false) Long sectionId,
+            @RequestParam(required = false) EnrollmentStatus status,
+            @RequestParam(required = false) Boolean assessmentCompleted,
+            @RequestParam(required = false) Boolean readinessEvaluated,
+            @RequestParam(required = false) java.time.LocalDate assessmentDateFrom,
+            @RequestParam(required = false) java.time.LocalDate assessmentDateTo,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "25") int size) {
+        return ApiResponse.success(studentService.listBelowSkillTarget(
+                collegeAccessService.currentScope(),
+                filter(search, academicYearId, departmentId, programId, batchId, sectionId, status,
+                        assessmentCompleted, readinessEvaluated, assessmentDateFrom, assessmentDateTo),
+                skillId, page, size));
+    }
+
     @Operation(summary = "Student 360 with field-level visibility enforced on the server")
     @GetMapping("/{id}")
     public ApiResponse<StudentDtos.CollegeStudentDetailResponse> detail(@PathVariable Long id) {

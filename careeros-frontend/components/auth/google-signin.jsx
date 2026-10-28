@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import api from "@/lib/api";
 import { auth } from "@/lib/auth";
@@ -91,7 +92,10 @@ export function GoogleSignInButton({
       setLoading(true);
       setBlocked("");
       try {
-        const data = await api.post("/auth/google", { idToken, termsAccepted });
+        const data = await api.post("/auth/google", {
+          idToken,
+          termsAccepted: mode === "signup" || termsAccepted,
+        });
         auth.save(data);
         router.replace(data.user?.role === "ADMIN" ? "/admin/dashboard" : "/student/dashboard");
       } catch (err) {
@@ -102,7 +106,7 @@ export function GoogleSignInButton({
         setLoading(false);
       }
     },
-    [onError, router, termsAccepted],
+    [mode, onError, router, termsAccepted],
   );
 
   useEffect(() => {
@@ -159,6 +163,18 @@ export function GoogleSignInButton({
         <span className="text-xs font-medium text-muted-foreground">or continue with</span>
         <span className="h-px flex-1 bg-border" />
       </div>
+      {mode === "signup" && (
+        <p className="text-center text-xs leading-relaxed text-muted-foreground">
+          By continuing with Google, you agree to the{" "}
+          <Link href="/legal/terms" target="_blank" className="font-semibold text-foreground underline underline-offset-2 hover:text-primary">
+            Terms
+          </Link>{" "}
+          and{" "}
+          <Link href="/legal/privacy" target="_blank" className="font-semibold text-foreground underline underline-offset-2 hover:text-primary">
+            Privacy Policy
+          </Link>.
+        </p>
+      )}
       <div className="relative">
         <div ref={btnRef} className="flex justify-center [&>div]:w-full!" />
         {loading && (

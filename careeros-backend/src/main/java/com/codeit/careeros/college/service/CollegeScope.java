@@ -87,6 +87,49 @@ public record CollegeScope(
         return designation != StaffDesignation.FACULTY;
     }
 
+    /**
+     * Improvement plans are visible to every staff member who can already see
+     * the student. Faculty/mentors may read them; only college administrators,
+     * TPOs and HODs may create or edit them.
+     */
+    public boolean canViewImprovementPlans() {
+        return true;
+    }
+
+    public boolean canManageImprovementPlans() {
+        return designation != StaffDesignation.FACULTY;
+    }
+
+    /**
+     * Placement data is intentionally unavailable to faculty accounts in this
+     * phase. HODs can read their department's placement activity; TPOs and
+     * college administrators manage it.
+     */
+    public boolean canViewPlacement() {
+        return designation != StaffDesignation.FACULTY;
+    }
+
+    public boolean canManageCompaniesAndJobs() {
+        return designation == StaffDesignation.COLLEGE_ADMIN
+                || designation == StaffDesignation.TPO;
+    }
+
+    public boolean canViewCompanyContacts() {
+        return canManageCompaniesAndJobs();
+    }
+
+    public boolean canManageDrives() {
+        return canManageCompaniesAndJobs();
+    }
+
+    public boolean canManageApplications() {
+        return canManageCompaniesAndJobs();
+    }
+
+    public boolean canViewPlacementReports() {
+        return designation != StaffDesignation.FACULTY;
+    }
+
     public void requireManageStructure() {
         if (!canManageStructure()) {
             throw BusinessException.forbidden("Only a college administrator can manage the academic structure");
@@ -120,6 +163,42 @@ public record CollegeScope(
     public void requireReports() {
         if (!canGenerateReports()) {
             throw BusinessException.forbidden("Your role cannot generate college reports");
+        }
+    }
+
+    public void requireManageImprovementPlans() {
+        if (!canManageImprovementPlans()) {
+            throw BusinessException.forbidden("Your role cannot create or edit improvement plans");
+        }
+    }
+
+    public void requirePlacementAccess() {
+        if (!canViewPlacement()) {
+            throw BusinessException.forbidden("Your role cannot view placement data");
+        }
+    }
+
+    public void requireManageCompaniesAndJobs() {
+        if (!canManageCompaniesAndJobs()) {
+            throw BusinessException.forbidden("Only a college administrator or TPO can manage companies and jobs");
+        }
+    }
+
+    public void requireManageDrives() {
+        if (!canManageDrives()) {
+            throw BusinessException.forbidden("Only a college administrator or TPO can manage placement drives");
+        }
+    }
+
+    public void requireManageApplications() {
+        if (!canManageApplications()) {
+            throw BusinessException.forbidden("Only a college administrator or TPO can manage applications");
+        }
+    }
+
+    public void requirePlacementReports() {
+        if (!canViewPlacementReports()) {
+            throw BusinessException.forbidden("Your role cannot generate placement reports");
         }
     }
 
@@ -198,6 +277,31 @@ public record CollegeScope(
         }
         if (canManageStudents()) {
             permissions.add("MANAGE_STUDENTS");
+        }
+        if (canViewImprovementPlans()) {
+            permissions.add("VIEW_IMPROVEMENT_PLANS");
+        }
+        if (canManageImprovementPlans()) {
+            permissions.add("MANAGE_IMPROVEMENT_PLANS");
+        }
+        if (canViewPlacement()) {
+            permissions.add("VIEW_PLACEMENT");
+        }
+        if (canManageCompaniesAndJobs()) {
+            permissions.add("MANAGE_COMPANIES");
+            permissions.add("MANAGE_JOBS");
+        }
+        if (canViewCompanyContacts()) {
+            permissions.add("VIEW_COMPANY_CONTACTS");
+        }
+        if (canManageDrives()) {
+            permissions.add("MANAGE_DRIVES");
+        }
+        if (canManageApplications()) {
+            permissions.add("MANAGE_APPLICATIONS");
+        }
+        if (canViewPlacementReports()) {
+            permissions.add("VIEW_PLACEMENT_REPORTS");
         }
         return List.copyOf(permissions);
     }

@@ -51,8 +51,8 @@ class MigrationScriptTest {
                 .load()
                 .migrate();
 
-        assertThat(result.migrationsExecuted).isEqualTo(4);
-        assertThat(result.targetSchemaVersion).isEqualTo("4");
+        assertThat(result.migrationsExecuted).isEqualTo(5);
+        assertThat(result.targetSchemaVersion).isEqualTo("5");
 
         try (Connection connection = connect(url)) {
             List<String> tables = tables(connection);
@@ -70,7 +70,10 @@ class MigrationScriptTest {
                     "institutions", "departments", "programs", "academic_years",
                     "batches", "sections", "student_enrollments",
                     "institution_memberships", "staff_invitations",
-                    "csv_import_jobs", "csv_import_rows");
+                    "csv_import_jobs", "csv_import_rows",
+                    "improvement_plans", "improvement_tasks",
+                    "placement_companies", "job_openings", "placement_drives",
+                    "placement_applications", "application_stage_events", "placement_offers");
 
             assertThat(columns(connection, "consent_records")).contains(
                     "id", "user_id", "consent_type", "policy_version",
@@ -137,8 +140,8 @@ class MigrationScriptTest {
                 .load()
                 .migrate();
 
-        assertThat(result.migrationsExecuted).isEqualTo(3);
-        assertThat(result.targetSchemaVersion).isEqualTo("4");
+        assertThat(result.migrationsExecuted).isEqualTo(4);
+        assertThat(result.targetSchemaVersion).isEqualTo("5");
 
         try (Connection connection = connect(url)) {
             assertThat(tables(connection)).contains("consent_records", "audit_events", "users", "student_profiles",
@@ -160,7 +163,7 @@ class MigrationScriptTest {
                 while (rs.next()) {
                     history.add(rs.getString(1) + ":" + rs.getString(2));
                 }
-                assertThat(history).containsExactly("1:BASELINE", "2:SQL", "3:SQL", "4:SQL");
+                assertThat(history).containsExactly("1:BASELINE", "2:SQL", "3:SQL", "4:SQL", "5:SQL");
             }
         }
     }

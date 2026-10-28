@@ -1,5 +1,7 @@
 # CODEIT CareerOS — Implementation Roadmap
 
+> **Superseded for Phase 1-4 status (2026-10-28):** The Phase 2-4 items below are retained as planning history. The current working tree contains uncommitted Phase 1-4 implementation and local/test evidence; see [PHASE1_FINAL_ACCEPTANCE_AUDIT.md](PHASE1_FINAL_ACCEPTANCE_AUDIT.md). Staging/production deployment is still not claimed or authorized.
+
 > **Planning document plus Phase 0 status.** The College/TPO phases below are not implemented. It preserves the existing MySQL + Spring Boot + Next.js architecture and assumes the audit's recommendation to re-baseline the brief's Phase 1 before building. Phase 0 stabilization work is in the working tree but is uncommitted and undeployed; see [CAREEROS_AUDIT_SUMMARY.md](CAREEROS_AUDIT_SUMMARY.md).
 
 > **Phase 0 status (2026-10-27, later state):** dependency/test stabilization, build/version visibility, health probes, request IDs, consent enforcement with durable evidence, role-cookie migration, report-only CSP, rate-limiter hardening, CI workflow, deployment smoke script, Flyway V1–V3, platform-admin audit events, and backend dependency scanning are locally implemented and verified (backend suite green; frontend build/lint pass; npm audit 0; local smoke 9/9). The CI workflow and MySQL migration job have not executed on the repository host, and no production migration/deploy has run. Phase 1A remains blocked on an approved role/membership matrix and migration strategy; see [CAREEROS_COLLEGE_ROLE_MATRIX.md](CAREEROS_COLLEGE_ROLE_MATRIX.md).

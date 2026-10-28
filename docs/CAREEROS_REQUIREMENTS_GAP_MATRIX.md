@@ -1,5 +1,7 @@
 # CODEIT CareerOS — Requirements Gap Matrix
 
+> **Superseded for Phase 1-4 status (2026-10-28):** The college/TPO counts below predate the uncommitted Phase 1-4 Campus Career & Placement Hub implementation and are retained as historical audit evidence. Use [PHASE1_FINAL_ACCEPTANCE_AUDIT.md](PHASE1_FINAL_ACCEPTANCE_AUDIT.md) for the current local/test status, Phase 2-4 coverage, and the CONDITIONAL verdict. Staging/production verification is still not claimed.
+
 > **Audit-plus-remediation status.** The baseline rows below are based on repository evidence, existing automated tests, the production build, and unauthenticated live checks. Later stabilization work is uncommitted and locally verified only; a feature is not marked complete merely because a file, table, route, or UI label exists, and local tests do not establish live deployment parity. See [CAREEROS_AUDIT_SUMMARY.md](CAREEROS_AUDIT_SUMMARY.md).
 
 > **Post-audit remediation snapshot (2026-10-27, later state):** the college/TPO functional totals are unchanged (0 of 49 complete). New local, uncommitted work adds durable consent records (Flyway V2), platform-admin audit events (V3), a Flyway V1 baseline with migration tests, immediate invalidation of deactivated accounts, and a backend OWASP Dependency-Check CI job. Backend and frontend gates pass locally; the CI workflow and MySQL migration job have not executed on the repository host, and no production migration/deploy was performed. College/TPO remains blocked on the role matrix and tenant model.

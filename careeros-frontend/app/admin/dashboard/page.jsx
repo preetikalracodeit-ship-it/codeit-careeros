@@ -2,9 +2,13 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
+  Building2,
+  MailPlus,
   RefreshCw,
+  ShieldCheck,
   TriangleAlert,
   Users,
+  UsersRound,
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -33,15 +37,17 @@ function initialsOf(student) {
 export default function AdminDashboard() {
   const [count, setCount] = useState(null);
   const [students, setStudents] = useState([]);
+  const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   const fetchSnapshot = useCallback(async () => {
-    const [countData, listData] = await Promise.all([
+    const [countData, listData, statsData] = await Promise.all([
       api.get("/admin/students/count"),
       api.get("/admin/students", { params: { page: 0, size: 10 } }),
+      api.get("/admin/stats"),
     ]);
-    return { count: countData.count, students: listData?.content || [] };
+    return { count: countData.count, students: listData?.content || [], stats: statsData };
   }, []);
 
   useEffect(() => {
@@ -51,6 +57,7 @@ export default function AdminDashboard() {
         if (!ignore) {
           setCount(snap.count);
           setStudents(snap.students);
+          setStats(snap.stats);
         }
       })
       .catch((err) => {
@@ -71,6 +78,7 @@ export default function AdminDashboard() {
       const snap = await fetchSnapshot();
       setCount(snap.count);
       setStudents(snap.students);
+      setStats(snap.stats);
     } catch (err) {
       setError(err.message || "Failed to load student data.");
     } finally {
@@ -106,7 +114,39 @@ export default function AdminDashboard() {
         </Card>
       )}
 
-      <div className="grid gap-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        <StatCard
+          icon={Building2}
+          label="Institutions"
+          value={stats?.institutions ?? "—"}
+          sub="College workspaces"
+          tone="muted"
+          loading={loading}
+        />
+        <StatCard
+          icon={UsersRound}
+          label="College staff"
+          value={stats?.collegeStaff ?? "—"}
+          sub="Active memberships"
+          tone="primary"
+          loading={loading}
+        />
+        <StatCard
+          icon={ShieldCheck}
+          label="College admins"
+          value={stats?.collegeAdmins ?? "—"}
+          sub="Active administrators"
+          tone="green"
+          loading={loading}
+        />
+        <StatCard
+          icon={MailPlus}
+          label="Pending invites"
+          value={stats?.pendingInvitations ?? "—"}
+          sub="Unexpired staff invitations"
+          tone="gold"
+          loading={loading}
+        />
         <StatCard
           icon={Users}
           label="Registered students"
@@ -116,6 +156,11 @@ export default function AdminDashboard() {
           loading={loading}
         />
       </div>
+
+      <p className="text-xs text-muted-foreground">
+        Platform administrators can manage college workspaces and their authorized administrators. Student records
+        remain governed by each college&apos;s own scoped console.
+      </p>
 
       <div className="grid gap-4">
         <Card>

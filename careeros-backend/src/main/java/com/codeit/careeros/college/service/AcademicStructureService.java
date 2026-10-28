@@ -87,6 +87,20 @@ public class AcademicStructureService {
     }
 
     @Transactional
+    public AcademicDtos.InstitutionResponse updateInstitutionAsAdmin(
+            Long institutionId, AcademicDtos.InstitutionRequest request) {
+        Institution institution = institutionRepository.findById(institutionId)
+                .orElseThrow(() -> BusinessException.notFound("Institution not found"));
+        institution.setName(requireText(request.name(), "Institution name", 160));
+        institution.setTimezone(trimToNull(request.timezone(), 60));
+        institution.setContactEmail(normalizeEmail(request.contactEmail()));
+        institution = institutionRepository.save(institution);
+        auditService.success("INSTITUTION_UPDATE", "INSTITUTION", String.valueOf(institution.getId()),
+                institution.getId(), null, "name=" + institution.getName());
+        return toResponse(institution);
+    }
+
+    @Transactional
     public AcademicDtos.InstitutionResponse updateInstitution(CollegeScope scope,
                                                               AcademicDtos.InstitutionRequest request) {
         scope.requireManageStructure();

@@ -47,8 +47,9 @@ class MigrationMySqlIntegrationTest {
 
     @Test
     void flywayThenHibernateValidationSucceedsOnFreshMySqlSchema() {
-        // Context startup is the test: Flyway applies V1+V2+V3+V4 and Hibernate
-        // validates every mapped column, index and constraint against MySQL.
+        // Context startup is the test: Flyway applies V1+V2+V3+V4+V5 and
+        // Hibernate validates every mapped column, index and constraint
+        // against MySQL.
     }
 
     @Test
@@ -64,7 +65,7 @@ class MigrationMySqlIntegrationTest {
                 "SELECT version FROM flyway_schema_history "
                         + "WHERE success = 1 AND version IS NOT NULL ORDER BY installed_rank",
                 String.class);
-        assertThat(versions).containsExactly("1", "2", "3", "4");
+        assertThat(versions).containsExactly("1", "2", "3", "4", "5");
 
         Integer auditTables = jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM information_schema.tables "

@@ -132,12 +132,18 @@ export default function RegisterPage() {
       eyebrow="Free student account"
       title="Create your account"
       footer={
-        <p className="text-sm text-muted-foreground">
-          Already have an account?{" "}
-          <Link href="/login" className="font-semibold text-brand-700 underline-offset-4 hover:underline dark:text-brand-300">
-            Sign in
-          </Link>
-        </p>
+        <div className="space-y-2 text-sm text-muted-foreground">
+          <p>
+            Already have an account?{" "}
+            <Link href="/login" className="font-semibold text-brand-700 underline-offset-4 hover:underline dark:text-brand-300">
+              Sign in
+            </Link>
+          </p>
+          <p className="text-xs leading-relaxed">
+            This form creates a student account. College staff accounts are created only by invitation from a college
+            administrator; platform administrator accounts are provisioned by CODEIT.
+          </p>
+        </div>
       }
     >
       <form onSubmit={handleSubmit} className="space-y-5" noValidate>
@@ -240,8 +246,6 @@ export default function RegisterPage() {
         <GoogleSignInButton
           mode="signup"
           onError={setError}
-          disabled={!agreed}
-          termsAccepted={agreed}
         />
 
         <p className="text-center text-xs text-muted-foreground sm:hidden">
