@@ -1,5 +1,6 @@
 package com.codeit.careeros.assessment;
 
+import com.codeit.careeros.TestDataCleaner;
 import com.codeit.careeros.TestSupport;
 import com.codeit.careeros.career.Career;
 import com.codeit.careeros.career.CareerSkill;
@@ -98,8 +99,12 @@ class AssessmentFlowIntegrationTest {
     private Long optionJava2;
     private Long optionSql1;
 
+    @Autowired
+    private TestDataCleaner testDataCleaner;
+
     @BeforeEach
     void setUp() {
+        testDataCleaner.clean();
         skillScoreRepository.deleteAll();
         answerRepository.deleteAll();
         attemptRepository.deleteAll();

@@ -1,5 +1,6 @@
 package com.codeit.careeros.insight;
 
+import com.codeit.careeros.TestDataCleaner;
 import com.codeit.careeros.TestSupport;
 import com.codeit.careeros.assessment.AssessmentQuestion;
 import com.codeit.careeros.assessment.AssessmentTest;
@@ -100,8 +101,12 @@ class CareerInsightIntegrationTest {
     private Long optionJava2;
     private Long optionSql1;
 
+    @Autowired
+    private TestDataCleaner testDataCleaner;
+
     @BeforeEach
     void setUp() {
+        testDataCleaner.clean();
         skillScoreRepository.deleteAll();
         answerRepository.deleteAll();
         attemptRepository.deleteAll();

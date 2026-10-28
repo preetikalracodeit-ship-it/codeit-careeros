@@ -1,5 +1,6 @@
 package com.codeit.careeros.linkedin;
 
+import com.codeit.careeros.TestDataCleaner;
 import com.codeit.careeros.TestSupport;
 import com.codeit.careeros.assessment.AssessmentQuestion;
 import com.codeit.careeros.assessment.AssessmentTest;
@@ -104,8 +105,12 @@ class LinkedInIntegrationTest {
     private Long questionJava1;
     private Long optionJava1;
 
+    @Autowired
+    private TestDataCleaner testDataCleaner;
+
     @BeforeEach
     void setUp() {
+        testDataCleaner.clean();
         linkedInProfileRepository.deleteAll();
         cvDocumentRepository.deleteAll();
         skillScoreRepository.deleteAll();

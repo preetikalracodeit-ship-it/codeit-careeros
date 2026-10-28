@@ -1,5 +1,6 @@
 package com.codeit.careeros.cv;
 
+import com.codeit.careeros.TestDataCleaner;
 import com.codeit.careeros.TestSupport;
 import com.codeit.careeros.assessment.AssessmentQuestion;
 import com.codeit.careeros.assessment.AssessmentTest;
@@ -114,8 +115,12 @@ class CvIntegrationTest {
     private Long questionJava1;
     private Long optionJava1;
 
+    @Autowired
+    private TestDataCleaner testDataCleaner;
+
     @BeforeEach
     void setUp() throws Exception {
+        testDataCleaner.clean();
         cvDocumentRepository.deleteAll();
         cleanStorageDir();
         skillScoreRepository.deleteAll();

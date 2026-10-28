@@ -1,5 +1,6 @@
 package com.codeit.careeros.roadmap;
 
+import com.codeit.careeros.TestDataCleaner;
 import com.codeit.careeros.TestSupport;
 import com.codeit.careeros.assessment.AssessmentQuestion;
 import com.codeit.careeros.assessment.AssessmentTest;
@@ -118,8 +119,12 @@ class RoadmapProjectIntegrationTest {
     private Long projectId;
     private Long draftProjectId;
 
+    @Autowired
+    private TestDataCleaner testDataCleaner;
+
     @BeforeEach
     void setUp() {
+        testDataCleaner.clean();
         roadmapProgressRepository.deleteAll();
         itemRepository.deleteAll();
         phaseRepository.deleteAll();

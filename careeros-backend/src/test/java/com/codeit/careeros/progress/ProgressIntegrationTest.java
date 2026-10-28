@@ -1,5 +1,6 @@
 package com.codeit.careeros.progress;
 
+import com.codeit.careeros.TestDataCleaner;
 import com.codeit.careeros.TestSupport;
 import com.codeit.careeros.assessment.AssessmentQuestion;
 import com.codeit.careeros.assessment.AssessmentTest;
@@ -82,8 +83,12 @@ class ProgressIntegrationTest {
     private Long questionId;
     private Long optionId;
 
+    @Autowired
+    private TestDataCleaner testDataCleaner;
+
     @BeforeEach
     void setUp() {
+        testDataCleaner.clean();
         skillScoreRepository.deleteAll();
         answerRepository.deleteAll();
         attemptRepository.deleteAll();

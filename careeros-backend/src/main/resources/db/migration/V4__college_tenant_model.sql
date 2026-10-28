@@ -183,7 +183,7 @@ CREATE TABLE csv_import_jobs (
 CREATE TABLE csv_import_rows (
     id                   BIGINT       NOT NULL AUTO_INCREMENT,
     job_id               BIGINT       NOT NULL,
-    row_number           INTEGER      NOT NULL,
+    `row_number`         INTEGER      NOT NULL,
     full_name            VARCHAR(120),
     email                VARCHAR(190),
     mobile               VARCHAR(20),
