@@ -1,3 +1,4 @@
+import type { ClientSession } from "mongoose";
 import { getNextSequence } from "../models/Counter.js";
 import { AuditEvent, type AuditOutcome } from "../models/AuditEvent.js";
 import { logger } from "./logger.js";
@@ -13,6 +14,9 @@ interface AdminAuditInput {
 }
 
 interface InstitutionAuditInput {
+  actorUserId?: number | null;
+  actorRole?: string | null;
+  actorEmail?: string | null;
   action: string;
   targetType: string;
   targetId?: string | null;
@@ -21,6 +25,7 @@ interface InstitutionAuditInput {
   outcome?: AuditOutcome;
   details?: string | null;
   requestId?: string | null;
+  session?: ClientSession;
 }
 
 function trim(value: string | null | undefined, max: number): string | null {
@@ -47,9 +52,9 @@ interface AuditInsert {
   details?: string | null;
 }
 
-async function insertAudit(fields: AuditInsert): Promise<void> {
-  const id = await getNextSequence("audit_events");
-  await AuditEvent.create({ ...fields, _id: id, createdAt: new Date() });
+async function insertAudit(fields: AuditInsert, session?: ClientSession): Promise<void> {
+  const id = await getNextSequence("audit_events", session);
+  await AuditEvent.create([{ ...fields, _id: id, createdAt: new Date() }], session ? { session } : {});
 }
 
 export async function recordAdminRequest(input: AdminAuditInput): Promise<void> {
@@ -74,9 +79,9 @@ export async function recordAdminRequest(input: AdminAuditInput): Promise<void> 
 export async function recordInstitutionEvent(input: InstitutionAuditInput): Promise<void> {
   const action = trim(input.action, 140) ?? "UNKNOWN";
   await insertAudit({
-    actorUserId: null,
-    actorRole: null,
-    actorEmail: null,
+    actorUserId: input.actorUserId ?? null,
+    actorRole: trim(input.actorRole, 20),
+    actorEmail: trim(input.actorEmail, 190),
     action,
     targetPath: trim(`college:${action}`, 255) ?? `college:${action}`,
     targetType: trim(input.targetType, 60),
@@ -86,7 +91,7 @@ export async function recordInstitutionEvent(input: InstitutionAuditInput): Prom
     outcome: input.outcome ?? "SUCCESS",
     requestId: trim(input.requestId, 64),
     details: trim(input.details, 1000),
-  });
+  }, input.session);
 }
 
 export function actorFromUser(

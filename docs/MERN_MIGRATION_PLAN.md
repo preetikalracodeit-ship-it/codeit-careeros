@@ -1,8 +1,8 @@
 # CareerOS MERN Migration Plan
 
-**Status:** Proposed — planning only. No migration, commit, deployment, or production change is authorized by this document.  
-**Date:** 2026-10-28  
-**Baseline:** `main` at `fc95099` plus the uncommitted Phase 1–4 Campus Career & Placement Hub work. The current working tree is not a clean release baseline; migration work must start from a reviewed, authorized commit.  
+**Status:** In progress — local migration implementation is authorized. Production database migration, deployment, traffic cutover, and decommissioning remain gated.
+**Date:** 2026-10-28
+**Baseline:** `main` at `c3cd28f` (`feat: scaffold careeros-api (Express + MongoDB) migration target`), with subsequent local MERN migration work tracked in `docs/MERN_MIGRATION_PROGRESS.md`. The Spring Boot/MySQL and Next.js applications remain the current source of truth and rollback target.
 **Scope:** Replace the Spring Boot + MySQL backend with Node.js + Express + MongoDB, and replace the Next.js frontend with a React 19 + Vite SPA, while preserving all current behavior.
 
 ---

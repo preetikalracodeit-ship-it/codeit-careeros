@@ -1,0 +1,4 @@
+import mongoose, { Schema } from "mongoose";
+export interface BatchDoc { _id: number; programId: number; academicYearId: number; label: string; graduationYear?: number | null; status: "ACTIVE" | "INACTIVE"; }
+const schema = new Schema<BatchDoc>({ _id: { type: Number, required: true }, programId: { type: Number, required: true }, academicYearId: { type: Number, required: true }, label: { type: String, required: true, maxlength: 40 }, graduationYear: { type: Number, default: null }, status: { type: String, enum: ["ACTIVE", "INACTIVE"], default: "ACTIVE" } }, { timestamps: true, versionKey: false, id: false, collection: "batches" }); schema.index({ programId: 1, label: 1 }, { unique: true, name: "uk_batches_program_label" });
+export const Batch = (mongoose.models.Batch as mongoose.Model<BatchDoc>) ?? mongoose.model<BatchDoc>("Batch", schema);

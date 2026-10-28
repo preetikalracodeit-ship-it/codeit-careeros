@@ -164,6 +164,15 @@ async function issueTokens(user: UserDoc, session?: ClientSession): Promise<Auth
   };
 }
 
+/** Internal staff-invitation handoff: issue a normal rotated-session contract inside the caller's transaction. */
+export async function issueSessionForUser(userId: number, session: ClientSession): Promise<AuthResponse> {
+  const query = User.findById(userId);
+  query.session(session);
+  const user = await query.lean();
+  if (!user || user.status !== "ACTIVE") throw AppError.forbidden("This account is not active");
+  return issueTokens(user, session);
+}
+
 async function revokeAllForUser(userId: number, session?: ClientSession): Promise<void> {
   const query = RefreshToken.updateMany({ userId, revoked: false }, { $set: { revoked: true } });
   if (session) {

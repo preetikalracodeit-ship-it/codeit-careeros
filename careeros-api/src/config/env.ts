@@ -16,6 +16,7 @@ const envSchema = z.object({
   AUTH_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(60),
   AUTH_TRUSTED_PROXY_CIDRS: z.string().default("127.0.0.1/32,::1/128"),
   GOOGLE_CLIENT_ID: z.string().default(""),
+  PROFILE_PHOTO_DIR: z.string().default("./data/profile-photos"),
   PRIVACY_POLICY_VERSION: z.string().default("2026-10-26"),
   APP_BUILD_COMMIT: z.string().default("unknown"),
   SERVICE_NAME: z.string().default("careeros-api"),

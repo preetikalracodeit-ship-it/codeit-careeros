@@ -42,6 +42,10 @@ export class AppError extends Error {
     return new AppError(409, "CONFLICT", message);
   }
 
+  static gone(message: string): AppError {
+    return new AppError(410, "ATTEMPT_EXPIRED", message);
+  }
+
   static payloadTooLarge(message: string): AppError {
     return new AppError(413, "BAD_REQUEST", message);
   }
