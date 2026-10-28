@@ -1,0 +1,12 @@
+process.env.NODE_ENV = "test";
+process.env.LOG_LEVEL = "silent";
+process.env.JWT_SECRET = "test-only-secret-that-is-at-least-32-bytes-long";
+process.env.JWT_ACCESS_EXPIRATION_MS = "900000";
+process.env.JWT_REFRESH_EXPIRATION_MS = "604800000";
+process.env.JWT_ISSUER = "careeros";
+process.env.MONGODB_URI = "mongodb://127.0.0.1:27017/careeros-test";
+process.env.CORS_ALLOWED_ORIGINS = "http://localhost:5173";
+process.env.AUTH_RATE_LIMIT_PER_MINUTE = "1000";
+process.env.PRIVACY_POLICY_VERSION = "2026-10-26";
+process.env.ADMIN_EMAIL = "";
+process.env.ADMIN_PASSWORD = "";
