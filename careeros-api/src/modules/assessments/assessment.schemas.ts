@@ -1,13 +1,10 @@
 import { z } from "zod";
 
-export const assessmentIdSchema = z.coerce.number().int().positive().safe();
+export const assessmentIdSchema = z.coerce.number().int().positive();
 export const answerSchema = z.object({
-  questionId: z.number().int().positive().safe(),
-  optionId: z.number().int().positive().safe(),
+  questionId: z.number().int().positive(),
+  optionId: z.number().int().positive(),
 });
-export const myAttemptQuerySchema = z.object({
-  assessmentId: z.coerce.number().int().positive().safe(),
-});
-export const attemptHistoryQuerySchema = z.object({
-  assessmentId: z.coerce.number().int().positive().safe().optional(),
+export const latestAttemptQuerySchema = z.object({
+  assessmentId: z.coerce.number().int().positive(),
 });

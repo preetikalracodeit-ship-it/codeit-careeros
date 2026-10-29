@@ -1,85 +1,133 @@
+import { withTransaction } from "../../lib/db.js";
 import { AppError } from "../../lib/errors.js";
 import { getNextSequence } from "../../models/Counter.js";
 import { AssessmentAttempt } from "../../models/AssessmentAttempt.js";
 import { AssessmentTest } from "../../models/AssessmentTest.js";
 import { CareerSkill } from "../../models/CareerSkill.js";
 import { RoadmapItem } from "../../models/RoadmapItem.js";
-import { RoadmapItemProgress, type ProgressStatus } from "../../models/RoadmapItemProgress.js";
+import { RoadmapItemProgress, type RoadmapStatus } from "../../models/RoadmapItemProgress.js";
 import { RoadmapPhase } from "../../models/RoadmapPhase.js";
 import { Skill } from "../../models/Skill.js";
 import { SkillScore } from "../../models/SkillScore.js";
 import { StudentProfile } from "../../models/StudentProfile.js";
 
-const validStatuses = new Set<ProgressStatus>(["NOT_STARTED", "IN_PROGRESS", "COMPLETED"]);
+type SkillDetail = {
+  skillId?: number | null;
+  skillName?: string;
+  skillCategory?: string;
+  targetPercent?: number;
+  scorePercent?: number;
+  gapPercent?: number;
+  assessed: boolean;
+};
 
-async function context(userId: number) {
-  const profile = await StudentProfile.findOne({ userId }).lean();
-  if (!profile?.targetCareerId) return null;
-  const careerId = profile.targetCareerId;
-  const [mappings, assessments] = await Promise.all([
-    CareerSkill.find({ careerId }).sort({ weightPercent: -1 }).lean(),
-    AssessmentTest.find({ careerId }).select("_id").lean(),
+async function skillDetails(careerId: number, userId: number, skillIds: number[]): Promise<Map<number, SkillDetail>> {
+  if (skillIds.length === 0) return new Map();
+  const [framework, attempts] = await Promise.all([
+    CareerSkill.find({ careerId, skillId: { $in: skillIds } }).lean(),
+    AssessmentAttempt.find({ userId, status: "SUBMITTED" }).sort({ startedAt: -1 }).lean(),
   ]);
-  const submitted = assessments.length ? await AssessmentAttempt.find({ userId, assessmentId: { $in: assessments.map((a) => a._id) }, status: "SUBMITTED" }).sort({ startedAt: -1 }).lean() : [];
-  const scoreDocs = submitted.length ? await SkillScore.find({ attemptId: { $in: submitted.map((a) => a._id) } }).lean() : [];
-  const latestScores = new Map<number, (typeof scoreDocs)[number]>();
-  for (const attempt of submitted) for (const score of scoreDocs) if (score.attemptId === attempt._id && !latestScores.has(score.skillId)) latestScores.set(score.skillId, score);
-  return { profile, careerId, careerName: profile.targetCareerName ?? null, mappings: new Map(mappings.map((m) => [m.skillId, m])), latestScores };
+  const tests = await AssessmentTest.find({ _id: { $in: [...new Set(attempts.map((attempt) => attempt.assessmentId))] } }).lean();
+  const careerTestIds = new Set(tests.filter((test) => test.careerId === careerId).map((test) => test._id));
+  const relevantAttempts = attempts.filter((attempt) => careerTestIds.has(attempt.assessmentId));
+  const scores = relevantAttempts.length
+    ? await SkillScore.find({ attemptId: { $in: relevantAttempts.map((attempt) => attempt._id) }, skillId: { $in: skillIds } }).lean()
+    : [];
+  const latestScore = new Map<number, number>();
+  for (const attempt of relevantAttempts) {
+    for (const score of scores) {
+      if (score.attemptId === attempt._id && !latestScore.has(score.skillId)) latestScore.set(score.skillId, score.scorePercent);
+    }
+  }
+  const skills = await Skill.find({ _id: { $in: skillIds } }).lean();
+  const skillById = new Map(skills.map((skill) => [skill._id, skill]));
+  const mappingBySkill = new Map(framework.map((mapping) => [mapping.skillId, mapping]));
+  return new Map(skillIds.flatMap((id) => {
+    const skill = skillById.get(id);
+    if (!skill) return [];
+    const mapping = mappingBySkill.get(id);
+    const score = latestScore.get(id);
+    return [[id, {
+      skillId: id,
+      skillName: skill.name,
+      skillCategory: skill.category,
+      ...(mapping ? { targetPercent: mapping.targetPercent } : {}),
+      ...(score === undefined ? {} : { scorePercent: score, ...(mapping ? { gapPercent: score - mapping.targetPercent } : {}) }),
+      assessed: score !== undefined,
+    } as SkillDetail]];
+  }));
 }
 
-async function enrichedItem(item: { _id: number; title: string; description?: string | null; learningGoal?: string | null; estimatedHours: number; displayOrder: number; skillId?: number | null }, ctx: NonNullable<Awaited<ReturnType<typeof context>>>, status: ProgressStatus) {
-  const skill = item.skillId ? await Skill.findById(item.skillId).lean() : null;
-  const mapping = item.skillId ? ctx.mappings.get(item.skillId) : undefined;
-  const score = item.skillId ? ctx.latestScores.get(item.skillId) : undefined;
+function itemResponse(item: { _id: number; title: string; description?: string | null; learningGoal?: string | null; estimatedHours: number; displayOrder: number; skillId?: number | null }, detail: SkillDetail | undefined, status: RoadmapStatus) {
   return {
-    itemId: item._id, title: item.title, description: item.description ?? null,
-    learningGoal: item.learningGoal ?? null, estimatedHours: item.estimatedHours,
-    displayOrder: item.displayOrder, skillId: skill?._id ?? null, skillName: skill?.name ?? null,
-    skillCategory: skill?.category ?? null, targetPercent: mapping?.targetPercent ?? null,
-    scorePercent: score?.scorePercent ?? null,
-    gapPercent: score && mapping ? score.scorePercent - mapping.targetPercent : null,
-    assessed: Boolean(score), status,
+    itemId: item._id,
+    title: item.title,
+    ...(item.description == null ? {} : { description: item.description }),
+    ...(item.learningGoal == null ? {} : { learningGoal: item.learningGoal }),
+    estimatedHours: item.estimatedHours,
+    displayOrder: item.displayOrder,
+    ...(item.skillId == null ? {} : { skillId: item.skillId, ...(detail ?? { assessed: false }) }),
+    status,
   };
 }
 
-export async function getMyRoadmap(userId: number) {
-  const ctx = await context(userId);
-  if (!ctx) return { careerId: null, careerName: null, hasTarget: false, progressPercent: 0, totalItems: 0, completedItems: 0, inProgressItems: 0, phases: [] };
-  const phases = await RoadmapPhase.find({ careerId: ctx.careerId }).sort({ displayOrder: 1, _id: 1 }).lean();
-  const phaseIds = phases.map((phase) => phase._id);
-  const items = phaseIds.length ? await RoadmapItem.find({ phaseId: { $in: phaseIds } }).sort({ displayOrder: 1, _id: 1 }).lean() : [];
-  const progress = items.length ? await RoadmapItemProgress.find({ userId, roadmapItemId: { $in: items.map((item) => item._id) } }).lean() : [];
-  const statusById = new Map(progress.map((p) => [p.roadmapItemId, p.status]));
-  const itemsByPhase = new Map<number, typeof items>();
-  for (const item of items) { const list = itemsByPhase.get(item.phaseId) ?? []; list.push(item); itemsByPhase.set(item.phaseId, list); }
-  let completed = 0; let inProgress = 0;
-  const phaseResponses = await Promise.all(phases.map(async (phase) => {
-    const phaseItems = itemsByPhase.get(phase._id) ?? [];
-    const mapped = await Promise.all(phaseItems.map((item) => {
-      const status = statusById.get(item._id) ?? "NOT_STARTED";
-      if (status === "COMPLETED") completed += 1; else if (status === "IN_PROGRESS") inProgress += 1;
-      return enrichedItem(item, ctx, status);
-    }));
-    return { phaseId: phase._id, title: phase.title, description: phase.description ?? null, displayOrder: phase.displayOrder, durationDays: phase.durationDays, totalItems: mapped.length, completedItems: mapped.filter((item) => item.status === "COMPLETED").length, items: mapped };
-  }));
-  return { careerId: ctx.careerId, careerName: ctx.careerName, hasTarget: true, progressPercent: items.length ? Math.round(completed * 100 / items.length) : 0, totalItems: items.length, completedItems: completed, inProgressItems: inProgress, phases: phaseResponses };
+function emptyRoadmap() {
+  return { careerId: null, careerName: null, hasTarget: false, progressPercent: 0, totalItems: 0, completedItems: 0, inProgressItems: 0, phases: [] };
 }
 
-export async function updateRoadmapItem(userId: number, itemId: number, statusRaw: unknown) {
-  const status = typeof statusRaw === "string" ? statusRaw.trim().toUpperCase() as ProgressStatus : "" as ProgressStatus;
-  if (!validStatuses.has(status)) throw AppError.badRequest("Status must be NOT_STARTED, IN_PROGRESS or COMPLETED");
-  const [ctx, item] = await Promise.all([context(userId), RoadmapItem.findById(itemId).lean()]);
+export async function getMyRoadmap(userId: number) {
+  const profile = await StudentProfile.findOne({ userId }).lean();
+  if (!profile?.targetCareerId) return emptyRoadmap();
+  const careerId = profile.targetCareerId;
+  const phases = await RoadmapPhase.find({ careerId }).sort({ displayOrder: 1 }).lean();
+  const items = phases.length
+    ? await RoadmapItem.find({ phaseId: { $in: phases.map((phase) => phase._id) } }).sort({ displayOrder: 1 }).lean()
+    : [];
+  const [progress, details] = await Promise.all([
+    items.length ? RoadmapItemProgress.find({ userId, itemId: { $in: items.map((item) => item._id) } }).lean() : [],
+    skillDetails(careerId, userId, [...new Set(items.flatMap((item) => item.skillId == null ? [] : [item.skillId]))]),
+  ]);
+  const statusByItem = new Map(progress.map((row) => [row.itemId, row.status]));
+  const itemsByPhase = new Map<number, typeof items>();
+  for (const item of items) itemsByPhase.set(item.phaseId, [...(itemsByPhase.get(item.phaseId) ?? []), item]);
+  const phasesResponse = phases.map((phase) => {
+    const phaseItems = itemsByPhase.get(phase._id) ?? [];
+    const phaseResponses = phaseItems.map((item) => itemResponse(item, item.skillId == null ? undefined : details.get(item.skillId), statusByItem.get(item._id) ?? "NOT_STARTED"));
+    return {
+      phaseId: phase._id, title: phase.title,
+      ...(phase.description == null ? {} : { description: phase.description }),
+      displayOrder: phase.displayOrder, durationDays: phase.durationDays,
+      totalItems: phaseResponses.length,
+      completedItems: phaseResponses.filter((item) => item.status === "COMPLETED").length,
+      items: phaseResponses,
+    };
+  });
+  const totalItems = items.length;
+  const completedItems = progress.filter((row) => row.status === "COMPLETED" && items.some((item) => item._id === row.itemId)).length;
+  const inProgressItems = progress.filter((row) => row.status === "IN_PROGRESS" && items.some((item) => item._id === row.itemId)).length;
+  return {
+    careerId, careerName: profile.targetCareerName ?? null, hasTarget: true,
+    progressPercent: totalItems === 0 ? 0 : Math.round((completedItems * 100) / totalItems),
+    totalItems, completedItems, inProgressItems, phases: phasesResponse,
+  };
+}
+
+export async function updateRoadmapItemStatus(userId: number, itemId: number, status: RoadmapStatus) {
+  const item = await RoadmapItem.findById(itemId).lean();
   if (!item) throw AppError.notFound(`Roadmap item not found: ${itemId}`);
   const phase = await RoadmapPhase.findById(item.phaseId).lean();
-  if (!phase || !ctx || phase.careerId !== ctx.careerId) throw AppError.forbidden("Roadmap item is outside your target career");
-  const existing = await RoadmapItemProgress.findOne({ userId, roadmapItemId: itemId }).lean();
-  if (existing) await RoadmapItemProgress.updateOne({ _id: existing._id }, { $set: { status } });
-  else {
-    try { await RoadmapItemProgress.create({ _id: await getNextSequence("roadmap_item_progress"), userId, roadmapItemId: itemId, status }); }
-    catch (error) {
-      if (!(typeof error === "object" && error !== null && "code" in error && (error as { code?: number }).code === 11000)) throw error;
-      await RoadmapItemProgress.updateOne({ userId, roadmapItemId: itemId }, { $set: { status } });
+  if (!phase) throw AppError.notFound(`Roadmap phase not found for item: ${itemId}`);
+  await withTransaction(async (session) => {
+    const existing = await RoadmapItemProgress.findOne({ userId, itemId }).session(session);
+    if (existing) {
+      existing.status = status;
+      await existing.save({ session });
+    } else {
+      await RoadmapItemProgress.create([{
+        _id: await getNextSequence("roadmap_item_progress", session), userId, itemId, status,
+      }], { session });
     }
-  }
-  return enrichedItem(item, ctx, status);
+  });
+  const detailMap = item.skillId == null ? new Map<number, SkillDetail>() : await skillDetails(phase.careerId, userId, [item.skillId]);
+  return itemResponse(item, item.skillId == null ? undefined : detailMap.get(item.skillId), status);
 }

@@ -1,13 +1,11 @@
 import mongoose, { Schema } from "mongoose";
 
-export const SKILL_LEVELS = ["BEGINNER", "BASIC", "INTERMEDIATE", "ADVANCED", "EXPERT"] as const;
-
 export interface CareerSkillDoc {
   _id: number;
   careerId: number;
   skillId: number;
   weightPercent: number;
-  requiredLevel: (typeof SKILL_LEVELS)[number];
+  requiredLevel: string;
   targetPercent: number;
   createdAt: Date;
 }
@@ -18,15 +16,13 @@ const careerSkillSchema = new Schema<CareerSkillDoc>(
     careerId: { type: Number, required: true },
     skillId: { type: Number, required: true },
     weightPercent: { type: Number, required: true, min: 0, max: 100 },
-    requiredLevel: { type: String, enum: SKILL_LEVELS, required: true },
+    requiredLevel: { type: String, required: true, maxlength: 20 },
     targetPercent: { type: Number, required: true, min: 0, max: 100 },
-    createdAt: { type: Date, required: true, default: Date.now },
   },
-  { versionKey: false, id: false, collection: "career_skills" },
+  { timestamps: { createdAt: true, updatedAt: false }, versionKey: false, id: false },
 );
 careerSkillSchema.index({ careerId: 1, skillId: 1 }, { unique: true, name: "uk_career_skills_career_skill" });
-careerSkillSchema.index({ careerId: 1, weightPercent: -1, _id: 1 }, { name: "idx_career_skills_order" });
-careerSkillSchema.index({ skillId: 1 }, { name: "idx_career_skills_skill" });
+careerSkillSchema.index({ careerId: 1, weightPercent: -1 }, { name: "idx_career_skills_weight" });
 
 export const CareerSkill =
   (mongoose.models.CareerSkill as mongoose.Model<CareerSkillDoc>) ??

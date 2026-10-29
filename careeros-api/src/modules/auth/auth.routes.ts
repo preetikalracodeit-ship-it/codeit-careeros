@@ -13,6 +13,8 @@ import {
   me,
   refresh,
   register,
+  requestPasswordReset,
+  resetPassword,
 } from "./auth.service.js";
 import {
   consentAcceptSchema,
@@ -20,9 +22,26 @@ import {
   loginSchema,
   refreshSchema,
   registerSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
 } from "./auth.schemas.js";
 
 export const authRouter = Router();
+
+authRouter.post("/forgot-password", authRateLimiter, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const input = validate(forgotPasswordSchema, req.body);
+    sendSuccess(res, await requestPasswordReset(input.email));
+  } catch (error) { next(error); }
+});
+
+authRouter.post("/reset-password", authRateLimiter, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const input = validate(resetPasswordSchema, req.body);
+    const result = await resetPassword(input.token, input.newPassword);
+    sendSuccess(res, null, { message: result.message });
+  } catch (error) { next(error); }
+});
 
 authRouter.post(
   "/register",

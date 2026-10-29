@@ -1,23 +1,20 @@
 const ACCESS_KEY = "careeros_access";
 const REFRESH_KEY = "careeros_refresh";
 const USER_KEY = "careeros_user";
-const ROLE_COOKIE_NAME = "careeros_role";
+const ROLE_COOKIE = "careeros_role";
 
 function decodeJwt(token) {
   try {
     const payload = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
-    const binary = atob(payload);
-    const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
-    return JSON.parse(new TextDecoder().decode(bytes));
+    return JSON.parse(decodeURIComponent(Array.from(atob(payload), (char) =>
+      `%${char.charCodeAt(0).toString(16).padStart(2, "0")}`).join("")));
   } catch {
     return null;
   }
 }
 
-function writeRoleHint(role) {
-  if (!["STUDENT", "ADMIN", "PROFESSOR"].includes(role)) return;
-  const secure = window.location.protocol === "https:" ? "; Secure" : "";
-  document.cookie = `${ROLE_COOKIE_NAME}=${role}; path=/; SameSite=Lax; max-age=604800${secure}`;
+function cookie(name, value, maxAge) {
+  document.cookie = `${name}=${value}; path=/; SameSite=Lax; max-age=${maxAge}${location.protocol === "https:" ? "; Secure" : ""}`;
 }
 
 export const auth = {
@@ -25,32 +22,34 @@ export const auth = {
     localStorage.setItem(ACCESS_KEY, accessToken);
     if (refreshToken) localStorage.setItem(REFRESH_KEY, refreshToken);
     if (user) localStorage.setItem(USER_KEY, JSON.stringify(user));
-    writeRoleHint(user?.role || decodeJwt(accessToken)?.role);
+    const role = user?.role || decodeJwt(accessToken)?.role;
+    if (role) cookie(ROLE_COOKIE, role, 604800);
   },
-  getAccessToken() {
-    return localStorage.getItem(ACCESS_KEY);
-  },
-  getRefreshToken() {
-    return localStorage.getItem(REFRESH_KEY);
-  },
+  getAccessToken: () => localStorage.getItem(ACCESS_KEY),
+  getRefreshToken: () => localStorage.getItem(REFRESH_KEY),
   getUser() {
-    try {
-      return JSON.parse(localStorage.getItem(USER_KEY) || "null");
-    } catch {
-      return null;
-    }
+    try { return JSON.parse(localStorage.getItem(USER_KEY) || "null"); }
+    catch { return null; }
   },
-  getRole() {
-    return this.getUser()?.role || decodeJwt(this.getAccessToken() || "")?.role || null;
-  },
+  getRole() { return this.getUser()?.role || decodeJwt(this.getAccessToken())?.role || null; },
+  isAuthenticated: () => Boolean(localStorage.getItem(ACCESS_KEY)),
   clear() {
     localStorage.removeItem(ACCESS_KEY);
     localStorage.removeItem(REFRESH_KEY);
     localStorage.removeItem(USER_KEY);
-    const secure = window.location.protocol === "https:" ? "; Secure" : "";
-    document.cookie = `${ROLE_COOKIE_NAME}=; path=/; SameSite=Lax; expires=Thu, 01 Jan 1970 00:00:00 GMT${secure}`;
+    cookie(ROLE_COOKIE, "", 0);
   },
 };
 
-export const homeForRole = (role) =>
-  role === "ADMIN" ? "/admin/dashboard" : role === "PROFESSOR" ? "/college/dashboard" : "/student/dashboard";
+const ROLE_HOME = {
+  SUPER_ADMIN: "/platform/dashboard",
+  COLLEGE_ADMIN: "/college/dashboard",
+  TPO: "/tpo/dashboard",
+  HOD: "/hod/dashboard",
+  FACULTY: "/faculty/dashboard",
+  STUDENT: "/student/dashboard",
+};
+
+export function homeForRole(role) {
+  return ROLE_HOME[role] || "/student/dashboard";
+}

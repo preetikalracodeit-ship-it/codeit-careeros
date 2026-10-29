@@ -1,8 +1,5 @@
 import mongoose, { Schema } from "mongoose";
 
-export const RESULT_LEVELS = ["STRONG", "GOOD", "DEVELOPING", "NEEDS_IMPROVEMENT", "PRIORITY_GAP"] as const;
-export type ResultLevel = (typeof RESULT_LEVELS)[number];
-
 export interface SkillScoreDoc {
   _id: number;
   attemptId: number;
@@ -12,7 +9,7 @@ export interface SkillScoreDoc {
   questionCount: number;
   weightPercent: number;
   targetPercent: number;
-  level: ResultLevel;
+  level: string;
 }
 
 const skillScoreSchema = new Schema<SkillScoreDoc>(
@@ -22,16 +19,14 @@ const skillScoreSchema = new Schema<SkillScoreDoc>(
     skillId: { type: Number, required: true },
     scorePercent: { type: Number, required: true, min: 0, max: 100 },
     correctCount: { type: Number, required: true, min: 0 },
-    questionCount: { type: Number, required: true, min: 1 },
+    questionCount: { type: Number, required: true, min: 0 },
     weightPercent: { type: Number, required: true, min: 0, max: 100 },
     targetPercent: { type: Number, required: true, min: 0, max: 100 },
-    level: { type: String, enum: RESULT_LEVELS, required: true },
+    level: { type: String, required: true, maxlength: 30 },
   },
-  { versionKey: false, id: false, collection: "skill_scores" },
+  { versionKey: false, id: false },
 );
-skillScoreSchema.index({ attemptId: 1, skillId: 1 }, { unique: true, name: "uk_skill_scores_attempt_skill" });
-skillScoreSchema.index({ attemptId: 1, weightPercent: -1 }, { name: "idx_skill_scores_attempt_weight" });
-skillScoreSchema.index({ skillId: 1 }, { name: "idx_skill_scores_skill" });
+skillScoreSchema.index({ attemptId: 1, weightPercent: -1 }, { name: "idx_skill_scores_attempt" });
 
 export const SkillScore =
   (mongoose.models.SkillScore as mongoose.Model<SkillScoreDoc>) ??

@@ -1,8 +1,8 @@
 # CareerOS MERN Migration Plan
 
-**Status:** In progress — local migration implementation is authorized. Production database migration, deployment, traffic cutover, and decommissioning remain gated.
-**Date:** 2026-10-28
-**Baseline:** `main` at `c3cd28f` (`feat: scaffold careeros-api (Express + MongoDB) migration target`), with subsequent local MERN migration work tracked in `docs/MERN_MIGRATION_PROGRESS.md`. The Spring Boot/MySQL and Next.js applications remain the current source of truth and rollback target.
+**Status:** In progress — local implementation authorized by the user on 2026-10-28. Production migration, deployment, and cutover remain gated by Section 19.
+**Date:** 2026-10-28  
+**Baseline:** Migration implementation started from clean `migrate` at `c3cd28f` (Express + MongoDB scaffold). The Spring Boot + MySQL system remains the behavior and data source of truth; its baseline is described in Section 3.
 **Scope:** Replace the Spring Boot + MySQL backend with Node.js + Express + MongoDB, and replace the Next.js frontend with a React 19 + Vite SPA, while preserving all current behavior.
 
 ---
@@ -504,6 +504,23 @@ Port `proxy.js` behavior into React route guards:
 ---
 
 ## 9. Phased plan
+
+### Implementation progress (2026-10-28)
+
+The current `migrate` branch contains the initial API scaffold plus these implemented slices:
+
+- Express health/version endpoints, environment validation, structured logging, request IDs, Mongo transaction helper, error envelope, and common middleware.
+- Identity/authentication, refresh-token rotation, Google sign-in, consent, settings/password operations, and admin-request audit handling.
+- Student profile read/update, published career catalog/detail/skills, target-career selection, user-scoped submitted assessment history, and weighted career-readiness/skill-gap reporting.
+- Published career assessment listing with active question counts and the legacy 20-question cap.
+- Attempt-state reads with ownership enforcement, restored selections, expired-attempt transitions, and option-answer-key redaction.
+- Transactional assessment start/resume with frozen question order, career-weighted largest-remainder sampling, unseen-question preference, difficulty round-robin, and deterministic option order.
+- Transactional answer autosave and grading with attempt ownership, question/option membership checks, expiry enforcement, weighted overall scores, and per-skill snapshots.
+- Latest-attempt lookup scoped to the authenticated user and selected assessment.
+- Local API configuration loads `MONGO_URI` from `careeros-backend/.env` unless `MONGODB_URI` is explicitly provided. A read-only MongoDB ping to that configured endpoint succeeded.
+- Local API typecheck, lint, and production TypeScript build pass. All 42 API integration tests pass with an isolated in-memory MongoDB replica-set directory.
+
+This is partial implementation only. The React SPA, remaining API modules, full Mongo data migration, shadow comparison, security/performance parity, staging, and release gates are outstanding.
 
 Durations are indicative for a team of roughly 2 backend engineers, 1 frontend engineer, 0.5 QA, and 0.5 DevOps. A single engineer should roughly double the timeline.
 
@@ -1143,6 +1160,25 @@ Exit criteria for the sprint:
 - React Router renders the login route and redirects an unauthenticated protected route.
 - Tests run in CI locally.
 - No production system is touched.
+
+### Implementation progress (2026-10-28)
+
+- The Express/Mongoose API now loads `MONGO_URI` from `careeros-backend/.env` for local development, while an explicitly supplied `MONGODB_URI` remains the override. The Mongo connection was verified without printing the URI.
+- The API has initial student profile/readiness, published career catalog, target-career, assessment list/attempt/answer/grading/history slices. These are partial parity foundations; legacy controllers still need to be inventoried and ported.
+- `careeros-web` now builds as a React 19 + Vite SPA with React Router, role guards, login, same-origin `/api` proxy configuration, and deep-link route declarations.
+- The student career catalog page is connected to the new `/careers`, `/students/me`, and `/students/me/career` API endpoints, including search, category filters, and target-career selection.
+- Student assessment catalog and attempt/result routes now use the migrated API for availability, latest attempt/history, start/resume, timed answering, autosave, submit, and skill scores. The React API client serializes query parameters for history/latest lookups. The UI keeps correct-answer keys hidden and the API returns only submitted skill scores for review.
+- Student profile edit now covers personal, education and career-link fields, completion feedback, field validation, and the existing profile-photo behavior. The API stores generated per-user photo keys, caps uploads at 2 MB, allow-lists JPG/PNG/WebP, scopes reads/deletes to the authenticated student, and serves private image bytes without a public URL.
+- The student dashboard now reads profile, readiness, career details, active assessment, and submitted assessment history from migrated API routes. Readiness and score summaries are scoped to the selected target career; project/CV/LinkedIn dashboard integration remains outstanding.
+- The student progress page now uses `/students/me/readiness` and submitted attempt history for career readiness, skill filters, assessed/unassessed skill targets, score comparisons, and result review links.
+- Student settings now uses the migrated account snapshot, password-change, session-revocation, and logout endpoints, with profile and target-career links. AI-history and CV data controls remain unavailable until those APIs are ported.
+- Student roadmap parity now includes `GET /roadmaps/my` and `PUT /roadmaps/items/{itemId}/status`, ordered career phases and steps, per-student progress, and latest submitted assessment score/target enrichment. The React page supports start, complete, reopen, no-target, and unpublished-roadmap states.
+- Student project parity now includes `GET /projects/recommended` and `PUT /projects/{projectId}/status`, published career recommendations, skill score/target enrichment, and per-student progress. The React page supports recommendation, no-target/empty states, start, complete, reset, and reopen.
+- Student LinkedIn parity now includes `PUT /linkedin`, `GET /linkedin/me`, and `GET /linkedin/analysis`, with validated personal-profile URLs, student-entered content, skill-master matching, target-career alignment, completeness checks, and account-scoped storage. The React page supports editing and analysis; CV comparison fields remain empty until CV storage and analysis are ported.
+- Forgot/reset-password routes now have React screens and a sign-in link. The API stores hashed, expiring, single-use reset tokens, gives the same response for known/unknown addresses, and revokes refresh sessions after a reset. Development returns a testable reset token; production email delivery is not configured yet.
+- The Mongo-memory test fixture now creates a unique temporary database directory to avoid stale lock-file conflicts between runs.
+- `careeros-web` lint and production build pass; API typecheck, lint, and build pass, and all 46 API integration tests pass, including roadmap/project status, score enrichment, LinkedIn validation and analysis, and per-student progress isolation. Most listed routes are still placeholders; route inventory, remaining page behavior, visual parity, accessibility, and end-to-end flows remain outstanding.
+- No production system was touched and no cutover has occurred.
 
 ---
 

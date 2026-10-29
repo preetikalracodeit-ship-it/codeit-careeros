@@ -1,22 +1,11 @@
 import mongoose, { Schema } from "mongoose";
 
-export const CAREER_CATEGORIES = [
-  "SOFTWARE_DEVELOPMENT",
-  "DATA_AI",
-  "CLOUD_DEVOPS",
-  "CYBERSECURITY",
-  "QUALITY_ASSURANCE",
-  "BUSINESS",
-  "OTHER",
-] as const;
-export const DIFFICULTY_LEVELS = ["BEGINNER", "INTERMEDIATE", "ADVANCED"] as const;
-
 export interface CareerDoc {
   _id: number;
   name: string;
   description?: string | null;
-  category: (typeof CAREER_CATEGORIES)[number];
-  difficultyLevel: (typeof DIFFICULTY_LEVELS)[number];
+  category: string;
+  difficultyLevel: string;
   published: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -25,16 +14,16 @@ export interface CareerDoc {
 const careerSchema = new Schema<CareerDoc>(
   {
     _id: { type: Number, required: true },
-    name: { type: String, required: true, unique: true, maxlength: 140 },
+    name: { type: String, required: true, maxlength: 140, unique: true },
     description: { type: String, default: null, maxlength: 1000 },
-    category: { type: String, enum: CAREER_CATEGORIES, required: true },
-    difficultyLevel: { type: String, enum: DIFFICULTY_LEVELS, required: true },
+    category: { type: String, required: true, maxlength: 40 },
+    difficultyLevel: { type: String, required: true, maxlength: 20 },
     published: { type: Boolean, required: true, default: false },
   },
-  { timestamps: true, versionKey: false, id: false, collection: "careers" },
+  { timestamps: true, versionKey: false, id: false },
 );
 careerSchema.index({ published: 1, name: 1 }, { name: "idx_careers_published_name" });
-careerSchema.index({ category: 1, published: 1 }, { name: "idx_careers_category_published" });
+careerSchema.index({ category: 1 }, { name: "idx_careers_category" });
 
 export const Career =
   (mongoose.models.Career as mongoose.Model<CareerDoc>) ??

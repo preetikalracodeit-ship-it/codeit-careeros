@@ -4,22 +4,22 @@ export interface AssessmentAnswerDoc {
   _id: number;
   attemptId: number;
   questionId: number;
-  selectedOptionId: number;
+  selectedOptionId?: number | null;
   createdAt: Date;
   updatedAt: Date;
 }
 
-const assessmentAnswerSchema = new Schema<AssessmentAnswerDoc>(
+const schema = new Schema<AssessmentAnswerDoc>(
   {
     _id: { type: Number, required: true },
     attemptId: { type: Number, required: true },
     questionId: { type: Number, required: true },
-    selectedOptionId: { type: Number, required: true },
+    selectedOptionId: { type: Number, default: null },
   },
-  { timestamps: true, versionKey: false, id: false, collection: "assessment_answers" },
+  { timestamps: true, versionKey: false, id: false },
 );
-assessmentAnswerSchema.index({ attemptId: 1, questionId: 1 }, { unique: true, name: "uk_answers_attempt_question" });
+schema.index({ attemptId: 1, questionId: 1 }, { unique: true, name: "uk_answers_attempt_question" });
 
 export const AssessmentAnswer =
   (mongoose.models.AssessmentAnswer as mongoose.Model<AssessmentAnswerDoc>) ??
-  mongoose.model<AssessmentAnswerDoc>("AssessmentAnswer", assessmentAnswerSchema);
+  mongoose.model<AssessmentAnswerDoc>("AssessmentAnswer", schema);

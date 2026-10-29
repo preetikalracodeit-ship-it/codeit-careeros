@@ -1,193 +1,184 @@
-import { lazy, Suspense, useEffect, useState } from "react";
-import { Link, Navigate, Outlet, Route, Routes, useLocation, useNavigate } from "react-router-dom";
-import { ArrowRight, BriefcaseBusiness, LockKeyhole } from "lucide-react";
+import { Navigate, Link, Route, Routes, useLocation } from "react-router-dom";
 import { auth, homeForRole } from "./lib/auth.js";
-import api from "./lib/api.js";
-import GoogleSignInButton from "./components/GoogleSignInButton.jsx";
-import RegisterPage from "./pages/RegisterPage.jsx";
-import InvitationPage from "./pages/InvitationPage.jsx";
-import CareerCatalogPage from "./pages/CareerCatalogPage.jsx";
-import StudentProfilePage from "./pages/StudentProfilePage.jsx";
-import AssessmentPage from "./pages/AssessmentPage.jsx";
-import AssessmentAttemptPage from "./pages/AssessmentAttemptPage.jsx";
-import RoadmapPage from "./pages/RoadmapPage.jsx";
-import ProjectsPage from "./pages/ProjectsPage.jsx";
+import { AppShell } from "./components/AppShell.jsx";
+import { LandingPage } from "./pages/LandingPage.jsx";
+import { LoginPage } from "./pages/LoginPage.jsx";
+import { PlaceholderPage } from "./pages/PlaceholderPage.jsx";
+import { StudentCareersPage } from "./pages/StudentCareersPage.jsx";
+import { StudentAssessmentPage } from "./pages/StudentAssessmentPage.jsx";
+import { AssessmentAttemptPage } from "./pages/AssessmentAttemptPage.jsx";
+import { StudentProfilePage } from "./pages/StudentProfilePage.jsx";
+import { StudentDashboardPage } from "./pages/StudentDashboardPage.jsx";
+import { ForgotPasswordPage, ResetPasswordPage } from "./pages/PasswordRecoveryPage.jsx";
+import { StudentProgressPage } from "./pages/StudentProgressPage.jsx";
+import { StudentSettingsPage } from "./pages/StudentSettingsPage.jsx";
+import { StudentRoadmapPage } from "./pages/StudentRoadmapPage.jsx";
+import { StudentProjectsPage } from "./pages/StudentProjectsPage.jsx";
+import { StudentLinkedInPage } from "./pages/StudentLinkedInPage.jsx";
+import { StudentCvPage } from "./pages/StudentCvPage.jsx";
+import { StudentReportsPage } from "./pages/StudentReportsPage.jsx";
+import { StudentImprovementPlanPage } from "./pages/StudentImprovementPlanPage.jsx";
+import { StudentPlacementsPage } from "./pages/StudentPlacementsPage.jsx";
+import { StudentAiPage } from "./pages/StudentAiPage.jsx";
+import {
+  PlatformActivityPage,
+  PlatformCollegeDetailPage,
+  PlatformCollegesPage,
+  PlatformDashboardPage,
+  PlatformSettingsPage,
+  PlatformStaffPage,
+  PlatformStudentsPage,
+} from "./pages/workspace/PlatformPages.jsx";
+import {
+  CollegeBatchesPage,
+  CollegeDashboardPage,
+  CollegeDepartmentsPage,
+  CollegeProfilePage,
+  CollegeReportsPage,
+  CollegeSettingsPage,
+  CollegeStaffPage,
+  CollegeStudentsPage,
+} from "./pages/workspace/CollegePages.jsx";
+import {
+  TpoDashboardPage,
+  TpoPlacementPage,
+  TpoReadinessPage,
+  TpoReportsPage,
+  TpoSettingsPage,
+  TpoSkillGapsPage,
+  TpoStudentsPage,
+} from "./pages/workspace/TpoPages.jsx";
+import {
+  HodDashboardPage,
+  HodDepartmentPage,
+  HodReadinessPage,
+  HodReportsPage,
+  HodSettingsPage,
+  HodStudentsPage,
+} from "./pages/workspace/HodPages.jsx";
+import {
+  FacultyDashboardPage,
+  FacultyImprovementPlansPage,
+  FacultyMenteesPage,
+  FacultyReportsPage,
+  FacultySettingsPage,
+} from "./pages/workspace/FacultyPages.jsx";
 
-const LegalPage = lazy(() => import("./pages/LegalPage.jsx"));
-const LegalPageLoading = <main className="landing" role="status">Loading policy…</main>;
+const publicRoutes = ["/accept-invitation", "/legal/privacy", "/legal/terms"];
 
-const routeGroups = {
-  student: [
-    ["dashboard", "Dashboard"], ["assessment", "Assessments"], ["assessment/attempt/:attemptId", "Assessment attempt"],
-    ["careers", "Careers"], ["cv", "CV analysis"], ["linkedin", "LinkedIn analysis"], ["profile", "Profile"],
-    ["progress", "Progress"], ["projects", "Projects"], ["reports", "Reports"], ["roadmap", "Roadmap"],
-    ["settings", "Settings"], ["ai", "Career assistant"], ["improvement-plan", "Improvement plan"], ["placements", "Placements"],
-    [":section", "Student workspace"],
-  ],
-  college: [
-    ["", "College workspace"], ["dashboard", "Dashboard"], ["students", "Students"], ["students/:id", "Student details"],
-    ["import", "Student import"], ["reports", "Reports"], ["staff", "Staff"], ["structure", "College structure"],
-    ["settings", "Settings"], ["plans", "Improvement plans"], ["plans/:id", "Improvement plan"], ["placement", "Placement"],
-    ["placement/drives/:id", "Placement drive"], ["placement/analytics", "Placement analytics"],
-  ],
-  admin: [
-    ["dashboard", "Dashboard"], ["students", "Students"], ["institutions", "Institutions"], ["assessments", "Assessments"],
-    ["assessments/:id", "Assessment editor"], ["careers", "Careers"], ["skills", "Skills"], ["roadmaps", "Roadmaps"],
-    ["projects", "Projects"], ["reports", "Reports"], ["settings", "Settings"], ["ai", "AI settings"], [":section", "Admin workspace"],
-  ],
-};
+const studentRoutes = [
+  ["/student/dashboard", StudentDashboardPage],
+  ["/student/careers", StudentCareersPage],
+  ["/student/assessment", StudentAssessmentPage],
+  ["/student/assessment/attempt/:attemptId", AssessmentAttemptPage],
+  ["/student/roadmap", StudentRoadmapPage],
+  ["/student/cv", StudentCvPage],
+  ["/student/reports", StudentReportsPage],
+  ["/student/improvement-plan", StudentImprovementPlanPage],
+  ["/student/placements", StudentPlacementsPage],
+  ["/student/ai", StudentAiPage],
+  ["/student/projects", StudentProjectsPage],
+  ["/student/linkedin", StudentLinkedInPage],
+  ["/student/profile", StudentProfilePage],
+  ["/student/progress", StudentProgressPage],
+  ["/student/settings", StudentSettingsPage],
+];
 
-function Shell() {
+const roleRoutes = [
+  {
+    role: "SUPER_ADMIN",
+    routes: [
+      ["/platform/dashboard", PlatformDashboardPage],
+      ["/platform/colleges", PlatformCollegesPage],
+      ["/platform/colleges/:id", PlatformCollegeDetailPage],
+      ["/platform/staff", PlatformStaffPage],
+      ["/platform/students", PlatformStudentsPage],
+      ["/platform/activity", PlatformActivityPage],
+      ["/platform/settings", PlatformSettingsPage],
+    ],
+  },
+  {
+    role: "COLLEGE_ADMIN",
+    routes: [
+      ["/college/dashboard", CollegeDashboardPage],
+      ["/college/profile", CollegeProfilePage],
+      ["/college/departments", CollegeDepartmentsPage],
+      ["/college/batches", CollegeBatchesPage],
+      ["/college/staff", CollegeStaffPage],
+      ["/college/students", CollegeStudentsPage],
+      ["/college/reports", CollegeReportsPage],
+      ["/college/settings", CollegeSettingsPage],
+    ],
+  },
+  {
+    role: "TPO",
+    routes: [
+      ["/tpo/dashboard", TpoDashboardPage],
+      ["/tpo/students", TpoStudentsPage],
+      ["/tpo/readiness", TpoReadinessPage],
+      ["/tpo/skill-gaps", TpoSkillGapsPage],
+      ["/tpo/reports", TpoReportsPage],
+      ["/tpo/placement", TpoPlacementPage],
+      ["/tpo/settings", TpoSettingsPage],
+    ],
+  },
+  {
+    role: "HOD",
+    routes: [
+      ["/hod/dashboard", HodDashboardPage],
+      ["/hod/students", HodStudentsPage],
+      ["/hod/readiness", HodReadinessPage],
+      ["/hod/department", HodDepartmentPage],
+      ["/hod/reports", HodReportsPage],
+      ["/hod/settings", HodSettingsPage],
+    ],
+  },
+  {
+    role: "FACULTY",
+    routes: [
+      ["/faculty/dashboard", FacultyDashboardPage],
+      ["/faculty/mentees", FacultyMenteesPage],
+      ["/faculty/improvement-plans", FacultyImprovementPlansPage],
+      ["/faculty/reports", FacultyReportsPage],
+      ["/faculty/settings", FacultySettingsPage],
+    ],
+  },
+];
+
+function Protected({ roles, children }) {
+  const location = useLocation();
+  if (!auth.isAuthenticated()) return <Navigate to="/login" replace state={{ from: location }} />;
   const role = auth.getRole();
-  const location = useLocation();
-  const navigate = useNavigate();
-  const logout = async () => {
-    try {
-      const refreshToken = auth.getRefreshToken();
-      if (refreshToken) await api.post("/auth/logout", { refreshToken });
-    } catch {
-      // Clear the browser session even when the API cannot be reached.
-    } finally {
-      auth.clear();
-      navigate("/login", { replace: true });
-    }
-  };
-  const home = role === "ADMIN" ? "/admin/dashboard" : role === "PROFESSOR" ? "/college/dashboard" : "/student/dashboard";
-  return (
-    <div className="app-frame">
-      <header className="topbar">
-        <Link className="brand" to={home}><span className="brand-mark">C</span><span>CareerOS</span></Link>
-        <div className="topbar-actions">
-          <span className="role-label">{role === "ADMIN" ? "Administrator" : role === "PROFESSOR" ? "College staff" : "Student"}</span>
-          <button className="button button-quiet" onClick={logout}>Sign out</button>
-        </div>
-      </header>
-      <div className="shell-content">
-        <aside className="side-nav" aria-label="Main navigation">
-          <p className="nav-caption">WORKSPACE</p>
-          {routeGroups[role === "ADMIN" ? "admin" : role === "PROFESSOR" ? "college" : "student"].filter(([path]) => path && !path.includes(":")).map(([path, title]) => {
-            const href = `${home.split("/").slice(0, 2).join("/")}/${path}`.replace(/\/$/, "");
-            return <Link key={path} className={location.pathname === href ? "nav-link active" : "nav-link"} to={href || home}>{title}</Link>;
-          })}
-        </aside>
-        <main className="main-content"><Outlet /></main>
-      </div>
-    </div>
-  );
+  if (!roles.includes(role)) return <Navigate to={homeForRole(role)} replace />;
+  return <AppShell>{children}</AppShell>;
 }
 
-function ProtectedRoute({ role }) {
-  const location = useLocation();
-  const currentRole = auth.getRole();
-  if (!auth.getAccessToken() || !["STUDENT", "ADMIN", "PROFESSOR"].includes(currentRole)) {
-    return <Navigate to="/login" replace state={{ from: location }} />;
-  }
-  if (currentRole !== role) return <Navigate to={homeForRole(currentRole)} replace />;
-  return <Shell />;
+function PublicAuthRedirect() {
+  return auth.isAuthenticated() ? <Navigate to={homeForRole(auth.getRole())} replace /> : <LoginPage />;
 }
 
-function GuestRoute() {
-  const token = auth.getAccessToken();
-  const role = auth.getRole();
-  if (token && ["STUDENT", "ADMIN", "PROFESSOR"].includes(role)) {
-    return <Navigate to={homeForRole(role)} replace />;
-  }
-  return <Outlet />;
-}
-
-function Placeholder({ title }) {
-  return <section className="page-card"><span className="eyebrow">CAREEROS WORKSPACE</span><h1>{title}</h1><p>This page is included in the React migration route map. Its existing workflow will be ported in the corresponding migration phase.</p><div className="placeholder-note"><LockKeyhole size={18} aria-hidden="true"/><span>Your access is checked by the API for every protected action.</span></div></section>;
-}
-
-function LoginPage() {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
-  useEffect(() => {
-    if (auth.getAccessToken() && ["STUDENT", "ADMIN", "PROFESSOR"].includes(auth.getRole())) {
-      navigate(homeForRole(auth.getRole()), { replace: true });
-    }
-  }, [navigate]);
-  const submit = async (event) => {
-    event.preventDefault();
-    setError("");
-    setBusy(true);
-    try {
-      const result = await api.post("/auth/login", { email: email.trim(), password }, { skipAuth: true });
-      auth.save(result);
-      const redirect = new URLSearchParams(location.search).get("redirect");
-      const requestedPath = location.state?.from?.pathname || redirect;
-      const safePath = requestedPath?.startsWith("/") && !requestedPath.startsWith("//")
-        ? requestedPath
-        : homeForRole(result.user?.role);
-      navigate(safePath, { replace: true });
-    } catch (requestError) {
-      setError(requestError.message);
-    } finally {
-      setBusy(false);
-    }
-  };
-  return <main className="auth-layout"><section className="auth-card"><div className="brand auth-brand"><span className="brand-mark">C</span><span>CareerOS</span></div><p className="eyebrow">WELCOME BACK</p><h1>Sign in to your account</h1><p className="muted">Continue to your career workspace.</p><form className="form-stack" onSubmit={submit}><label>Email address<input type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} /></label><label>Password<input type="password" autoComplete="current-password" required value={password} onChange={(event) => setPassword(event.target.value)} /></label>{error && <p className="form-error" role="alert">{error}</p>}<button className="button button-primary" type="submit" disabled={busy}>{busy ? "Signing in…" : "Sign in"}<ArrowRight size={16} /></button></form><GoogleSignInButton mode="signin" onError={setError} /><p className="auth-footnote">New to CareerOS? <Link to="/register">Create a student account</Link></p><p className="auth-footnote">College staff? <Link to="/accept-invitation">Activate an invitation</Link>. Invitation activation is still available in the current CareerOS site during migration.</p></section></main>;
-}
-
-function PublicLayout() {
-  return <div className="public-frame"><header className="topbar"><Link className="brand" to="/"><span className="brand-mark">C</span><span>CareerOS</span></Link><Link className="button button-quiet" to="/login">Sign in</Link></header><Outlet /></div>;
-}
-
-function LandingPage() {
-  return <main className="landing"><div className="landing-icon"><BriefcaseBusiness size={27}/></div><p className="eyebrow">YOUR CAREER, IN FOCUS</p><h1>Build your path with CareerOS.</h1><p>One place to understand your strengths, plan your next steps, and prepare for what comes after college.</p><Link className="button button-primary" to="/login">Continue to CareerOS <ArrowRight size={16}/></Link></main>;
-}
-
-function NotFound() {
-  return <main className="landing"><p className="eyebrow">PAGE NOT FOUND</p><h1>We couldn’t find that page.</h1><p>Check the address or return to the CareerOS home page.</p><Link className="button button-primary" to="/">Go to home</Link></main>;
-}
-
-function WorkspaceRoutes({ area }) {
-  return routeGroups[area].map(([path, title]) => {
-    const page = area === "student" && path === "careers"
-      ? <CareerCatalogPage />
-      : area === "student" && path === "assessment"
-        ? <AssessmentPage />
-        : area === "student" && path === "assessment/attempt/:attemptId"
-          ? <AssessmentAttemptPage />
-      : area === "student" && path === "roadmap"
-        ? <RoadmapPage />
-        : area === "student" && path === "projects"
-          ? <ProjectsPage />
-      : area === "student" && path === "profile"
-        ? <StudentProfilePage />
-        : <Placeholder title={title} />;
-    return <Route key={`${area}-${path}`} path={path} element={page} />;
-  });
+function SiteFrame({ children }) {
+  return <div className="site-frame"><header className="site-header"><Link className="brand" to="/">CODEIT <span>CareerOS</span></Link><nav><Link to="/login">Sign in</Link><Link className="nav-cta" to="/register">Get started</Link></nav></header>{children}</div>;
 }
 
 export default function App() {
   return <Routes>
-    <Route element={<PublicLayout />}>
-      <Route index element={<LandingPage />} />
-      <Route element={<GuestRoute />}>
-        <Route path="login" element={<LoginPage />} />
-        <Route path="register" element={<RegisterPage />} />
-      </Route>
-      <Route path="accept-invitation" element={<InvitationPage />} />
-      <Route path="legal/terms" element={<Suspense fallback={LegalPageLoading}><LegalPage /></Suspense>} />
-      <Route path="legal/privacy" element={<Suspense fallback={LegalPageLoading}><LegalPage /></Suspense>} />
-    </Route>
-    <Route path="student" element={<ProtectedRoute role="STUDENT" />}>
-      <Route index element={<Navigate to="/student/dashboard" replace />} />
-      <WorkspaceRoutes area="student" />
-    </Route>
-    <Route path="college" element={<ProtectedRoute role="PROFESSOR" />}>
-      <Route index element={<Navigate to="/college/dashboard" replace />} />
-      <WorkspaceRoutes area="college" />
-    </Route>
-    <Route path="admin" element={<ProtectedRoute role="ADMIN" />}>
-      <Route index element={<Navigate to="/admin/dashboard" replace />} />
-      <WorkspaceRoutes area="admin" />
-    </Route>
-    <Route path="*" element={<NotFound />} />
+    <Route path="/login" element={<PublicAuthRedirect />} />
+    <Route path="/forgot-password" element={<SiteFrame><ForgotPasswordPage /></SiteFrame>} />
+    <Route path="/reset-password" element={<SiteFrame><ResetPasswordPage /></SiteFrame>} />
+    <Route path="/register" element={auth.isAuthenticated() ? <Navigate to={homeForRole(auth.getRole())} replace /> : <SiteFrame><PlaceholderPage title="Create your CareerOS account" /></SiteFrame>} />
+    {publicRoutes.map((path) => <Route key={path} path={path} element={<SiteFrame><PlaceholderPage /></SiteFrame>} />)}
+    <Route path="/" element={auth.isAuthenticated() ? <Navigate to={homeForRole(auth.getRole())} replace /> : <LandingPage />} />
+
+    {studentRoutes.map(([path, Page]) => (
+      <Route key={path} path={path} element={<Protected roles={["STUDENT"]}><Page /></Protected>} />
+    ))}
+    <Route path="/student/:section" element={<Protected roles={["STUDENT"]}><PlaceholderPage /></Protected>} />
+
+    {roleRoutes.flatMap(({ role, routes }) => routes.map(([path, Page]) => (
+      <Route key={path} path={path} element={<Protected roles={[role]}><Page /></Protected>} />
+    )))}
+
+    <Route path="*" element={<SiteFrame><PlaceholderPage title="Page not found" /></SiteFrame>} />
   </Routes>;
 }

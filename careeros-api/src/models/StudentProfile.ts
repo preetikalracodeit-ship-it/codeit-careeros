@@ -8,6 +8,9 @@ export interface StudentProfileDoc {
   mobile?: string | null;
   dateOfBirth?: string | null;
   college?: string | null;
+  collegeId?: number | null;
+  departmentId?: number | null;
+  batchId?: number | null;
   degree?: string | null;
   branch?: string | null;
   graduationYear?: number | null;
@@ -32,6 +35,9 @@ const studentProfileSchema = new Schema<StudentProfileDoc>(
     mobile: { type: String, default: null, maxlength: 20 },
     dateOfBirth: { type: String, default: null },
     college: { type: String, default: null, maxlength: 150 },
+    collegeId: { type: Number, default: null },
+    departmentId: { type: Number, default: null },
+    batchId: { type: Number, default: null },
     degree: { type: String, default: null, maxlength: 100 },
     branch: { type: String, default: null, maxlength: 100 },
     graduationYear: { type: Number, default: null },

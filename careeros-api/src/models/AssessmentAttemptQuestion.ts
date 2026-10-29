@@ -7,19 +7,18 @@ export interface AssessmentAttemptQuestionDoc {
   displayOrder: number;
 }
 
-const assessmentAttemptQuestionSchema = new Schema<AssessmentAttemptQuestionDoc>(
+const schema = new Schema<AssessmentAttemptQuestionDoc>(
   {
     _id: { type: Number, required: true },
     attemptId: { type: Number, required: true },
     questionId: { type: Number, required: true },
-    displayOrder: { type: Number, required: true, min: 0 },
+    displayOrder: { type: Number, required: true },
   },
-  { versionKey: false, id: false, collection: "assessment_attempt_questions" },
+  { versionKey: false, id: false },
 );
-assessmentAttemptQuestionSchema.index({ attemptId: 1, questionId: 1 }, { unique: true, name: "uk_attempt_questions_attempt_question" });
-assessmentAttemptQuestionSchema.index({ attemptId: 1, displayOrder: 1 }, { name: "idx_attempt_questions_attempt_order" });
-assessmentAttemptQuestionSchema.index({ questionId: 1 }, { name: "idx_attempt_questions_question" });
+schema.index({ attemptId: 1, questionId: 1 }, { unique: true, name: "uk_attempt_questions_attempt_question" });
+schema.index({ attemptId: 1, displayOrder: 1 }, { name: "idx_attempt_questions_order" });
 
 export const AssessmentAttemptQuestion =
   (mongoose.models.AssessmentAttemptQuestion as mongoose.Model<AssessmentAttemptQuestionDoc>) ??
-  mongoose.model<AssessmentAttemptQuestionDoc>("AssessmentAttemptQuestion", assessmentAttemptQuestionSchema);
+  mongoose.model<AssessmentAttemptQuestionDoc>("AssessmentAttemptQuestion", schema);

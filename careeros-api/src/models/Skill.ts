@@ -1,23 +1,9 @@
 import mongoose, { Schema } from "mongoose";
 
-export const SKILL_CATEGORIES = [
-  "PROGRAMMING_LANGUAGES",
-  "FRAMEWORKS",
-  "DATABASES",
-  "CLOUD",
-  "DEVOPS",
-  "DATA",
-  "AI_ML",
-  "CYBERSECURITY",
-  "TESTING",
-  "SOFT_SKILLS",
-  "OTHER",
-] as const;
-
 export interface SkillDoc {
   _id: number;
   name: string;
-  category: (typeof SKILL_CATEGORIES)[number];
+  category: string;
   description?: string | null;
   active: boolean;
   createdAt: Date;
@@ -27,14 +13,14 @@ export interface SkillDoc {
 const skillSchema = new Schema<SkillDoc>(
   {
     _id: { type: Number, required: true },
-    name: { type: String, required: true, unique: true, maxlength: 120 },
-    category: { type: String, enum: SKILL_CATEGORIES, required: true },
+    name: { type: String, required: true, maxlength: 120, unique: true },
+    category: { type: String, required: true, maxlength: 40 },
     description: { type: String, default: null, maxlength: 300 },
     active: { type: Boolean, required: true, default: true },
   },
-  { timestamps: true, versionKey: false, id: false, collection: "skills" },
+  { timestamps: true, versionKey: false, id: false },
 );
-skillSchema.index({ category: 1, active: 1, name: 1 }, { name: "idx_skills_category_active_name" });
+skillSchema.index({ category: 1 }, { name: "idx_skills_category" });
 
 export const Skill =
   (mongoose.models.Skill as mongoose.Model<SkillDoc>) ??

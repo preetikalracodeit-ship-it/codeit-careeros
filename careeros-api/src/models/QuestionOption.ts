@@ -8,18 +8,18 @@ export interface QuestionOptionDoc {
   displayOrder: number;
 }
 
-const questionOptionSchema = new Schema<QuestionOptionDoc>(
+const schema = new Schema<QuestionOptionDoc>(
   {
     _id: { type: Number, required: true },
     questionId: { type: Number, required: true },
     optionText: { type: String, required: true, maxlength: 500 },
-    correct: { type: Boolean, required: true, default: false },
-    displayOrder: { type: Number, required: true, default: 0 },
+    correct: { type: Boolean, required: true },
+    displayOrder: { type: Number, required: true },
   },
-  { versionKey: false, id: false, collection: "question_options" },
+  { versionKey: false, id: false },
 );
-questionOptionSchema.index({ questionId: 1, displayOrder: 1 }, { name: "idx_options_question_order" });
+schema.index({ questionId: 1, displayOrder: 1 }, { name: "idx_options_question" });
 
 export const QuestionOption =
   (mongoose.models.QuestionOption as mongoose.Model<QuestionOptionDoc>) ??
-  mongoose.model<QuestionOptionDoc>("QuestionOption", questionOptionSchema);
+  mongoose.model<QuestionOptionDoc>("QuestionOption", schema);

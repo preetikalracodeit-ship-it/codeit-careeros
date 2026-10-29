@@ -1,51 +1,46 @@
+import { withTransaction } from "../../lib/db.js";
 import { AppError } from "../../lib/errors.js";
 import { Career } from "../../models/Career.js";
-import { CareerSkill, type CareerSkillDoc } from "../../models/CareerSkill.js";
+import { CareerSkill } from "../../models/CareerSkill.js";
 import { Skill } from "../../models/Skill.js";
 import { StudentProfile } from "../../models/StudentProfile.js";
-import type { StudentProfileDoc } from "../../models/StudentProfile.js";
-import { toStudentProfileResponse } from "../auth/user.mapper.js";
+import { getStudentProfile } from "../students/student.service.js";
 
-function parseCareerSkillRows(
-  rows: Array<Pick<CareerSkillDoc, "skillId" | "weightPercent" | "requiredLevel" | "targetPercent">>,
-  skillById: Map<number, { name: string; category: string }>,
+function toSkillResponse(
+  row: { skillId: number; weightPercent: number; requiredLevel: string; targetPercent: number },
+  skill: { _id: number; name: string; category: string },
 ) {
-  return rows.map((row) => {
-    const skill = skillById.get(row.skillId);
-    if (!skill) throw AppError.internal("Career competency data is incomplete");
-    return {
-      skillId: row.skillId,
-      skillName: skill.name,
-      skillCategory: skill.category,
-      weightPercent: row.weightPercent,
-      requiredLevel: row.requiredLevel,
-      targetPercent: row.targetPercent,
-    };
-  });
+  return {
+    skillId: skill._id,
+    skillName: skill.name,
+    skillCategory: skill.category,
+    weightPercent: row.weightPercent,
+    requiredLevel: row.requiredLevel,
+    targetPercent: row.targetPercent,
+  };
 }
 
-async function getCareerSkills(careerId: number) {
-  const rows = await CareerSkill.find({ careerId }).sort({ weightPercent: -1, _id: 1 }).lean();
-  const skillIds = rows.map((row) => row.skillId);
-  const skills = skillIds.length ? await Skill.find({ _id: { $in: skillIds } }).lean() : [];
-  return parseCareerSkillRows(
-    rows,
-    new Map(skills.map((skill) => [skill._id, { name: skill.name, category: skill.category }])),
-  );
+async function getSkills(careerId: number) {
+  const rows = await CareerSkill.find({ careerId }).sort({ weightPercent: -1 }).lean();
+  const skills = await Skill.find({ _id: { $in: rows.map((row) => row.skillId) } }).lean();
+  const skillById = new Map(skills.map((skill) => [skill._id, skill]));
+  return rows.flatMap((row) => {
+    const skill = skillById.get(row.skillId);
+    return skill ? [toSkillResponse(row, skill)] : [];
+  });
 }
 
 export async function listPublishedCareers() {
   const careers = await Career.find({ published: true }).sort({ name: 1 }).lean();
-  if (!careers.length) return [];
   const counts = await CareerSkill.aggregate<{ _id: number; count: number }>([
     { $match: { careerId: { $in: careers.map((career) => career._id) } } },
     { $group: { _id: "$careerId", count: { $sum: 1 } } },
   ]);
-  const countByCareerId = new Map(counts.map((entry) => [entry._id, entry.count]));
+  const countByCareerId = new Map(counts.map((row) => [row._id, row.count]));
   return careers.map((career) => ({
     id: career._id,
     name: career.name,
-    description: career.description ?? null,
+    ...(career.description == null ? {} : { description: career.description }),
     category: career.category,
     difficultyLevel: career.difficultyLevel,
     published: career.published,
@@ -53,44 +48,46 @@ export async function listPublishedCareers() {
   }));
 }
 
-async function requirePublishedCareer(careerId: number) {
-  const career = await Career.findOne({ _id: careerId, published: true }).lean();
-  if (!career) throw AppError.notFound(`Career not found: ${careerId}`);
-  return career;
-}
-
-export async function getPublishedCareer(careerId: number) {
-  const [career, skills] = await Promise.all([
-    requirePublishedCareer(careerId),
-    getCareerSkills(careerId),
-  ]);
+export async function getPublishedCareer(id: number) {
+  const career = await Career.findOne({ _id: id, published: true }).lean();
+  if (!career) {
+    throw AppError.notFound(`Career not found: ${id}`);
+  }
   return {
     id: career._id,
     name: career.name,
-    description: career.description ?? null,
+    ...(career.description == null ? {} : { description: career.description }),
     category: career.category,
     difficultyLevel: career.difficultyLevel,
     published: career.published,
-    skills,
+    skills: await getSkills(id),
     createdAt: career.createdAt.toISOString(),
     updatedAt: career.updatedAt.toISOString(),
   };
 }
 
-export async function listPublishedCareerSkills(careerId: number) {
-  await requirePublishedCareer(careerId);
-  return getCareerSkills(careerId);
+export async function getPublishedCareerSkills(id: number) {
+  const career = await Career.exists({ _id: id, published: true });
+  if (!career) {
+    throw AppError.notFound(`Career not found: ${id}`);
+  }
+  return getSkills(id);
 }
 
-export async function setStudentTargetCareer(userId: number, email: string, careerId: number) {
-  const career = await Career.findOne({ _id: careerId, published: true }).lean();
-  if (!career) throw AppError.notFound(`Career not found or not available: ${careerId}`);
+export async function setTargetCareer(userId: number, careerId: number) {
+  await withTransaction(async (session) => {
+    const profile = await StudentProfile.findOne({ userId }).session(session);
+    if (!profile) {
+      throw AppError.notFound(`Student profile not found for user ${userId}`);
+    }
+    const career = await Career.findOne({ _id: careerId, published: true }).session(session);
+    if (!career) {
+      throw AppError.notFound(`Career not found or not available: ${careerId}`);
+    }
+    profile.targetCareerId = career._id;
+    profile.targetCareerName = career.name;
+    await profile.save({ session });
+  });
 
-  const profile = await StudentProfile.findOneAndUpdate(
-    { userId },
-    { $set: { targetCareerId: career._id, targetCareerName: career.name } },
-    { new: true, runValidators: true },
-  ).lean() as StudentProfileDoc | null;
-  if (!profile) throw AppError.notFound(`Student profile not found for user ${userId}`);
-  return toStudentProfileResponse(profile, email);
+  return getStudentProfile(userId);
 }

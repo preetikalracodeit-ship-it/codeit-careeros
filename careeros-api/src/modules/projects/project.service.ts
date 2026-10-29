@@ -1,3 +1,4 @@
+import { withTransaction } from "../../lib/db.js";
 import { AppError } from "../../lib/errors.js";
 import { getNextSequence } from "../../models/Counter.js";
 import { AssessmentAttempt } from "../../models/AssessmentAttempt.js";
@@ -6,60 +7,85 @@ import { CareerSkill } from "../../models/CareerSkill.js";
 import { Project } from "../../models/Project.js";
 import { ProjectProgress } from "../../models/ProjectProgress.js";
 import { ProjectSkill } from "../../models/ProjectSkill.js";
+import type { RoadmapStatus } from "../../models/RoadmapItemProgress.js";
 import { Skill } from "../../models/Skill.js";
 import { SkillScore } from "../../models/SkillScore.js";
 import { StudentProfile } from "../../models/StudentProfile.js";
-import type { ProgressStatus } from "../../models/RoadmapItemProgress.js";
 
-const validStatuses = new Set<ProgressStatus>(["NOT_STARTED", "IN_PROGRESS", "COMPLETED"]);
-async function context(userId: number) {
-  const profile = await StudentProfile.findOne({ userId }).lean();
-  if (!profile?.targetCareerId) return null;
-  const careerId = profile.targetCareerId;
-  const [mappings, assessments] = await Promise.all([CareerSkill.find({ careerId }).lean(), AssessmentTest.find({ careerId }).select("_id").lean()]);
-  const attempts = assessments.length ? await AssessmentAttempt.find({ userId, assessmentId: { $in: assessments.map((item) => item._id) }, status: "SUBMITTED" }).sort({ startedAt: -1 }).lean() : [];
-  const scoreDocs = attempts.length ? await SkillScore.find({ attemptId: { $in: attempts.map((attempt) => attempt._id) } }).lean() : [];
-  const latest = new Map<number, (typeof scoreDocs)[number]>();
-  for (const attempt of attempts) for (const score of scoreDocs) if (score.attemptId === attempt._id && !latest.has(score.skillId)) latest.set(score.skillId, score);
-  return { careerId, careerName: profile.targetCareerName ?? null, mappings: new Map(mappings.map((mapping) => [mapping.skillId, mapping])), latest };
+async function latestScores(userId: number, careerId: number, skillIds: number[]) {
+  if (!skillIds.length) return new Map<number, number>();
+  const attempts = await AssessmentAttempt.find({ userId, status: "SUBMITTED" }).sort({ startedAt: -1 }).lean();
+  const tests = await AssessmentTest.find({ _id: { $in: [...new Set(attempts.map((attempt) => attempt.assessmentId))] } }).lean();
+  const careerTests = new Set(tests.filter((test) => test.careerId === careerId).map((test) => test._id));
+  const relevant = attempts.filter((attempt) => careerTests.has(attempt.assessmentId));
+  const scores = relevant.length ? await SkillScore.find({ attemptId: { $in: relevant.map((item) => item._id) }, skillId: { $in: skillIds } }).lean() : [];
+  const latest = new Map<number, number>();
+  for (const attempt of relevant) for (const score of scores) {
+    if (score.attemptId === attempt._id && !latest.has(score.skillId)) latest.set(score.skillId, score.scorePercent);
+  }
+  return latest;
 }
 
-async function enrich(project: { _id: number; title: string; description?: string | null; difficulty: string; estimatedWeeks: number; displayOrder: number }, ctx: NonNullable<Awaited<ReturnType<typeof context>>>, status: ProgressStatus) {
-  const relations = await ProjectSkill.find({ projectId: project._id }).sort({ _id: 1 }).lean();
-  const skills = relations.length ? await Skill.find({ _id: { $in: relations.map((row) => row.skillId) } }).lean() : [];
+async function skillResponses(userId: number, careerId: number, projects: { _id: number }[]) {
+  const mappings = await Promise.all(projects.map((project) => ProjectSkill.find({ projectId: project._id }).lean()));
+  const byProject = new Map(projects.map((project, index) => [project._id, mappings[index]]));
+  const allSkillIds = [...new Set(mappings.flatMap((rows) => rows.map((row) => row.skillId)))];
+  const [skills, framework, scores] = await Promise.all([
+    Skill.find({ _id: { $in: allSkillIds } }).lean(),
+    CareerSkill.find({ careerId, skillId: { $in: allSkillIds } }).lean(),
+    latestScores(userId, careerId, allSkillIds),
+  ]);
   const skillById = new Map(skills.map((skill) => [skill._id, skill]));
-  const projectSkills = relations.flatMap(({ skillId }) => {
-    const skill = skillById.get(skillId); if (!skill) return [];
-    const mapping = ctx.mappings.get(skillId); const score = ctx.latest.get(skillId);
-    return [{ skillId, skillName: skill.name, skillCategory: skill.category, targetPercent: mapping?.targetPercent ?? null, scorePercent: score?.scorePercent ?? null, gapPercent: score && mapping ? score.scorePercent - mapping.targetPercent : null, assessed: Boolean(score) }];
-  });
-  return { projectId: project._id, title: project.title, description: project.description ?? null, difficulty: project.difficulty, estimatedWeeks: project.estimatedWeeks, displayOrder: project.displayOrder, status, skills: projectSkills };
+  const targetById = new Map(framework.map((mapping) => [mapping.skillId, mapping.targetPercent]));
+  return new Map(projects.map((project) => [project._id, (byProject.get(project._id) ?? []).flatMap((row) => {
+    const skill = skillById.get(row.skillId);
+    if (!skill) return [];
+    const score = scores.get(skill._id);
+    const target = targetById.get(skill._id);
+    return [{
+      skillId: skill._id, skillName: skill.name, skillCategory: skill.category,
+      ...(target === undefined ? {} : { targetPercent: target }),
+      ...(score === undefined ? {} : { scorePercent: score, ...(target === undefined ? {} : { gapPercent: score - target }) }),
+      assessed: score !== undefined,
+    }];
+  })]));
+}
+
+function projectResponse(project: { _id: number; title: string; description?: string | null; difficulty: string; estimatedWeeks: number; displayOrder: number }, skills: { skillId: number; skillName: string; skillCategory: string; targetPercent?: number; scorePercent?: number; gapPercent?: number; assessed: boolean }[], status: RoadmapStatus) {
+  return { projectId: project._id, title: project.title, ...(project.description == null ? {} : { description: project.description }), difficulty: project.difficulty, estimatedWeeks: project.estimatedWeeks, displayOrder: project.displayOrder, status, skills };
 }
 
 export async function getRecommendedProjects(userId: number) {
-  const ctx = await context(userId);
-  if (!ctx) return { careerId: null, careerName: null, hasTarget: false, totalProjects: 0, completedProjects: 0, inProgressProjects: 0, projects: [] };
-  const projects = await Project.find({ careerId: ctx.careerId, published: true }).sort({ displayOrder: 1, _id: 1 }).lean();
-  const progress = projects.length ? await ProjectProgress.find({ userId, projectId: { $in: projects.map((project) => project._id) } }).lean() : [];
-  const statusById = new Map(progress.map((item) => [item.projectId, item.status]));
-  const rows = await Promise.all(projects.map((project) => enrich(project, ctx, statusById.get(project._id) ?? "NOT_STARTED")));
-  return { careerId: ctx.careerId, careerName: ctx.careerName, hasTarget: true, totalProjects: rows.length, completedProjects: rows.filter((row) => row.status === "COMPLETED").length, inProgressProjects: rows.filter((row) => row.status === "IN_PROGRESS").length, projects: rows };
+  const profile = await StudentProfile.findOne({ userId }).lean();
+  if (!profile?.targetCareerId) return { careerId: null, careerName: null, hasTarget: false, totalProjects: 0, completedProjects: 0, inProgressProjects: 0, projects: [] };
+  const careerId = profile.targetCareerId;
+  const projects = await Project.find({ careerId, published: true }).sort({ displayOrder: 1 }).lean();
+  const [progress, skillsByProject] = await Promise.all([
+    projects.length ? ProjectProgress.find({ userId, projectId: { $in: projects.map((project) => project._id) } }).lean() : [],
+    skillResponses(userId, careerId, projects),
+  ]);
+  const statusByProject = new Map(progress.map((row) => [row.projectId, row.status]));
+  const responses = projects.map((project) => projectResponse(project, skillsByProject.get(project._id) ?? [], statusByProject.get(project._id) ?? "NOT_STARTED"));
+  return {
+    careerId, careerName: profile.targetCareerName ?? null, hasTarget: true, totalProjects: responses.length,
+    completedProjects: responses.filter((project) => project.status === "COMPLETED").length,
+    inProgressProjects: responses.filter((project) => project.status === "IN_PROGRESS").length,
+    projects: responses,
+  };
 }
 
-export async function updateProjectStatus(userId: number, projectId: number, statusRaw: unknown) {
-  const status = typeof statusRaw === "string" ? statusRaw.trim().toUpperCase() as ProgressStatus : "" as ProgressStatus;
-  if (!validStatuses.has(status)) throw AppError.badRequest("Status must be NOT_STARTED, IN_PROGRESS or COMPLETED");
-  const [ctx, project] = await Promise.all([context(userId), Project.findOne({ _id: projectId, published: true }).lean()]);
+export async function updateProjectStatus(userId: number, projectId: number, status: RoadmapStatus) {
+  const project = await Project.findById(projectId).lean();
   if (!project) throw AppError.notFound(`Project not found: ${projectId}`);
-  if (!ctx || project.careerId !== ctx.careerId) throw AppError.forbidden("Project is outside your target career");
-  const existing = await ProjectProgress.findOne({ userId, projectId }).lean();
-  if (existing) await ProjectProgress.updateOne({ _id: existing._id }, { $set: { status } });
-  else {
-    try { await ProjectProgress.create({ _id: await getNextSequence("project_progress"), userId, projectId, status }); }
-    catch (error) {
-      if (!(typeof error === "object" && error !== null && "code" in error && (error as { code?: number }).code === 11000)) throw error;
-      await ProjectProgress.updateOne({ userId, projectId }, { $set: { status } });
+  await withTransaction(async (session) => {
+    const existing = await ProjectProgress.findOne({ userId, projectId }).session(session);
+    if (existing) {
+      existing.status = status;
+      await existing.save({ session });
+    } else {
+      await ProjectProgress.create([{ _id: await getNextSequence("project_progress", session), userId, projectId, status }], { session });
     }
-  }
-  return enrich(project, ctx, status);
+  });
+  const [skills] = await Promise.all([skillResponses(userId, project.careerId, [project])]);
+  return projectResponse(project, skills.get(project._id) ?? [], status);
 }

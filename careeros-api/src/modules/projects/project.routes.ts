@@ -1,21 +1,21 @@
-import { Router } from "express";
-import { z } from "zod";
-import { AppError } from "../../lib/errors.js";
+import { Router, type NextFunction, type Request, type Response } from "express";
 import { sendSuccess } from "../../lib/response.js";
 import { validate } from "../../lib/validators.js";
-import { requireRole } from "../../middleware/auth.js";
+import { requireAuth, requireRole } from "../../middleware/auth.js";
+import { projectIdSchema, projectStatusSchema } from "./project.schemas.js";
 import { getRecommendedProjects, updateProjectStatus } from "./project.service.js";
 
-const idSchema = z.coerce.number().int().positive().safe();
-const statusSchema = z.object({ status: z.enum(["NOT_STARTED", "IN_PROGRESS", "COMPLETED"]) });
 export const projectRouter = Router();
-projectRouter.use(requireRole("STUDENT"));
-projectRouter.get("/recommended", async (req, res, next) => { try { sendSuccess(res, await getRecommendedProjects(req.user!.id)); } catch (error) { next(error); } });
-projectRouter.put("/:projectId/status", async (req, res, next) => {
+projectRouter.use(requireAuth, requireRole("STUDENT"));
+
+projectRouter.get("/recommended", async (req: Request, res: Response, next: NextFunction) => {
+  try { sendSuccess(res, await getRecommendedProjects(req.user!.id)); } catch (error) { next(error); }
+});
+
+projectRouter.put("/:projectId/status", async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const id = idSchema.safeParse(req.params.projectId);
-    if (!id.success) throw AppError.badRequest("Project id must be a positive integer");
-    const body = validate(statusSchema, req.body);
-    sendSuccess(res, await updateProjectStatus(req.user!.id, id.data, body.status));
+    const id = validate(projectIdSchema, req.params.projectId);
+    const input = validate(projectStatusSchema, req.body);
+    sendSuccess(res, await updateProjectStatus(req.user!.id, id, input.status));
   } catch (error) { next(error); }
 });
