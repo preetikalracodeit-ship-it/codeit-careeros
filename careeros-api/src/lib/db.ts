@@ -4,6 +4,24 @@ import { User } from "../models/User.js";
 import { RefreshToken } from "../models/RefreshToken.js";
 import { ConsentRecord } from "../models/ConsentRecord.js";
 import { StudentProfile } from "../models/StudentProfile.js";
+import { Career } from "../models/Career.js";
+import { Skill } from "../models/Skill.js";
+import { CareerSkill } from "../models/CareerSkill.js";
+import { AssessmentTest } from "../models/AssessmentTest.js";
+import { AssessmentAttempt } from "../models/AssessmentAttempt.js";
+import { SkillScore } from "../models/SkillScore.js";
+import { AssessmentQuestion } from "../models/AssessmentQuestion.js";
+import { AssessmentAttemptQuestion } from "../models/AssessmentAttemptQuestion.js";
+import { QuestionOption } from "../models/QuestionOption.js";
+import { AssessmentAnswer } from "../models/AssessmentAnswer.js";
+import { PasswordResetToken } from "../models/PasswordResetToken.js";
+import { RoadmapPhase } from "../models/RoadmapPhase.js";
+import { RoadmapItem } from "../models/RoadmapItem.js";
+import { RoadmapItemProgress } from "../models/RoadmapItemProgress.js";
+import { Project } from "../models/Project.js";
+import { ProjectSkill } from "../models/ProjectSkill.js";
+import { ProjectProgress } from "../models/ProjectProgress.js";
+import { LinkedInProfile } from "../models/LinkedInProfile.js";
 
 export async function connectDatabase(uri: string): Promise<void> {
   mongoose.set("strictQuery", true);
@@ -21,6 +39,24 @@ export async function ensureIndexes(): Promise<void> {
     RefreshToken.createIndexes(),
     ConsentRecord.createIndexes(),
     StudentProfile.createIndexes(),
+    Career.createIndexes(),
+    Skill.createIndexes(),
+    CareerSkill.createIndexes(),
+    AssessmentTest.createIndexes(),
+    AssessmentAttempt.createIndexes(),
+    SkillScore.createIndexes(),
+    AssessmentQuestion.createIndexes(),
+    AssessmentAttemptQuestion.createIndexes(),
+    QuestionOption.createIndexes(),
+    AssessmentAnswer.createIndexes(),
+    PasswordResetToken.createIndexes(),
+    RoadmapPhase.createIndexes(),
+    RoadmapItem.createIndexes(),
+    RoadmapItemProgress.createIndexes(),
+    Project.createIndexes(),
+    ProjectSkill.createIndexes(),
+    ProjectProgress.createIndexes(),
+    LinkedInProfile.createIndexes(),
   ]);
 }
 

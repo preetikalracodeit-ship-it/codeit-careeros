@@ -14,6 +14,12 @@ import { authRouter } from "./modules/auth/auth.routes.js";
 import { metaRouter } from "./modules/meta/meta.routes.js";
 import { healthRouter } from "./modules/health/health.routes.js";
 import { settingsRouter } from "./modules/settings/settings.routes.js";
+import { studentRouter } from "./modules/students/student.routes.js";
+import { careerRouter } from "./modules/careers/career.routes.js";
+import { assessmentRouter } from "./modules/assessments/assessment.routes.js";
+import { roadmapRouter } from "./modules/roadmaps/roadmap.routes.js";
+import { projectRouter } from "./modules/projects/project.routes.js";
+import { linkedInRouter } from "./modules/linkedin/linkedin.routes.js";
 
 export function createApp() {
   const app = express();
@@ -66,6 +72,12 @@ export function createApp() {
   app.use("/api/v1/auth", authRouter);
   app.use("/api/v1/meta", metaRouter);
   app.use("/api/v1", settingsRouter);
+  app.use("/api/v1/students", studentRouter);
+  app.use("/api/v1/careers", careerRouter);
+  app.use("/api/v1/assessments", assessmentRouter);
+  app.use("/api/v1/roadmaps", roadmapRouter);
+  app.use("/api/v1/projects", projectRouter);
+  app.use("/api/v1/linkedin", linkedInRouter);
 
   app.use("/api/v1/college", requireRole("PROFESSOR"));
   app.use("/api/v1/admin", requireRole("ADMIN"));

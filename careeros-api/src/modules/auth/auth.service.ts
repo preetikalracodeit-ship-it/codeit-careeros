@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import type { ClientSession } from "mongoose";
 import { env } from "../../config/env.js";
 import { withTransaction } from "../../lib/db.js";
@@ -10,6 +11,7 @@ import { logger } from "../../lib/logger.js";
 import { getNextSequence } from "../../models/Counter.js";
 import { User, type UserDoc } from "../../models/User.js";
 import { RefreshToken } from "../../models/RefreshToken.js";
+import { PasswordResetToken } from "../../models/PasswordResetToken.js";
 import {
   ConsentRecord,
   EVIDENCE_AUTHENTICATED_CONSENT,
@@ -246,6 +248,42 @@ export async function login(input: LoginInput): Promise<AuthResponse> {
   }
   logger.info({ userId: user._id }, "Logged in user");
   return issueTokens(user);
+}
+
+export async function requestPasswordReset(emailInput: string) {
+  const emailLower = normalizeEmail(emailInput);
+  const user = await User.findOne({ emailLower, status: "ACTIVE" }).lean();
+  const response: { message: string; resetToken?: string } = {
+    message: "If an active account matches that email, password reset instructions have been prepared.",
+  };
+  if (!user) return response;
+  const token = randomBytes(32).toString("hex");
+  await PasswordResetToken.updateMany({ userId: user._id, used: false }, { $set: { used: true } });
+  await PasswordResetToken.create({
+    _id: await getNextSequence("password_reset_tokens"),
+    userId: user._id,
+    tokenHash: sha256(token),
+    expiresAt: new Date(Date.now() + 30 * 60_000),
+    used: false,
+  });
+  // Local development has no configured email transport; expose the one-time token only there.
+  if (env.NODE_ENV === "development") response.resetToken = token;
+  return response;
+}
+
+export async function resetPassword(token: string, newPassword: string) {
+  await withTransaction(async (session) => {
+    const reset = await PasswordResetToken.findOne({ tokenHash: sha256(token), used: false, expiresAt: { $gt: new Date() } }).session(session);
+    if (!reset) throw AppError.badRequest("This password reset link is invalid or expired");
+    const user = await User.findOne({ _id: reset.userId, status: "ACTIVE" }).session(session);
+    if (!user) throw AppError.badRequest("This password reset link is invalid or expired");
+    user.passwordHash = await hashPassword(newPassword);
+    await user.save({ session });
+    reset.used = true;
+    await reset.save({ session });
+    await RefreshToken.updateMany({ userId: user._id, revoked: false }, { $set: { revoked: true } }).session(session);
+  });
+  return { message: "Password updated. Sign in with your new password." };
 }
 
 function requireTerms(accepted: boolean | undefined): void {

@@ -2,6 +2,7 @@ import type { NextFunction, Request, Response } from "express";
 import { AppError } from "../lib/errors.js";
 import { sendError } from "../lib/response.js";
 import { logger } from "../lib/logger.js";
+import { MulterError } from "multer";
 
 interface HttpishError extends Error {
   type?: string;
@@ -34,6 +35,17 @@ export function errorHandler(
       );
     }
     sendError(res, err.status, err.message, err.code, err.fieldErrors);
+    return;
+  }
+
+  if (err instanceof MulterError) {
+    const tooLarge = err.code === "LIMIT_FILE_SIZE";
+    sendError(
+      res,
+      tooLarge ? 413 : 400,
+      tooLarge ? "Photo must be at most 2 MB" : "Please upload one photo using the file field",
+      "BAD_REQUEST",
+    );
     return;
   }
 

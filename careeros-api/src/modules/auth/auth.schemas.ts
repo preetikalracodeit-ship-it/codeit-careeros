@@ -44,6 +44,14 @@ export const loginSchema = z.object({
   password: z.string({ error: "Password is required" }).min(1, "Password is required"),
 });
 
+export const forgotPasswordSchema = z.object({
+  email: z.string().trim().email("Email must be valid").max(190),
+});
+export const resetPasswordSchema = z.object({
+  token: z.string().min(32),
+  newPassword: strongPassword,
+});
+
 export const refreshSchema = z.object({
   refreshToken: z
     .string({ error: "Refresh token is required" })
