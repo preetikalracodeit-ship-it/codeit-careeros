@@ -7,7 +7,7 @@ import { logger } from "./lib/logger.js";
 import { AppError } from "./lib/errors.js";
 import { requestId } from "./middleware/requestId.js";
 import { noStore } from "./middleware/noStore.js";
-import { attachUser, requireRole } from "./middleware/auth.js";
+import { attachUser, requireCollegeStaff, requireRole } from "./middleware/auth.js";
 import { auditAdminRequests } from "./middleware/adminAudit.js";
 import { errorHandler, notFound } from "./middleware/errorHandler.js";
 import { authRouter } from "./modules/auth/auth.routes.js";
@@ -20,6 +20,10 @@ import { assessmentRouter } from "./modules/assessments/assessment.routes.js";
 import { roadmapRouter } from "./modules/roadmaps/roadmap.routes.js";
 import { projectRouter } from "./modules/projects/project.routes.js";
 import { linkedInRouter } from "./modules/linkedin/linkedin.routes.js";
+import { workspaceRouter } from "./modules/workspace/workspace.routes.js";
+import { cvRouter } from "./modules/cvs/cv.routes.js";
+import { reportRouter } from "./modules/reports/report.routes.js";
+import { aiRouter } from "./modules/ai/ai.routes.js";
 
 export function createApp() {
   const app = express();
@@ -78,9 +82,14 @@ export function createApp() {
   app.use("/api/v1/roadmaps", roadmapRouter);
   app.use("/api/v1/projects", projectRouter);
   app.use("/api/v1/linkedin", linkedInRouter);
+  app.use("/api/v1/workspace", workspaceRouter);
+  app.use("/api/v1/cvs", cvRouter);
+  app.use("/api/v1/reports", reportRouter);
+  app.use("/api/v1/ai", aiRouter);
 
-  app.use("/api/v1/college", requireRole("PROFESSOR"));
-  app.use("/api/v1/admin", requireRole("ADMIN"));
+  app.use("/api/v1/college", requireCollegeStaff);
+  app.use("/api/v1/platform", requireRole("SUPER_ADMIN"));
+  app.use("/api/v1/admin", requireRole("SUPER_ADMIN"));
 
   app.use("/api", (req: Request, _res: Response, next: NextFunction) => {
     if (req.path.startsWith("/v1/invitations")) {

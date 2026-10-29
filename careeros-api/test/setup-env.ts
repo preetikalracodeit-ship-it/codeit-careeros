@@ -10,3 +10,4 @@ process.env.AUTH_RATE_LIMIT_PER_MINUTE = "1000";
 process.env.PRIVACY_POLICY_VERSION = "2026-10-26";
 process.env.ADMIN_EMAIL = "";
 process.env.ADMIN_PASSWORD = "";
+process.env.GOOGLE_CLIENT_ID = "";

@@ -6,6 +6,8 @@ import { z } from "zod";
 
 const configDir = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.resolve(configDir, "../../../careeros-backend/.env") });
+// Shared repo-root .env (e.g. GOOGLE_CLIENT_ID). Existing backend values win.
+dotenv.config({ path: path.resolve(configDir, "../../../.env") });
 
 // The existing Spring backend stores its local Mongo connection string under
 // MONGO_URI. Keep MONGODB_URI as the deployment override used by the API.

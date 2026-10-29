@@ -11,6 +11,8 @@ import { setTargetCareer } from "../careers/career.service.js";
 import { getStudentReadiness } from "./readiness.service.js";
 import { downloadStudentPhoto, removeStudentPhoto, uploadStudentPhoto } from "./student-photo.service.js";
 import { AppError } from "../../lib/errors.js";
+import { improvementRouter } from "../improvement/improvement.routes.js";
+import { placementRouter } from "../placements/placement.routes.js";
 
 export const studentRouter = Router();
 const photoUpload = multer({
@@ -92,3 +94,6 @@ studentRouter.get("/me/readiness", async (req: Request, res: Response, next: Nex
     next(error);
   }
 });
+
+studentRouter.use(improvementRouter);
+studentRouter.use(placementRouter);

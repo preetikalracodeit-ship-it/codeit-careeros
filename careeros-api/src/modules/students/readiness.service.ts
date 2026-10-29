@@ -53,8 +53,11 @@ export async function getStudentReadiness(userId: number) {
   const profile = await StudentProfile.findOne({ userId }).lean();
   if (!profile?.targetCareerId) {
     return {
+      targetCareerId: null,
+      targetCareerName: null,
       hasTarget: false,
       readinessPercent: 0,
+      readinessLevel: resultLevel(0),
       totalSkills: 0,
       assessedSkills: 0,
       metSkills: 0,

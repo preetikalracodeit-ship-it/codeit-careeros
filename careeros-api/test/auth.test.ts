@@ -905,7 +905,7 @@ describe("settings and role guards", () => {
       ...registration,
       email: "admin-role@example.edu",
     });
-    await User.updateOne({ _id: 2 }, { $set: { role: "ADMIN" } });
+    await User.updateOne({ _id: 2 }, { $set: { role: "COLLEGE_ADMIN" } });
     const denied = await request(app)
       .get("/api/v1/students/me")
       .set(authHeader(admin.body.data.accessToken));
@@ -1162,6 +1162,7 @@ describe("settings and role guards", () => {
     await Skill.create([
       { _id: 942, name: "SQL", category: "DATABASES" },
       { _id: 943, name: "Python", category: "PROGRAMMING_LANGUAGES" },
+      { _id: 946, name: "Java", category: "PROGRAMMING_LANGUAGES" },
     ]);
     await CareerSkill.create([
       { _id: 944, careerId: 941, skillId: 942, weightPercent: 60, requiredLevel: "INTERMEDIATE", targetPercent: 70 },
@@ -1176,7 +1177,7 @@ describe("settings and role guards", () => {
       headline: "Aspiring data analyst with SQL",
       about: "A motivated data professional who builds useful reports and turns business data into clear, thoughtful decisions for teams.",
       experienceText: "Built reporting projects for a student group.",
-      skillsText: "SQL, Excel, dashboards",
+      skillsText: "MySQL, Excel, dashboards, JavaScript",
       educationText: "BSc Data Science",
     });
     expect(saved.status).toBe(200);
@@ -1186,8 +1187,86 @@ describe("settings and role guards", () => {
     expect(analysis.status).toBe(200);
     expect(analysis.body.data).toMatchObject({ hasProfile: true, hasTarget: true, careerId: 941, careerName: "LinkedIn Analyst", alignmentPercent: 50 });
     expect(analysis.body.data.detectedSkills).toContainEqual({ skillId: 942, skillName: "SQL", skillCategory: "DATABASES" });
+    expect(analysis.body.data.detectedSkills.some((skill: { skillId: number }) => skill.skillId === 946)).toBe(false);
     expect(analysis.body.data.missingSkills.map((skill: { skillId: number }) => skill.skillId)).toEqual([943]);
     expect(analysis.body.data).toMatchObject({ onlyOnCv: [], alsoOnCv: [] });
     expect((await request(app).put("/api/v1/linkedin").set(authHeader(token)).send({ profileUrl: "https://example.com/in/fake" })).status).toBe(400);
+  });
+});
+
+describe("role workspaces", () => {
+  async function createUser(overrides: {
+    id: number;
+    email: string;
+    fullName: string;
+    role: "SUPER_ADMIN" | "COLLEGE_ADMIN" | "TPO" | "HOD" | "FACULTY" | "STUDENT";
+    collegeId?: number;
+    departmentId?: number;
+  }) {
+    await User.create({
+      _id: overrides.id,
+      email: overrides.email,
+      emailLower: overrides.email.toLowerCase(),
+      passwordHash: await bcrypt.hash("Password1", 10),
+      fullName: overrides.fullName,
+      role: overrides.role,
+      status: "ACTIVE",
+      collegeId: overrides.collegeId ?? null,
+      departmentId: overrides.departmentId ?? null,
+    });
+  }
+
+  it("lets a super admin create a college workspace and provision its college admin", async () => {
+    await createUser({ id: 900, email: "super@example.edu", fullName: "Super Admin", role: "SUPER_ADMIN" });
+    const login = await request(app).post("/api/v1/auth/login").send({ email: "super@example.edu", password: "Password1" });
+    expect(login.status).toBe(200);
+    const headers = authHeader(login.body.data.accessToken);
+
+    const summary = await request(app).get("/api/v1/workspace/summary").set(headers);
+    expect(summary.status).toBe(200);
+    expect(summary.body.data.stats.colleges).toBe(0);
+
+    const created = await request(app).post("/api/v1/workspace/colleges").set(headers).send({ name: "Demo College", code: "DEMO", city: "Pune" });
+    expect(created.status).toBe(201);
+    expect(created.body.data).toMatchObject({ name: "Demo College", code: "DEMO", status: "ONBOARDING" });
+    const collegeId = created.body.data.id;
+
+    const department = await request(app).post(`/api/v1/workspace/colleges/${collegeId}/departments`).set(headers).send({ name: "Computer Science", code: "CSE", hodName: "Dr. Rao" });
+    expect(department.status).toBe(201);
+    expect(department.body.data.departments).toHaveLength(1);
+    const departmentId = department.body.data.departments[0].id;
+
+    const batch = await request(app).post(`/api/v1/workspace/colleges/${collegeId}/batches`).set(headers).send({ name: "CSE 2024", departmentId, year: 2024 });
+    expect(batch.status).toBe(201);
+    expect(batch.body.data.batches).toHaveLength(1);
+
+    const staff = await request(app).post("/api/v1/workspace/staff").set(headers).send({
+      fullName: "College Admin",
+      email: "college.admin@example.edu",
+      password: "Password1",
+      role: "COLLEGE_ADMIN",
+      collegeId,
+      departmentId,
+    });
+    expect(staff.status).toBe(201);
+    expect(staff.body.data).toMatchObject({ role: "COLLEGE_ADMIN", collegeId, departmentId });
+
+    const adminLogin = await request(app).post("/api/v1/auth/login").send({ email: "college.admin@example.edu", password: "Password1" });
+    expect(adminLogin.status).toBe(200);
+    const adminHeaders = authHeader(adminLogin.body.data.accessToken);
+    const adminSummary = await request(app).get("/api/v1/workspace/summary").set(adminHeaders);
+    expect(adminSummary.status).toBe(200);
+    expect(adminSummary.body.data).toMatchObject({ role: "COLLEGE_ADMIN", college: { id: collegeId } });
+    expect(adminSummary.body.data.stats).toMatchObject({ departments: 1, batches: 1, staff: 1 });
+
+    const renamed = await request(app).patch(`/api/v1/workspace/colleges/${collegeId}`).set(adminHeaders).send({ city: "Mumbai" });
+    expect(renamed.status).toBe(200);
+    expect(renamed.body.data.city).toBe("Mumbai");
+  });
+
+  it("denies students access to platform administration", async () => {
+    const registered = await request(app).post("/api/v1/auth/register").send(registration);
+    const response = await request(app).get("/api/v1/workspace/colleges").set(authHeader(registered.body.data.accessToken));
+    expect(response.status).toBe(403);
   });
 });

@@ -6,6 +6,8 @@ export interface UserResponse {
   email: string;
   fullName: string;
   role: string;
+  collegeId?: number | null;
+  departmentId?: number | null;
   createdAt: string;
 }
 
@@ -15,6 +17,8 @@ export function toUserResponse(user: UserDoc): UserResponse {
     email: user.email,
     fullName: user.fullName,
     role: user.role,
+    collegeId: user.collegeId ?? null,
+    departmentId: user.departmentId ?? null,
     createdAt: user.createdAt.toISOString(),
   };
 }

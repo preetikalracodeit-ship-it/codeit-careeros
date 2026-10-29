@@ -20,6 +20,8 @@ export function StudentDashboardPage() {
   const [readiness, setReadiness] = useState(null);
   const [assessments, setAssessments] = useState([]);
   const [attempts, setAttempts] = useState([]);
+  const [roadmap, setRoadmap] = useState(null);
+  const [projects, setProjects] = useState(null);
   const [activeAttempt, setActiveAttempt] = useState(null);
   const [photoUrl, setPhotoUrl] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -31,11 +33,13 @@ export function StudentDashboardPage() {
     try {
       const student = await api.get("/students/me");
       setProfile(student);
-      const [readinessData, careerData, catalog, history] = await Promise.all([
+      const [readinessData, careerData, catalog, history, roadmapData, projectData] = await Promise.all([
         api.get("/students/me/readiness").catch(() => null),
         student?.targetCareerId ? api.get(`/careers/${student.targetCareerId}`).catch(() => null) : Promise.resolve(null),
         student?.targetCareerId ? api.get(`/assessments/${student.targetCareerId}/available`).catch(() => []) : Promise.resolve([]),
         api.get("/students/me/attempts").catch(() => []),
+        api.get("/roadmaps/my").catch(() => null),
+        api.get("/projects/recommended").catch(() => null),
       ]);
       setReadiness(readinessData);
       setCareer(careerData);
@@ -43,6 +47,8 @@ export function StudentDashboardPage() {
       const submitted = Array.isArray(history) ? history : [];
       setAssessments(available);
       setAttempts(submitted);
+      setRoadmap(roadmapData);
+      setProjects(projectData);
       const states = await Promise.all(available.map((assessment) => api.get("/assessments/attempts/my", { params: { assessmentId: assessment.assessmentId } }).catch(() => null)));
       setActiveAttempt(states.find((attempt) => attempt?.status === "IN_PROGRESS") || null);
     } catch (reason) {
@@ -79,11 +85,16 @@ export function StudentDashboardPage() {
   const submitted = targetAttempts.filter((attempt) => attempt.status === "SUBMITTED");
   const latestAttempt = submitted[0] || null;
   const bestScore = submitted.length ? Math.max(...submitted.map((attempt) => attempt.overallScore ?? 0)) : null;
+  const roadmapItems = (roadmap?.phases || []).flatMap((phase) => (phase.items || []).map((item) => ({ ...item, phaseTitle: phase.title })));
+  const nextRoadmapItem = roadmapItems.find((item) => item.status === "IN_PROGRESS") || roadmapItems.find((item) => item.status !== "COMPLETED") || null;
+  const inProgressProject = projects?.projects?.find((project) => project.status === "IN_PROGRESS") || null;
   const nextAction = activeAttempt?.attemptId
     ? { label: "Resume assessment", href: `/student/assessment/attempt/${activeAttempt.attemptId}` }
     : !hasTarget ? { label: "Choose a career", href: "/student/careers" }
       : submitted.length === 0 ? { label: "Take your first assessment", href: "/student/assessment" }
-        : { label: "Continue your assessment journey", href: "/student/assessment" };
+        : nextRoadmapItem ? { label: "Continue learning", href: "/student/roadmap" }
+          : inProgressProject ? { label: "Continue project", href: "/student/projects" }
+            : { label: "Continue your assessment journey", href: "/student/assessment" };
 
   if (loading) return <main className="workspace-page"><div className="notice-card" role="status">Loading your dashboard…</div></main>;
   if (error && !profile) return <main className="workspace-page"><header className="workspace-heading"><div><span className="eyebrow">STUDENT DASHBOARD</span><h1>Unable to load your dashboard.</h1><p className="muted">{error}</p></div></header><button className="secondary-button" onClick={load}>Try again</button></main>;
@@ -99,6 +110,15 @@ export function StudentDashboardPage() {
       <section className="dashboard-panel"><div className="dashboard-panel-heading"><div><h2>Skills to strengthen</h2><p>Based on your latest assessment for {readiness?.targetCareerName || profile?.targetCareerName || "your target career"}.</p></div><Link to="/student/progress">All skills →</Link></div>{!hasTarget ? <div className="dashboard-empty"><p>Choose a target career to view its skill framework.</p><Link className="primary-button" to="/student/careers">Choose career</Link></div> : gaps.length === 0 ? <div className="dashboard-empty"><p>{assessedSkills.length ? "Your assessed skills are meeting their targets." : "No assessment results yet. Take a test to discover your current skill level."}</p><Link className="primary-button" to="/student/assessment">{assessedSkills.length ? "Review assessments" : "Take an assessment"}</Link></div> : <div className="dashboard-skill-list">{gaps.slice(0, 5).map((gap) => { const score = gap.scorePercent ?? 0; const target = gap.targetPercent ?? 80; return <article className="dashboard-skill" key={gap.skillId}><div className="dashboard-skill-heading"><strong>{gap.skillName}</strong><span>{score}% <small>/ {target}% target</small></span></div><div className="skill-meter" role="img" aria-label={`${gap.skillName}: ${score} percent, target ${target} percent`}><span style={{ width: `${Math.min(100, score)}%` }} /><i style={{ left: `${Math.min(100, target)}%` }} /></div><small>{gap.skillCategory?.replaceAll("_", " ") || "Skill"} · {gap.metTarget ? "On target" : `${Math.max(0, target - score)} points to target`}</small></article>; })}</div>}</section>
 
       <section className="dashboard-panel"><div className="dashboard-panel-heading"><div><h2>Recent assessments</h2><p>Your latest submitted results and active attempt.</p></div><Link to="/student/assessment">See all →</Link></div>{activeAttempt && <Link className="resume-attempt-card" to={`/student/assessment/attempt/${activeAttempt.attemptId}`}><span className="resume-label">IN PROGRESS</span><strong>{activeAttempt.assessmentTitle}</strong><span>{activeAttempt.answeredCount ?? 0} of {activeAttempt.totalQuestions ?? 0} answered · Resume →</span></Link>}{submitted.length === 0 ? <div className="dashboard-empty"><p>{activeAttempt ? "Your submitted results will show here." : "Take an assessment to see your progress over time."}</p>{!activeAttempt && <Link className="primary-button" to={hasTarget ? "/student/assessment" : "/student/careers"}>{hasTarget ? "Take assessment" : "Choose a career"}</Link>}</div> : <ol className="recent-attempt-list">{submitted.slice(0, 5).map((attempt) => <li key={attempt.attemptId}><div><strong>{attempt.assessmentTitle}</strong><span>{formatDate(attempt.submittedAt)} · {attempt.answeredCount}/{attempt.totalQuestions} answered</span></div><b>{attempt.overallScore ?? 0}%</b><Link to={`/student/assessment/attempt/${attempt.attemptId}`} aria-label={`Review ${attempt.assessmentTitle} result`}>Review</Link></li>)}</ol>}</section>
+    </div>
+
+    <div className="dashboard-content-grid dashboard-learning-grid">
+      <section className="dashboard-panel"><div className="dashboard-panel-heading"><div><h2>Your roadmap</h2><p>{roadmap?.hasTarget ? `Learning path for ${roadmap.careerName}.` : "Choose a career to get a personal path."}</p></div><Link to="/student/roadmap">Open roadmap →</Link></div>
+        {roadmap?.hasTarget ? <><div className="dashboard-roadmap-progress"><strong>{roadmap.completedItems}<small> / {roadmap.totalItems} steps complete</small></strong><span className="readiness-bar"><span style={{ width: `${roadmap.progressPercent || 0}%` }} /></span></div>{nextRoadmapItem ? <Link className="dashboard-next-step" to="/student/roadmap"><span className="eyebrow">{nextRoadmapItem.status === "IN_PROGRESS" ? "PICK UP WHERE YOU LEFT OFF" : `NEXT · ${nextRoadmapItem.phaseTitle}`}</span><strong>{nextRoadmapItem.title}</strong><small>{nextRoadmapItem.skillName ? `${nextRoadmapItem.skillName}${nextRoadmapItem.gapPercent < 0 ? ` · ${Math.abs(nextRoadmapItem.gapPercent)} points to target` : ""}` : "Continue your learning path"}</small></Link> : <div className="dashboard-empty"><p>Your roadmap is complete. Keep strengthening skills with assessments.</p><Link to="/student/assessment">Practice skills</Link></div>}</> : <div className="dashboard-empty"><p>Choose a target career to unlock a personalized learning path.</p><Link className="primary-button" to="/student/careers">Choose career</Link></div>}
+      </section>
+      <section className="dashboard-panel"><div className="dashboard-panel-heading"><div><h2>Recommended projects</h2><p>{projects?.hasTarget ? `Build portfolio proof for ${projects.careerName}.` : "Project ideas matched to your career."}</p></div><Link to="/student/projects">All projects →</Link></div>
+        {projects?.hasTarget ? <><div className="dashboard-roadmap-progress"><strong>{projects.completedProjects}<small> / {projects.totalProjects} projects complete</small></strong><span className="readiness-bar"><span style={{ width: `${projects.totalProjects ? Math.round(projects.completedProjects * 100 / projects.totalProjects) : 0}%` }} /></span></div>{projects.projects?.length ? <div className="dashboard-mini-projects">{projects.projects.slice(0, 3).map((project) => <Link key={project.projectId} to="/student/projects"><span><strong>{project.title}</strong><small>{(project.skills || []).slice(0, 3).map((skill) => skill.skillName).join(" · ") || `${project.estimatedWeeks} week project`}</small></span><i className={`roadmap-status roadmap-status-${project.status.toLowerCase()}`}>{project.status.replaceAll("_", " ")}</i></Link>)}</div> : <div className="dashboard-empty"><p>No projects have been published for this career yet.</p></div>}</> : <div className="dashboard-empty"><p>Choose a target career to see relevant portfolio projects.</p><Link className="primary-button" to="/student/careers">Choose career</Link></div>}
+      </section>
     </div>
 
     <section className="dashboard-next"><div><span className="eyebrow">RECOMMENDED NEXT STEP</span><h2>{activeAttempt ? `Pick up ${activeAttempt.assessmentTitle}` : !hasTarget ? "Choose your target career" : submitted.length ? "Keep building your readiness" : "Take your first assessment"}</h2><p>{activeAttempt ? `${activeAttempt.answeredCount ?? 0} of ${activeAttempt.totalQuestions ?? 0} questions answered. Your saved progress is ready.` : !hasTarget ? "Career selection unlocks a relevant skill framework and assessments." : submitted.length ? "Review skill gaps, then retake assessments to see how your scores improve." : "Role-specific questions will measure your current skills against the career framework."}</p></div><Link className="primary-button" to={nextAction.href}>{nextAction.label}</Link></section>

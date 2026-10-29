@@ -41,8 +41,15 @@ export const auth = {
   },
 };
 
+const ROLE_HOME = {
+  SUPER_ADMIN: "/platform/dashboard",
+  COLLEGE_ADMIN: "/college/dashboard",
+  TPO: "/tpo/dashboard",
+  HOD: "/hod/dashboard",
+  FACULTY: "/faculty/dashboard",
+  STUDENT: "/student/dashboard",
+};
+
 export function homeForRole(role) {
-  if (role === "ADMIN") return "/admin/dashboard";
-  if (role === "PROFESSOR") return "/college/dashboard";
-  return "/student/dashboard";
+  return ROLE_HOME[role] || "/student/dashboard";
 }

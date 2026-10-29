@@ -1,7 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import { verifyAccessToken } from "../lib/jwt.js";
 import { AppError } from "../lib/errors.js";
-import { User, type Role } from "../models/User.js";
+import { User, isStaffRole, type Role } from "../models/User.js";
 
 export async function attachUser(req: Request, _res: Response, next: NextFunction): Promise<void> {
   const header = req.header("Authorization");
@@ -20,6 +20,8 @@ export async function attachUser(req: Request, _res: Response, next: NextFunctio
         email: user.email,
         fullName: user.fullName,
         role: user.role,
+        collegeId: user.collegeId ?? null,
+        departmentId: user.departmentId ?? null,
       };
     }
   } catch {
@@ -48,4 +50,30 @@ export function requireRole(role: Role) {
     }
     next();
   };
+}
+
+export function requireAnyRole(...roles: Role[]) {
+  return (req: Request, _res: Response, next: NextFunction): void => {
+    if (!req.user) {
+      next(AppError.unauthorized("Authentication is required"));
+      return;
+    }
+    if (!roles.includes(req.user.role)) {
+      next(AppError.forbidden("You do not have permission to perform this action"));
+      return;
+    }
+    next();
+  };
+}
+
+export function requireCollegeStaff(req: Request, _res: Response, next: NextFunction): void {
+  if (!req.user) {
+    next(AppError.unauthorized("Authentication is required"));
+    return;
+  }
+  if (!isStaffRole(req.user.role)) {
+    next(AppError.forbidden("This area is only available to college staff"));
+    return;
+  }
+  next();
 }

@@ -22,11 +22,60 @@ function toProfileResponse(profile: LinkedInProfileDoc | HydratedDocument<Linked
 }
 
 const trimOrNull = (value: string | null | undefined) => value?.trim() || null;
-const normalize = (value: string) => value.toLocaleLowerCase().replace(/[^\p{L}\p{N}+#.]+/gu, " ").replace(/\s+/g, " ").trim();
+const STOPWORDS = new Set([
+  "administration", "administrator", "fundamentals", "fundamental", "operations", "operation", "testing", "design", "designer",
+  "analysis", "analyst", "analytics", "engineering", "engineer", "development", "developer", "management", "manager",
+  "language", "languages", "processing", "learning", "system", "systems", "application", "applications", "rest", "data",
+  "power", "deep", "natural", "security",
+]);
+const SKILL_ALIASES: Record<string, string[]> = {
+  javascript: ["js", "es 6"], typescript: ["ts"], python: ["py"],
+  sql: ["mysql", "postgresql", "postgres", "sqlite", "pl sql", "t sql"],
+  react: ["reactjs", "react.js"], "node.js": ["nodejs", "node"], "machine learning": ["ml"],
+  "deep learning": ["dl"], "natural language processing": ["nlp"], "generative ai": ["genai", "ai"],
+  kubernetes: ["k 8 s"], mongodb: ["mongo"], "rest apis": ["rest api", "restful"],
+  microservices: ["microservice"], java: ["core java", "j 2 ee"], aws: ["amazon web services"],
+  "ci cd jenkins": ["cicd"], "api testing": ["postman"], "penetration testing": ["pentest", "pen test"],
+  "data visualization": ["tableau"], "database administration": ["database administrator"],
+};
+const normalize = (value: string) => value.toLowerCase()
+  .replace(/(?<=[a-z])(?=\d)|(?<=\d)(?=[a-z])/g, " ")
+  .replace(/[^a-z0-9+#.]+/g, " ").trim();
+function containsWord(text: string, needle: string) {
+  const escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(^|[^a-z0-9+#.])${escaped}([^a-z0-9+#.]|$)`).test(text);
+}
+function segmentMatches(text: string, segment: string) {
+  const tokens = segment.split(/[. ]+/).filter((token) => token.length >= 2 && !STOPWORDS.has(token));
+  if (tokens.length === 0) return false;
+  if (tokens.length === 1 && (tokens[0] === "cloud" || tokens[0] === "database")) return containsWord(text, segment);
+  let allPresent = true;
+  for (const token of tokens) {
+    if (containsWord(text, token)) {
+      if (token.length >= 8) return true;
+    } else allPresent = false;
+  }
+  return allPresent;
+}
+function segmentsOf(raw: string) {
+  const segments: string[] = [];
+  const remainder = raw.replace(/\(([^()]*)\)/g, (_match, inner: string) => {
+    for (const part of inner.split(/[&/]+/)) if (normalize(part)) segments.push(normalize(part));
+    return " ";
+  });
+  for (const part of remainder.split(/[&/]+/)) if (normalize(part)) segments.push(normalize(part));
+  return segments;
+}
 function mentions(text: string, skill: string) {
   const normalizedSkill = normalize(skill);
   if (!normalizedSkill) return false;
-  return ` ${text} `.includes(` ${normalizedSkill} `);
+  if (containsWord(text, normalizedSkill)) return true;
+  const compactSkill = normalizedSkill.replace(/[^a-z0-9]+/g, "");
+  if (compactSkill.length >= 6 && text.replace(/[^a-z0-9]+/g, "").includes(compactSkill)) return true;
+  if ((SKILL_ALIASES[normalizedSkill] ?? []).some((alias) => containsWord(text, alias))) return true;
+  const segments = segmentsOf(skill);
+  if (segments.length > 1) return segments.some((segment) => segmentMatches(text, segment));
+  return segmentMatches(text, normalizedSkill);
 }
 
 export async function getMyLinkedInProfile(userId: number) {

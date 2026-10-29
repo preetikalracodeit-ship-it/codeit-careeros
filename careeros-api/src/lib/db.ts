@@ -22,6 +22,7 @@ import { Project } from "../models/Project.js";
 import { ProjectSkill } from "../models/ProjectSkill.js";
 import { ProjectProgress } from "../models/ProjectProgress.js";
 import { LinkedInProfile } from "../models/LinkedInProfile.js";
+import { College } from "../models/College.js";
 
 export async function connectDatabase(uri: string): Promise<void> {
   mongoose.set("strictQuery", true);
@@ -57,6 +58,7 @@ export async function ensureIndexes(): Promise<void> {
     ProjectSkill.createIndexes(),
     ProjectProgress.createIndexes(),
     LinkedInProfile.createIndexes(),
+    College.createIndexes(),
   ]);
 }
 

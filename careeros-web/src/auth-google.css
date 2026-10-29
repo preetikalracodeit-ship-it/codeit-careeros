@@ -1,0 +1,57 @@
+.google-signin {
+  display: grid;
+  gap: 10px;
+  margin-top: 2px;
+}
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #829087;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: "";
+  height: 1px;
+  flex: 1;
+  background: #e4ece6;
+}
+
+.google-button {
+  display: flex;
+  justify-content: center;
+  min-height: 44px;
+}
+
+.google-status,
+.google-error,
+.google-consent {
+  margin: 0;
+  text-align: center;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.google-status,
+.google-consent {
+  color: #718278;
+}
+
+.google-consent {
+  font-size: 11px;
+}
+
+.google-error {
+  color: #a3322a;
+}
+
+.google-consent a {
+  color: #24764a;
+  font-weight: 800;
+}

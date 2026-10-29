@@ -1,5 +1,7 @@
 import { Navigate, Link, Route, Routes, useLocation } from "react-router-dom";
 import { auth, homeForRole } from "./lib/auth.js";
+import { AppShell } from "./components/AppShell.jsx";
+import { LandingPage } from "./pages/LandingPage.jsx";
 import { LoginPage } from "./pages/LoginPage.jsx";
 import { PlaceholderPage } from "./pages/PlaceholderPage.jsx";
 import { StudentCareersPage } from "./pages/StudentCareersPage.jsx";
@@ -13,29 +15,142 @@ import { StudentSettingsPage } from "./pages/StudentSettingsPage.jsx";
 import { StudentRoadmapPage } from "./pages/StudentRoadmapPage.jsx";
 import { StudentProjectsPage } from "./pages/StudentProjectsPage.jsx";
 import { StudentLinkedInPage } from "./pages/StudentLinkedInPage.jsx";
+import { StudentCvPage } from "./pages/StudentCvPage.jsx";
+import { StudentReportsPage } from "./pages/StudentReportsPage.jsx";
+import { StudentImprovementPlanPage } from "./pages/StudentImprovementPlanPage.jsx";
+import { StudentPlacementsPage } from "./pages/StudentPlacementsPage.jsx";
+import { StudentAiPage } from "./pages/StudentAiPage.jsx";
+import {
+  PlatformActivityPage,
+  PlatformCollegeDetailPage,
+  PlatformCollegesPage,
+  PlatformDashboardPage,
+  PlatformSettingsPage,
+  PlatformStaffPage,
+  PlatformStudentsPage,
+} from "./pages/workspace/PlatformPages.jsx";
+import {
+  CollegeBatchesPage,
+  CollegeDashboardPage,
+  CollegeDepartmentsPage,
+  CollegeProfilePage,
+  CollegeReportsPage,
+  CollegeSettingsPage,
+  CollegeStaffPage,
+  CollegeStudentsPage,
+} from "./pages/workspace/CollegePages.jsx";
+import {
+  TpoDashboardPage,
+  TpoPlacementPage,
+  TpoReadinessPage,
+  TpoReportsPage,
+  TpoSettingsPage,
+  TpoSkillGapsPage,
+  TpoStudentsPage,
+} from "./pages/workspace/TpoPages.jsx";
+import {
+  HodDashboardPage,
+  HodDepartmentPage,
+  HodReadinessPage,
+  HodReportsPage,
+  HodSettingsPage,
+  HodStudentsPage,
+} from "./pages/workspace/HodPages.jsx";
+import {
+  FacultyDashboardPage,
+  FacultyImprovementPlansPage,
+  FacultyMenteesPage,
+  FacultyReportsPage,
+  FacultySettingsPage,
+} from "./pages/workspace/FacultyPages.jsx";
 
-const publicRoutes = ["/", "/accept-invitation", "/legal/privacy", "/legal/terms"];
+const publicRoutes = ["/accept-invitation", "/legal/privacy", "/legal/terms"];
+
 const studentRoutes = [
-  "/student/dashboard", "/student/careers", "/student/assessment", "/student/assessment/attempt/:attemptId",
-  "/student/roadmap", "/student/projects", "/student/cv", "/student/linkedin", "/student/profile",
-  "/student/progress", "/student/reports", "/student/settings", "/student/ai",
-  "/student/improvement-plan", "/student/placements", "/student/:section",
-];
-const collegeRoutes = [
-  "/college", "/college/dashboard", "/college/students", "/college/students/:id", "/college/import",
-  "/college/reports", "/college/staff", "/college/structure", "/college/settings", "/college/plans",
-  "/college/plans/:id", "/college/placement", "/college/placement/analytics", "/college/placement/drives/:id",
-];
-const adminRoutes = [
-  "/admin/dashboard", "/admin/students", "/admin/institutions", "/admin/assessments", "/admin/assessments/:id",
-  "/admin/careers", "/admin/skills", "/admin/roadmaps", "/admin/projects", "/admin/reports", "/admin/settings", "/admin/ai", "/admin/:section",
+  ["/student/dashboard", StudentDashboardPage],
+  ["/student/careers", StudentCareersPage],
+  ["/student/assessment", StudentAssessmentPage],
+  ["/student/assessment/attempt/:attemptId", AssessmentAttemptPage],
+  ["/student/roadmap", StudentRoadmapPage],
+  ["/student/cv", StudentCvPage],
+  ["/student/reports", StudentReportsPage],
+  ["/student/improvement-plan", StudentImprovementPlanPage],
+  ["/student/placements", StudentPlacementsPage],
+  ["/student/ai", StudentAiPage],
+  ["/student/projects", StudentProjectsPage],
+  ["/student/linkedin", StudentLinkedInPage],
+  ["/student/profile", StudentProfilePage],
+  ["/student/progress", StudentProgressPage],
+  ["/student/settings", StudentSettingsPage],
 ];
 
-function Guard({ role, children }) {
+const roleRoutes = [
+  {
+    role: "SUPER_ADMIN",
+    routes: [
+      ["/platform/dashboard", PlatformDashboardPage],
+      ["/platform/colleges", PlatformCollegesPage],
+      ["/platform/colleges/:id", PlatformCollegeDetailPage],
+      ["/platform/staff", PlatformStaffPage],
+      ["/platform/students", PlatformStudentsPage],
+      ["/platform/activity", PlatformActivityPage],
+      ["/platform/settings", PlatformSettingsPage],
+    ],
+  },
+  {
+    role: "COLLEGE_ADMIN",
+    routes: [
+      ["/college/dashboard", CollegeDashboardPage],
+      ["/college/profile", CollegeProfilePage],
+      ["/college/departments", CollegeDepartmentsPage],
+      ["/college/batches", CollegeBatchesPage],
+      ["/college/staff", CollegeStaffPage],
+      ["/college/students", CollegeStudentsPage],
+      ["/college/reports", CollegeReportsPage],
+      ["/college/settings", CollegeSettingsPage],
+    ],
+  },
+  {
+    role: "TPO",
+    routes: [
+      ["/tpo/dashboard", TpoDashboardPage],
+      ["/tpo/students", TpoStudentsPage],
+      ["/tpo/readiness", TpoReadinessPage],
+      ["/tpo/skill-gaps", TpoSkillGapsPage],
+      ["/tpo/reports", TpoReportsPage],
+      ["/tpo/placement", TpoPlacementPage],
+      ["/tpo/settings", TpoSettingsPage],
+    ],
+  },
+  {
+    role: "HOD",
+    routes: [
+      ["/hod/dashboard", HodDashboardPage],
+      ["/hod/students", HodStudentsPage],
+      ["/hod/readiness", HodReadinessPage],
+      ["/hod/department", HodDepartmentPage],
+      ["/hod/reports", HodReportsPage],
+      ["/hod/settings", HodSettingsPage],
+    ],
+  },
+  {
+    role: "FACULTY",
+    routes: [
+      ["/faculty/dashboard", FacultyDashboardPage],
+      ["/faculty/mentees", FacultyMenteesPage],
+      ["/faculty/improvement-plans", FacultyImprovementPlansPage],
+      ["/faculty/reports", FacultyReportsPage],
+      ["/faculty/settings", FacultySettingsPage],
+    ],
+  },
+];
+
+function Protected({ roles, children }) {
   const location = useLocation();
   if (!auth.isAuthenticated()) return <Navigate to="/login" replace state={{ from: location }} />;
-  if (auth.getRole() !== role) return <Navigate to={homeForRole(auth.getRole())} replace />;
-  return children;
+  const role = auth.getRole();
+  if (!roles.includes(role)) return <Navigate to={homeForRole(role)} replace />;
+  return <AppShell>{children}</AppShell>;
 }
 
 function PublicAuthRedirect() {
@@ -46,33 +161,24 @@ function SiteFrame({ children }) {
   return <div className="site-frame"><header className="site-header"><Link className="brand" to="/">CODEIT <span>CareerOS</span></Link><nav><Link to="/login">Sign in</Link><Link className="nav-cta" to="/register">Get started</Link></nav></header>{children}</div>;
 }
 
-function protectedElement(role) {
-  return <Guard role={role}><SiteFrame><PlaceholderPage /></SiteFrame></Guard>;
-}
-
 export default function App() {
   return <Routes>
     <Route path="/login" element={<PublicAuthRedirect />} />
     <Route path="/forgot-password" element={<SiteFrame><ForgotPasswordPage /></SiteFrame>} />
     <Route path="/reset-password" element={<SiteFrame><ResetPasswordPage /></SiteFrame>} />
     <Route path="/register" element={auth.isAuthenticated() ? <Navigate to={homeForRole(auth.getRole())} replace /> : <SiteFrame><PlaceholderPage title="Create your CareerOS account" /></SiteFrame>} />
-    {publicRoutes.filter((path) => path !== "/").map((path) => <Route key={path} path={path} element={<SiteFrame><PlaceholderPage /></SiteFrame>} />)}
-    <Route path="/" element={<SiteFrame><PlaceholderPage title="Know where you stand. Know what to do next." /></SiteFrame>} />
-    {studentRoutes.map((path) => {
-      const page = path === "/student/careers" ? <StudentCareersPage />
-        : path === "/student/assessment" ? <StudentAssessmentPage />
-          : path === "/student/assessment/attempt/:attemptId" ? <AssessmentAttemptPage />
-            : path === "/student/profile" ? <StudentProfilePage />
-              : path === "/student/dashboard" ? <StudentDashboardPage />
-                : path === "/student/progress" ? <StudentProgressPage />
-                  : path === "/student/settings" ? <StudentSettingsPage />
-                    : path === "/student/roadmap" ? <StudentRoadmapPage />
-                      : path === "/student/projects" ? <StudentProjectsPage />
-                        : path === "/student/linkedin" ? <StudentLinkedInPage /> : <PlaceholderPage />;
-      return <Route key={path} path={path} element={<Guard role="STUDENT"><SiteFrame>{page}</SiteFrame></Guard>} />;
-    })}
-    {collegeRoutes.map((path) => <Route key={path} path={path} element={protectedElement("PROFESSOR")} />)}
-    {adminRoutes.map((path) => <Route key={path} path={path} element={protectedElement("ADMIN")} />)}
+    {publicRoutes.map((path) => <Route key={path} path={path} element={<SiteFrame><PlaceholderPage /></SiteFrame>} />)}
+    <Route path="/" element={auth.isAuthenticated() ? <Navigate to={homeForRole(auth.getRole())} replace /> : <LandingPage />} />
+
+    {studentRoutes.map(([path, Page]) => (
+      <Route key={path} path={path} element={<Protected roles={["STUDENT"]}><Page /></Protected>} />
+    ))}
+    <Route path="/student/:section" element={<Protected roles={["STUDENT"]}><PlaceholderPage /></Protected>} />
+
+    {roleRoutes.flatMap(({ role, routes }) => routes.map(([path, Page]) => (
+      <Route key={path} path={path} element={<Protected roles={[role]}><Page /></Protected>} />
+    )))}
+
     <Route path="*" element={<SiteFrame><PlaceholderPage title="Page not found" /></SiteFrame>} />
   </Routes>;
 }

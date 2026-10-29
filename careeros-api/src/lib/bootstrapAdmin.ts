@@ -11,7 +11,7 @@ export async function bootstrapAdmin(): Promise<void> {
     return;
   }
 
-  const existingAdmin = await User.exists({ role: "ADMIN" });
+  const existingAdmin = await User.exists({ role: "SUPER_ADMIN" });
   if (existingAdmin) {
     return;
   }
@@ -32,7 +32,7 @@ export async function bootstrapAdmin(): Promise<void> {
           emailLower: email,
           passwordHash: await hashPassword(env.ADMIN_PASSWORD),
           fullName: "Platform Administrator",
-          role: "ADMIN",
+          role: "SUPER_ADMIN",
           status: "ACTIVE",
         },
       ],
