@@ -1,5 +1,4 @@
 import dotenv from "dotenv";
-import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
@@ -20,7 +19,6 @@ const envSchema = z.object({
   PORT: z.coerce.number().int().positive().default(8080),
   LOG_LEVEL: z.string().default("info"),
   MONGODB_URI: z.string().min(1).default("mongodb://127.0.0.1:27017/careeros"),
-  PROFILE_PHOTO_DIR: z.string().default(path.join(os.tmpdir(), "careeros-profile-photos")),
   JWT_SECRET: z
     .string()
     .min(32, "JWT_SECRET must be at least 32 bytes (256 bits). Generate one with: openssl rand -base64 48"),

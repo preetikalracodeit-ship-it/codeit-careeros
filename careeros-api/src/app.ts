@@ -24,6 +24,11 @@ import { workspaceRouter } from "./modules/workspace/workspace.routes.js";
 import { cvRouter } from "./modules/cvs/cv.routes.js";
 import { reportRouter } from "./modules/reports/report.routes.js";
 import { aiRouter } from "./modules/ai/ai.routes.js";
+import { invitationRouter } from "./modules/invitations/invitation.routes.js";
+import {
+  adminInvitationManagementRouter,
+  collegeInvitationManagementRouter,
+} from "./modules/invitations/invitationManagement.routes.js";
 
 export function createApp() {
   const app = express();
@@ -86,10 +91,13 @@ export function createApp() {
   app.use("/api/v1/cvs", cvRouter);
   app.use("/api/v1/reports", reportRouter);
   app.use("/api/v1/ai", aiRouter);
+  app.use("/api/v1/invitations", invitationRouter);
+  app.use("/api/v1/college", collegeInvitationManagementRouter);
 
   app.use("/api/v1/college", requireCollegeStaff);
   app.use("/api/v1/platform", requireRole("SUPER_ADMIN"));
   app.use("/api/v1/admin", requireRole("SUPER_ADMIN"));
+  app.use("/api/v1/admin", adminInvitationManagementRouter);
 
   app.use("/api", (req: Request, _res: Response, next: NextFunction) => {
     if (req.path.startsWith("/v1/invitations")) {

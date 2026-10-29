@@ -14,7 +14,7 @@ import { InstitutionMembership, type ScopeType, type StaffDesignation } from "..
 import { Program } from "../../models/Program.js";
 import { Section } from "../../models/Section.js";
 import { StaffInvitation } from "../../models/StaffInvitation.js";
-import { User } from "../../models/User.js";
+import { User, type UserDoc } from "../../models/User.js";
 import { hashPassword, verifyPassword } from "../../lib/password.js";
 import { issueSessionForUser, type AuthResponse } from "../auth/auth.service.js";
 import type { InvitationAcceptInput, InvitationCreateInput } from "./invitation.schemas.js";
@@ -101,7 +101,7 @@ export async function validateInvitationScope(institutionId: number, designation
 async function ensureInviteEligibleAccount(email: string) {
   const user = await User.findOne({ emailLower: email }).lean();
   if (!user) return;
-  if (user.role === "ADMIN") throw AppError.conflict("This account cannot be invited as college staff");
+  if (user.role === "SUPER_ADMIN") throw AppError.conflict("This account cannot be invited as college staff");
   if (await InstitutionMembership.exists({ userId: user._id, status: "ACTIVE" })) throw AppError.conflict("This account already has an active institution membership");
 }
 
@@ -123,7 +123,7 @@ async function issueInvitation(institutionId: number, emailInput: string, design
     tokenHash: sha256(token), expiresAt, acceptedAt: null, revokedAt: null, createdBy: actorUserId,
   }]);
   await recordInstitutionEvent({
-    actorUserId, actorRole: actorUserId == null ? "ADMIN" : "PROFESSOR",
+    actorUserId, actorRole: actorUserId == null ? "SUPER_ADMIN" : "COLLEGE_STAFF",
     action: "STAFF_INVITATION_CREATE", targetType: "STAFF_INVITATION", targetId: String(invitation._id),
     institutionId, scopeDescription: `${scopeType}:${scopeId ?? institutionId}`,
     details: `designation=${designation},scope=${scopeType}`,
@@ -170,7 +170,7 @@ export async function revokeCollegeInvitation(institutionId: number, actorUserId
   if (!invitation.revokedAt) {
     const revokedAt = new Date();
     await StaffInvitation.updateOne({ _id: invitationId, institutionId, acceptedAt: null }, { $set: { revokedAt } });
-    await recordInstitutionEvent({ actorUserId, actorRole: "PROFESSOR", action: "STAFF_INVITATION_REVOKE", targetType: "STAFF_INVITATION", targetId: String(invitationId), institutionId, details: "revoked" });
+    await recordInstitutionEvent({ actorUserId, actorRole: "COLLEGE_STAFF", action: "STAFF_INVITATION_REVOKE", targetType: "STAFF_INVITATION", targetId: String(invitationId), institutionId, details: "revoked" });
   }
 }
 
@@ -206,18 +206,18 @@ export async function acceptInvitation(rawToken: string, input: InvitationAccept
       if (institution.status !== "ACTIVE") throw AppError.forbidden("The institution is not active");
 
       const emailLower = invitation.email.trim().toLowerCase();
-      let user = await User.findOne({ emailLower }).session(session).lean();
+      let user: UserDoc | null = await User.findOne({ emailLower }).session(session).lean();
       const isNewAccount = !user;
       if (user) {
         if (user.status !== "ACTIVE") throw AppError.forbidden("This account is not active");
-        if (user.role === "ADMIN") throw AppError.forbidden("This account cannot be linked to an institution");
+        if (user.role === "SUPER_ADMIN") throw AppError.forbidden("This account cannot be linked to an institution");
         if (!input.password || !(await verifyPassword(input.password, user.passwordHash))) throw AppError.badRequest("Invalid invitation credentials");
         const currentConsent = await ConsentRecord.exists({ userId: user._id, consentType: "TERMS_AND_PRIVACY", policyVersion: env.PRIVACY_POLICY_VERSION }).session(session);
         if (!currentConsent && input.termsAccepted !== true) throw AppError.badRequest("You must accept the current Terms of Service and Privacy Policy");
         if (!currentConsent) await recordConsent(user._id, "RECONSENT", EVIDENCE_AUTHENTICATED_CONSENT, session);
-        if (user.role !== "PROFESSOR") {
-          await User.updateOne({ _id: user._id }, { $set: { role: "PROFESSOR" } }, { session });
-          user = { ...user, role: "PROFESSOR" };
+        if (user.role !== invitation.designation) {
+          await User.updateOne({ _id: user._id }, { $set: { role: invitation.designation } }, { session });
+          user = { ...user, role: invitation.designation };
         }
       } else {
         if (input.termsAccepted !== true) throw AppError.badRequest("You must accept the Terms of Service and Privacy Policy to activate the account");
@@ -228,7 +228,7 @@ export async function acceptInvitation(rawToken: string, input: InvitationAccept
         const userId = await getNextSequence("users", session);
         const [created] = await User.create([{
           _id: userId, email: emailLower, emailLower, passwordHash: await hashPassword(input.password),
-          fullName, role: "PROFESSOR", status: "ACTIVE",
+          fullName, role: invitation.designation, status: "ACTIVE",
         }], { session });
         user = created.toObject();
         await recordConsent(userId, "PASSWORD_REGISTRATION", EVIDENCE_REGISTRATION_CHECKBOX, session);

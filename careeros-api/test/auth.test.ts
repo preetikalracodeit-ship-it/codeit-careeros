@@ -94,6 +94,166 @@ describe("health and meta", () => {
   });
 });
 
+describe("public college invitations", () => {
+  async function createInvitation(token: string) {
+    const { Institution } = await import("../src/models/Institution.js");
+    const { StaffInvitation } = await import("../src/models/StaffInvitation.js");
+    const { sha256 } = await import("../src/lib/tokenHash.js");
+
+    await Institution.create({
+      _id: 1,
+      code: "TEST-COLLEGE",
+      name: "Test College",
+      status: "ACTIVE",
+    });
+    await StaffInvitation.create({
+      _id: 1,
+      institutionId: 1,
+      email: "faculty@example.edu",
+      designation: "COLLEGE_ADMIN",
+      scopeType: "INSTITUTION",
+      scopeId: null,
+      tokenHash: sha256(token),
+      expiresAt: new Date(Date.now() + 60_000),
+      acceptedAt: null,
+      revokedAt: null,
+      createdBy: null,
+    });
+  }
+
+  it("returns masked invitation details without exposing the bearer token", async () => {
+    const rawToken = "one-time-invitation-token";
+    await createInvitation(rawToken);
+
+    const response = await request(app).get(`/api/v1/invitations/${rawToken}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.data).toMatchObject({
+      institutionName: "Test College",
+      maskedEmail: "f***@example.edu",
+      designation: "COLLEGE_ADMIN",
+      scopeType: "INSTITUTION",
+      scopeLabel: "Whole institution",
+      status: "VALID",
+    });
+    expect(JSON.stringify(response.body)).not.toContain(rawToken);
+  });
+
+  it("accepts a single-use invitation and assigns the invited staff role", async () => {
+    const rawToken = "acceptance-invitation-token";
+    await createInvitation(rawToken);
+
+    const response = await request(app)
+      .post(`/api/v1/invitations/${rawToken}/accept`)
+      .send({
+        fullName: "Invited Administrator",
+        password: "Password1",
+        termsAccepted: true,
+      });
+
+    expect(response.status).toBe(200);
+    expect(response.body.data.user).toMatchObject({
+      email: "faculty@example.edu",
+      fullName: "Invited Administrator",
+      role: "COLLEGE_ADMIN",
+    });
+    expect(response.body.data.accessToken).toBeTruthy();
+
+    const { StaffInvitation } = await import("../src/models/StaffInvitation.js");
+    const { InstitutionMembership } = await import("../src/models/InstitutionMembership.js");
+    const invitation = await StaffInvitation.findById(1).lean();
+    const membership = await InstitutionMembership.findOne({ userId: response.body.data.user.id }).lean();
+    expect(invitation?.acceptedAt).toBeInstanceOf(Date);
+    expect(membership).toMatchObject({
+      institutionId: 1,
+      designation: "COLLEGE_ADMIN",
+      status: "ACTIVE",
+    });
+
+    const replay = await request(app)
+      .post(`/api/v1/invitations/${rawToken}/accept`)
+      .send({
+        fullName: "Invited Administrator",
+        password: "Password1",
+        termsAccepted: true,
+      });
+    expect(replay.status).toBe(409);
+  });
+});
+
+describe("college invitation management", () => {
+  it("allows only an active college administrator to manage invitations in their institution", async () => {
+    const registered = await request(app).post("/api/v1/auth/register").send(registration);
+    const token = registered.body.data.accessToken as string;
+    const userId = registered.body.data.user.id as number;
+    const { User } = await import("../src/models/User.js");
+    const { Institution } = await import("../src/models/Institution.js");
+    const { InstitutionMembership } = await import("../src/models/InstitutionMembership.js");
+
+    await Institution.create({
+      _id: 20,
+      code: "INVITE-COLLEGE",
+      name: "Invitation College",
+      status: "ACTIVE",
+    });
+    await InstitutionMembership.create({
+      _id: 20,
+      userId,
+      institutionId: 20,
+      designation: "COLLEGE_ADMIN",
+      status: "ACTIVE",
+      scopeType: "INSTITUTION",
+      scopeId: null,
+    });
+    await User.updateOne({ _id: userId }, { $set: { role: "COLLEGE_ADMIN" } });
+
+    const create = await request(app)
+      .post("/api/v1/college/staff/invitations")
+      .set(authHeader(token))
+      .send({
+        email: "tpo@example.edu",
+        designation: "TPO",
+        scopeType: "INSTITUTION",
+      });
+
+    expect(create.status).toBe(200);
+    expect(create.body.message).toBe("Invitation created");
+    expect(create.body.data.invitation).toMatchObject({
+      email: "tpo@example.edu",
+      designation: "TPO",
+      scopeType: "INSTITUTION",
+      status: "VALID",
+    });
+    expect(create.body.data.activationPath).toMatch(/^\/accept-invitation\?token=/);
+
+    const list = await request(app)
+      .get("/api/v1/college/staff/invitations")
+      .set(authHeader(token));
+    expect(list.status).toBe(200);
+    expect(list.body.data).toHaveLength(1);
+    expect(list.body.data[0]).not.toHaveProperty("tokenHash");
+
+    const invitationId = create.body.data.invitation.id as number;
+    const revoke = await request(app)
+      .post(`/api/v1/college/staff/invitations/${invitationId}/revoke`)
+      .set(authHeader(token));
+    expect(revoke.status).toBe(200);
+    expect(revoke.body.message).toBe("Invitation revoked");
+
+    const { StaffInvitation } = await import("../src/models/StaffInvitation.js");
+    expect((await StaffInvitation.findById(invitationId).lean())?.revokedAt).toBeInstanceOf(Date);
+  });
+
+  it("does not allow a student to manage college invitations", async () => {
+    const registered = await request(app).post("/api/v1/auth/register").send(registration);
+    const response = await request(app)
+      .get("/api/v1/college/staff/invitations")
+      .set(authHeader(registered.body.data.accessToken));
+
+    expect(response.status).toBe(403);
+  });
+});
+
 describe("registration and login", () => {
   it("registers a student and returns a session", async () => {
     const response = await request(app).post("/api/v1/auth/register").send(registration);

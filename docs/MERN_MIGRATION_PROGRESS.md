@@ -17,6 +17,8 @@
 - Ported target-career readiness with latest per-skill scores, framework targets/weights, strengths, improvement gaps, and no-target empty state.
 - Connected a compact responsive React assessment list and attempt runner, with autosave, countdown, submission, result breakdown, and readiness summary.
 - Ported student roadmap and project recommendation APIs with Mongo models, latest submitted skill-gap enrichment, and user-scoped status updates. Progress updates are restricted to the student’s current target career.
+- Mounted the public college invitation lookup and acceptance endpoints in Express; invitation details remain token-free and mask the invitee email, while acceptance assigns the invited staff role and rejects replay.
+- Mounted the Spring-equivalent college staff invitation create/list/revoke endpoints and platform-admin bootstrap endpoint. College invitation management requires an active `COLLEGE_ADMIN` membership resolved from the authenticated user; bootstrap remains super-admin-only.
 - Connected responsive roadmap and project pages with clear target-career empty states and simple progress controls.
 - Connected the React Careers page to the catalog and target-career APIs with responsive search, category filtering, skill details, and target selection.
 - Started F1 with a separate `careeros-web` React + Vite SPA.
@@ -30,7 +32,7 @@
 ## Current limitations
 
 - CV, reports, AI, college, placement, and admin workflows remain unported or placeholders.
-- Invitation acceptance remains pending because the Express API does not yet mount validation/acceptance routes or invitation models.
+- Tenant-scoped college workflows beyond staff invitations remain pending. Invitation integration coverage verifies masked public lookup, new-account activation, single-use acceptance, create/list/revoke, and rejection of student access; existing-account, expiry, and revoked-token acceptance parity still need tests.
 - Google sign-in depends on `GOOGLE_CLIENT_ID` being configured in the Express API environment.
 - Production Nginx/CDN routing, CSP/security headers, and deep-link hosting are not configured yet.
 - The new SPA has not been deployed.
