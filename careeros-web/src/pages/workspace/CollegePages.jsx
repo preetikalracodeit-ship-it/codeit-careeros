@@ -5,43 +5,48 @@ import { api } from "../../lib/api.js";
 import { useApi } from "../../lib/useApi.js";
 import { ROLE_LABELS } from "../../lib/roles.js";
 import { Icon } from "../../components/Icon.jsx";
-import { Badge, DataTable, Distribution, ErrorBlock, LoadingBlock, PageHeader, Panel, StatCard, statusTone } from "../../components/ui.jsx";
-import { downloadCsv, ReadinessPanel, ReadinessSummary, SettingsPage, SkillGapTable, StudentDetailDrawer, StudentsTable, formatDate, scoreTone } from "./shared.jsx";
+import { Badge, DataTable, ErrorBlock, LoadingBlock, PageHeader, Panel, StatCard, statusTone } from "../../components/ui.jsx";
+import { SettingsPage, StudentDetailDrawer, StudentsTable, formatDate, scoreTone } from "./shared.jsx";
 
 const STAFF_ROLE_OPTIONS = ["COLLEGE_ADMIN", "TPO", "HOD", "FACULTY"];
 
 export function CollegeDashboardPage() {
-  const { data, loading, error, reload } = useApi("/workspace/summary");
-  if (loading) return <LoadingBlock label="Loading college workspace…" />;
-  if (error) return <ErrorBlock message={error} onRetry={reload} />;
-  const stats = data?.stats || {};
-  const staff = data?.staff || [];
+  const { data, loading, error, reload } = useApi("/college/dashboard");
+  const staffQuery = useApi("/college/staff/members");
+  if (loading || staffQuery.loading) return <LoadingBlock label="Loading college workspace…" />;
+  if (error || staffQuery.error) {
+    return <ErrorBlock message={error || staffQuery.error} onRetry={() => { reload(); staffQuery.reload(); }} />;
+  }
+  const staff = (staffQuery.data || []).filter((member) => member.status === "ACTIVE");
+  const recentStaff = (staffQuery.data || []).slice(0, 5);
 
   return (
     <div className="workspace-page-content">
       <PageHeader
         eyebrow="COLLEGE ADMIN"
-        title={data?.college?.name || "College workspace"}
-        description={`Manage departments, batches, staff permissions, and student visibility for ${data?.college?.code || "your college"}.`}
+        title={data?.institutionName || "College workspace"}
+        description="Monitor enrollment, assessment participation, readiness, and cohort performance."
         actions={<Link className="primary-button" to="/college/staff">Add staff</Link>}
       />
 
       <div className="stat-grid stat-grid-4">
-        <StatCard label="Students" value={stats.students ?? 0} hint="Profiles in your college" icon="users" />
-        <StatCard label="Staff" value={stats.staff ?? 0} hint="Administrators and faculty" icon="shield" />
-        <StatCard label="Departments" value={stats.departments ?? 0} icon="layers" />
-        <StatCard label="Batches" value={stats.batches ?? 0} icon="calendar" />
-      </div>
-
-      <div className="stat-grid stat-grid-3">
-        <StatCard label="Average readiness" value={`${stats.averageReadiness ?? 0}%`} hint="Latest submitted assessments" tone={scoreTone(stats.averageReadiness)} icon="target" />
-        <StatCard label="Assessed students" value={stats.assessedStudents ?? 0} hint="Students with a completed assessment" icon="clipboard" />
-        <StatCard label="College status" value={data?.college?.status || "—"} hint={data?.college?.city || "Location not set"} tone={statusTone(data?.college?.status)} icon="building" />
+        <StatCard label="Enrolled" value={data?.totalEnrolled ?? 0} hint="Matching the current cohort scope" icon="users" />
+        <StatCard label="Active students" value={data?.activeStudents ?? 0} icon="activity" />
+        <StatCard label="Staff" value={staff.length} hint="Active college memberships" icon="shield" />
+        <StatCard label="Assessment participants" value={data?.assessmentParticipants ?? 0} hint={`${data?.assessmentCompletionPercent ?? "—"}% of active students`} icon="clipboard" />
       </div>
 
       <div className="two-column">
-        <Panel title="Readiness distribution" description="How students are performing against their target careers.">
-          <Distribution distribution={data?.readiness?.distribution} />
+        <Panel title="Readiness distribution" description={`${data?.readinessEvaluated ?? 0} active students evaluated against their target career.`}>
+          <DataTable
+            empty="No students have an evaluated readiness score yet"
+            rows={data?.readinessDistribution || []}
+            getKey={(item) => item.band}
+            columns={[
+              { key: "band", label: "Readiness band" },
+              { key: "students", label: "Students" },
+            ]}
+          />
         </Panel>
         <Panel title="Quick actions" description="Common college administration tasks.">
           <div className="quick-actions">
@@ -54,10 +59,57 @@ export function CollegeDashboardPage() {
         </Panel>
       </div>
 
+      <Panel title="Common skill gaps" description="Skills with the most students currently below their career framework target.">
+        <DataTable
+          empty="No assessed skill gaps are available for this cohort"
+          rows={data?.commonGaps || []}
+          getKey={(gap) => gap.skillId}
+          columns={[
+            { key: "skillName", label: "Skill" },
+            { key: "studentsBelowTarget", label: "Below target" },
+            { key: "assessedStudents", label: "Assessed" },
+            { key: "percentBelowTarget", label: "Below target %" },
+          ]}
+        />
+      </Panel>
+
+      <Panel title="Department comparison" description="Enrollment, assessment participation, and readiness by department.">
+        <DataTable
+          empty="No department data is available for this cohort"
+          rows={data?.departmentComparisons || []}
+          getKey={(department) => department.departmentId}
+          columns={[
+            { key: "departmentName", label: "Department" },
+            { key: "enrolled", label: "Enrolled" },
+            { key: "active", label: "Active" },
+            { key: "assessmentParticipants", label: "Assessed" },
+            { key: "readinessEvaluated", label: "Readiness evaluated" },
+            { key: "averageReadinessPercent", label: "Average readiness" },
+          ]}
+        />
+      </Panel>
+
+      <Panel title="Batch comparison" description="Assessment coverage across batches in this cohort.">
+        <DataTable
+          empty="No batch data is available for this cohort"
+          rows={data?.batchComparisons || []}
+          getKey={(batch) => batch.batchId}
+          columns={[
+            { key: "departmentName", label: "Department" },
+            { key: "programName", label: "Program" },
+            { key: "batchLabel", label: "Batch" },
+            { key: "enrolled", label: "Enrolled" },
+            { key: "active", label: "Active" },
+            { key: "assessmentParticipants", label: "Assessed" },
+            { key: "assessmentCoveragePercent", label: "Coverage %" },
+          ]}
+        />
+      </Panel>
+
       <Panel title="Recent staff" description="Administrators and faculty assigned to your college." actions={<Link className="link-button" to="/college/staff">View all</Link>}>
         <DataTable
           empty="No staff assigned yet"
-          rows={staff}
+          rows={recentStaff}
           getKey={(member) => member.id}
           columns={[
             {
@@ -70,7 +122,7 @@ export function CollegeDashboardPage() {
                 </div>
               ),
             },
-            { key: "role", label: "Role", render: (member) => <Badge tone="info">{ROLE_LABELS[member.role] || member.role}</Badge> },
+            { key: "role", label: "Role", render: (member) => <Badge tone="info">{ROLE_LABELS[member.designation] || member.designation}</Badge> },
             { key: "status", label: "Status", render: (member) => <Badge tone={statusTone(member.status)}>{member.status}</Badge> },
             { key: "joined", label: "Added", render: (member) => formatDate(member.createdAt) },
           ]}
@@ -408,26 +460,120 @@ export function CollegeStaffPage() {
 }
 
 export function CollegeStudentsPage() {
-  const { data, loading, error, reload } = useApi("/workspace/students");
+  const { data, loading, error, reload } = useApi("/college/students", { params: { size: 100 } });
+  const access = useApi("/college/me");
   const [query, setQuery] = useState("");
   const [detail, setDetail] = useState(null);
+  const [file, setFile] = useState(null);
+  const [preview, setPreview] = useState(null);
+  const [importBusy, setImportBusy] = useState(false);
+  const students = useMemo(
+    () => (data?.items || []).map((student) => ({ ...student, branch: student.branch || student.departmentName })),
+    [data],
+  );
 
   const filtered = useMemo(() => {
     const term = query.trim().toLowerCase();
-    return (data || []).filter((student) => !term || `${student.fullName} ${student.studentId} ${student.branch || ""}`.toLowerCase().includes(term));
-  }, [data, query]);
+    return students.filter((student) => !term || `${student.fullName} ${student.studentId} ${student.departmentName || ""} ${student.rollNumber || ""}`.toLowerCase().includes(term));
+  }, [students, query]);
 
   async function openStudent(student) {
     try {
-      setDetail(await api.get(`/workspace/students/${student.id}`));
+      const detail = await api.get(`/college/students/${student.id}`);
+      setDetail({
+        ...detail.profile,
+        branch: detail.profile.branch || detail.enrollment.departmentName,
+        collegeName: detail.enrollment.institutionName,
+        attempts: detail.assessmentHistory.map((attempt) => ({
+          ...attempt,
+          id: attempt.attemptId,
+        })),
+      });
     } catch (reason) {
       toast.error(reason.message || "Unable to load the student profile.");
     }
   }
 
+  async function createPreview(event) {
+    event.preventDefault();
+    if (!file) return;
+    setImportBusy(true);
+    setPreview(null);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      setPreview(await api.post("/college/students/import/preview", formData));
+    } catch (reason) {
+      toast.error(reason.message || "Unable to preview this student import.");
+    } finally {
+      setImportBusy(false);
+    }
+  }
+
+  async function commitImport() {
+    if (!preview?.jobId) return;
+    setImportBusy(true);
+    try {
+      setPreview(await api.post(`/college/students/import/${preview.jobId}/commit`));
+      setFile(null);
+      reload();
+      toast.success("Student import completed.");
+    } catch (reason) {
+      toast.error(reason.message || "Unable to complete this student import.");
+    } finally {
+      setImportBusy(false);
+    }
+  }
+
+  function downloadImportErrors() {
+    if (!preview?.errorCsv) return;
+    const url = URL.createObjectURL(new Blob([preview.errorCsv], { type: "text/csv;charset=utf-8" }));
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = "careeros-student-import-errors.csv";
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <div className="workspace-page-content">
       <PageHeader eyebrow="STUDENTS" title="College students" description="View student profiles and career targets across your college." />
+      {access.data?.permissions?.includes("IMPORT_STUDENTS") && <Panel title="Import students" description="Upload a CSV to validate the roster, review errors, then commit ready rows. New accounts are not sent credentials or activation links.">
+        <form className="form-grid" onSubmit={createPreview}>
+          <label className="field">
+            <span>Student roster (.csv)</span>
+            <input type="file" accept=".csv,text/csv" onChange={(event) => { setFile(event.target.files?.[0] || null); setPreview(null); }} />
+          </label>
+          <div className="form-actions">
+            <button type="submit" className="primary-button" disabled={!file || importBusy}>
+              {importBusy ? "Validating…" : "Preview import"}
+            </button>
+            {preview?.status === "PREVIEW" && (
+              <button type="button" className="secondary-button" disabled={importBusy || !preview.readyRows} onClick={commitImport}>
+                {importBusy ? "Importing…" : `Commit ${preview.readyRows} ready rows`}
+              </button>
+            )}
+            {preview?.errorCsv && <button type="button" className="link-button" onClick={downloadImportErrors}>Download rejected rows</button>}
+          </div>
+        </form>
+        {preview && (
+          <div className="import-preview">
+            <p>{preview.totalRows} rows · {preview.readyRows ?? preview.createdRows + preview.linkedRows} ready · {preview.skippedRows} skipped · {preview.rejectedRows} rejected</p>
+            <DataTable
+              empty="No rows in this import"
+              rows={preview.rows || []}
+              getKey={(row) => row.rowNumber}
+              columns={[
+                { key: "row", label: "Row", render: (row) => row.rowNumber },
+                { key: "roll", label: "Roll number", render: (row) => row.rollNumber || "—" },
+                { key: "email", label: "Email", render: (row) => row.email || "—" },
+                { key: "status", label: "Status", render: (row) => <Badge tone={row.status === "REJECTED" ? "danger" : row.status === "READY" ? "info" : "positive"}>{row.status}</Badge> },
+                { key: "message", label: "Details", render: (row) => row.message || "—" },
+              ]}
+            />
+          </div>
+        )}
+      </Panel>}
       <Panel title={loading ? "Students" : `${filtered.length} students`} actions={<input className="search-input" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search students" />}>
         {loading ? <LoadingBlock /> : error ? <ErrorBlock message={error} onRetry={reload} /> : <StudentsTable students={filtered} onView={openStudent} />}
       </Panel>
@@ -437,41 +583,88 @@ export function CollegeStudentsPage() {
 }
 
 export function CollegeReportsPage() {
-  const { data: readiness, loading, error, reload } = useApi("/workspace/readiness");
-  const { data: gaps } = useApi("/workspace/skill-gaps");
-
+  const { data, loading, error, reload } = useApi("/college/dashboard");
+  const [busy, setBusy] = useState("");
   if (loading) return <LoadingBlock />;
   if (error) return <ErrorBlock message={error} onRetry={reload} />;
+
+  async function download(path, filename, action) {
+    setBusy(action);
+    try {
+      const blob = await api.get(path, { responseType: "blob" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      link.click();
+      URL.revokeObjectURL(url);
+      toast.success("Report downloaded.");
+    } catch (reason) {
+      toast.error(reason.message || "Unable to download this report.");
+    } finally {
+      setBusy("");
+    }
+  }
 
   return (
     <div className="workspace-page-content">
       <PageHeader
         eyebrow="REPORTS"
         title="College readiness report"
-        description="Aggregated readiness and skill-gap reporting for your college."
+        description="Live, institution-scoped cohort analytics and downloadable reports."
         actions={(
-          <button type="button" className="secondary-button" onClick={() => downloadCsv("college-skill-gaps.csv", [
-            { label: "Skill", value: (gap) => gap.skillName },
-            { label: "Category", value: (gap) => gap.skillCategory },
-            { label: "Average", value: (gap) => gap.averageScore },
-            { label: "Target", value: (gap) => gap.targetPercent },
-            { label: "Gap", value: (gap) => gap.gapPercent },
-          ], gaps || [])}>Export gaps CSV</button>
+          <>
+            <button type="button" className="secondary-button" disabled={Boolean(busy)} onClick={() => download("/college/reports/export.csv?type=department-skill-gaps", "careeros-department-skill-gaps.csv", "csv")}>
+              {busy === "csv" ? "Preparing…" : "Export skill gaps CSV"}
+            </button>
+            <button type="button" className="primary-button" disabled={Boolean(busy)} onClick={() => download("/college/reports/cohort.pdf", "careeros-cohort-report.pdf", "pdf")}>
+              {busy === "pdf" ? "Preparing…" : "Download cohort PDF"}
+            </button>
+          </>
         )}
       />
-      <ReadinessSummary readiness={readiness} />
+      <div className="stat-grid stat-grid-4">
+        <StatCard label="Enrolled" value={data?.totalEnrolled ?? 0} icon="users" />
+        <StatCard label="Active" value={data?.activeStudents ?? 0} icon="activity" />
+        <StatCard label="Assessment participants" value={data?.assessmentParticipants ?? 0} icon="clipboard" />
+        <StatCard label="Readiness evaluated" value={data?.readinessEvaluated ?? 0} icon="target" />
+      </div>
       <div className="two-column">
-        <ReadinessPanel readiness={readiness} />
-        <Panel title="Report summary" description="How to read this report.">
-          <ul className="report-notes">
-            <li>Readiness compares each student’s latest submitted assessment with their target career framework.</li>
-            <li>Skill gaps are ranked by the difference between target and average score.</li>
-            <li>Use the student directory to open individual profiles and career targets.</li>
-          </ul>
+        <Panel title="Readiness distribution">
+          <DataTable
+            empty="No readiness scores are available"
+            rows={data?.readinessDistribution || []}
+            getKey={(item) => item.band}
+            columns={[
+              { key: "band", label: "Band" },
+              { key: "students", label: "Students" },
+            ]}
+          />
+        </Panel>
+        <Panel title="Report definitions" description="Metrics are calculated from current institution-scoped enrollment and assessment data.">
+          <DataTable
+            empty="No metric definitions are available"
+            rows={data?.definitions || []}
+            getKey={(item) => item.metric}
+            columns={[
+              { key: "metric", label: "Metric" },
+              { key: "definition", label: "Definition" },
+            ]}
+          />
         </Panel>
       </div>
-      <Panel title="Skill gaps" description="Skills with the largest distance to target.">
-        <SkillGapTable gaps={gaps} />
+      <Panel title="Common skill gaps" description="Most common skills below target among assessed students.">
+        <DataTable
+          empty="No assessed skill gaps are available"
+          rows={data?.commonGaps || []}
+          getKey={(gap) => gap.skillId}
+          columns={[
+            { key: "skillName", label: "Skill" },
+            { key: "studentsBelowTarget", label: "Below target" },
+            { key: "assessedStudents", label: "Assessed" },
+            { key: "percentBelowTarget", label: "Below target %" },
+          ]}
+        />
       </Panel>
     </div>
   );

@@ -3,7 +3,7 @@
 
 import { PRIVACY_PART_1 } from "./privacy-part-1.js";
 
-const LAST_UPDATED = "October 26, 2026";
+export const LAST_UPDATED = "October 26, 2026";
 
 // Owner-provided public contact details, supplied at build time. Never invent
 // a legal address; when unset, the page says so plainly instead of showing a

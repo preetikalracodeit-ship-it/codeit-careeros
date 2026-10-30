@@ -1,11 +1,11 @@
 // CODEIT CareerOS — Privacy Policy content (react-markdown)
 // Last updated: October 26, 2026
 
-const LAST_UPDATED = "October 26, 2026";
+export const PRIVACY_LAST_UPDATED = "October 26, 2026";
 
 export const PRIVACY_PART_1 = `# Privacy Policy
 
-Last updated: ${LAST_UPDATED}
+Last updated: ${PRIVACY_LAST_UPDATED}
 
 Welcome to **CODEIT CareerOS** ("we," "our," or the "Service"). This Privacy Policy explains how we collect, use, disclose, and safeguard your personal information when you use the CareerOS website and mobile application.
 
@@ -50,5 +50,4 @@ We do not sell your personal data. We share information only in the following ci
 We retain your Personal Data only for as long as necessary to fulfill the purposes described in this policy, unless a longer retention period is required or permitted by law. When you delete your account or when the retention period expires, your data is disposed of using commercially acceptable methods designed to render it unreadable or indecipherable.
 
 We implement appropriate technical and organizational measures to protect your Personal Data against unauthorized access, alteration, disclosure, or destruction. No method of transmission over the Internet or electronic storage is 100% secure, and we cannot guarantee its absolute security.`;
-
 

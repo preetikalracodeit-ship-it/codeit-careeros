@@ -16,6 +16,7 @@ import { healthRouter } from "./modules/health/health.routes.js";
 import { settingsRouter } from "./modules/settings/settings.routes.js";
 import { studentRouter } from "./modules/students/student.routes.js";
 import { careerRouter } from "./modules/careers/career.routes.js";
+import { skillRouter } from "./modules/skills/skill.routes.js";
 import { assessmentRouter } from "./modules/assessments/assessment.routes.js";
 import { roadmapRouter } from "./modules/roadmaps/roadmap.routes.js";
 import { projectRouter } from "./modules/projects/project.routes.js";
@@ -24,11 +25,16 @@ import { workspaceRouter } from "./modules/workspace/workspace.routes.js";
 import { cvRouter } from "./modules/cvs/cv.routes.js";
 import { reportRouter } from "./modules/reports/report.routes.js";
 import { aiRouter } from "./modules/ai/ai.routes.js";
+import { progressRouter } from "./modules/progress/progress.routes.js";
 import { invitationRouter } from "./modules/invitations/invitation.routes.js";
 import {
   adminInvitationManagementRouter,
   collegeInvitationManagementRouter,
 } from "./modules/invitations/invitationManagement.routes.js";
+import { adminRouter } from "./modules/admin/admin.routes.js";
+import { adminMasterRouter } from "./modules/admin/adminMaster.routes.js";
+import { collegeImprovementPlanRouter } from "./modules/college/collegeImprovementPlan.routes.js";
+import { collegeRouter } from "./modules/college/college.routes.js";
 
 export function createApp() {
   const app = express();
@@ -77,34 +83,21 @@ export function createApp() {
   app.use(attachUser);
   app.use("/api/v1/admin", auditAdminRequests);
 
+  // Public routes (no auth needed)
   app.use(healthRouter);
   app.use("/api/v1/auth", authRouter);
   app.use("/api/v1/meta", metaRouter);
   app.use("/api/v1", settingsRouter);
-  app.use("/api/v1/students", studentRouter);
-  app.use("/api/v1/careers", careerRouter);
-  app.use("/api/v1/assessments", assessmentRouter);
-  app.use("/api/v1/roadmaps", roadmapRouter);
-  app.use("/api/v1/projects", projectRouter);
-  app.use("/api/v1/linkedin", linkedInRouter);
-  app.use("/api/v1/workspace", workspaceRouter);
-  app.use("/api/v1/cvs", cvRouter);
-  app.use("/api/v1/reports", reportRouter);
-  app.use("/api/v1/ai", aiRouter);
-  app.use("/api/v1/invitations", invitationRouter);
-  app.use("/api/v1/college", collegeInvitationManagementRouter);
 
-  app.use("/api/v1/college", requireCollegeStaff);
-  app.use("/api/v1/platform", requireRole("SUPER_ADMIN"));
-  app.use("/api/v1/admin", requireRole("SUPER_ADMIN"));
-  app.use("/api/v1/admin", adminInvitationManagementRouter);
-
+  // Auth guard: all /api routes require authentication except explicitly public endpoints
   app.use("/api", (req: Request, _res: Response, next: NextFunction) => {
+    // Invitations are public (students click email links)
     if (req.path.startsWith("/v1/invitations")) {
       next();
       return;
     }
-    if (req.method === "GET" && req.path.startsWith("/v1/careers")) {
+    // Public career and skill browsing
+    if (req.method === "GET" && (req.path.startsWith("/v1/careers") || req.path.startsWith("/v1/skills"))) {
       next();
       return;
     }
@@ -114,6 +107,34 @@ export function createApp() {
     }
     next();
   });
+
+  // Authenticated student / shared routes
+  app.use("/api/v1/students", studentRouter);
+  app.use("/api/v1/careers", careerRouter);
+  app.use("/api/v1/skills", skillRouter);
+  app.use("/api/v1/assessments", assessmentRouter);
+  app.use("/api/v1/roadmaps", roadmapRouter);
+  app.use("/api/v1/projects", projectRouter);
+  app.use("/api/v1/linkedin", linkedInRouter);
+  app.use("/api/v1/workspace", workspaceRouter);
+  app.use("/api/v1/cvs", cvRouter);
+  app.use("/api/v1/reports", reportRouter);
+  app.use("/api/v1/ai", aiRouter);
+  app.use("/api/v1/progress", progressRouter);
+  app.use("/api/v1/invitations", invitationRouter);
+
+  // College staff routes (requireCollegeStaff applied first)
+  app.use("/api/v1/college", requireCollegeStaff);
+  app.use("/api/v1/college", collegeInvitationManagementRouter);
+  app.use("/api/v1/college", collegeRouter);
+  app.use("/api/v1/college", collegeImprovementPlanRouter);
+
+  // Super admin routes (requireRole applied first)
+  app.use("/api/v1/platform", requireRole("SUPER_ADMIN"));
+  app.use("/api/v1/admin", requireRole("SUPER_ADMIN"));
+  app.use("/api/v1/admin", adminRouter);
+  app.use("/api/v1/admin", adminMasterRouter);
+  app.use("/api/v1/admin", adminInvitationManagementRouter);
 
   app.use(notFound);
   app.use(errorHandler);

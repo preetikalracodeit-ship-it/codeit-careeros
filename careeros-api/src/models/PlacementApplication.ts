@@ -20,6 +20,8 @@ export interface PlacementStageEventDoc {
   id: number;
   stage: ApplicationStage;
   note?: string | null;
+  recordedBy?: number | null;
+  recordedByName?: string | null;
   recordedAt: Date;
 }
 
@@ -27,14 +29,17 @@ export interface PlacementOfferDoc {
   id: number;
   packageAmount?: number | null;
   currency?: string | null;
-  offerDate?: Date | null;
+  offerDate?: Date | string | null;
   status: OfferStatus;
-  joinedAt?: Date | null;
+  joinedAt?: Date | string | null;
   notes?: string | null;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export interface PlacementApplicationDoc {
   _id: number;
+  institutionId?: number | null;
   driveId: number;
   userId: number;
   studentProfileId: number;
@@ -54,6 +59,8 @@ const stageEventSchema = new Schema<PlacementStageEventDoc>(
     id: { type: Number, required: true },
     stage: { type: String, enum: APPLICATION_STAGES, required: true },
     note: { type: String, default: null, maxlength: 500 },
+    recordedBy: { type: Number, default: null },
+    recordedByName: { type: String, default: null, maxlength: 120 },
     recordedAt: { type: Date, required: true },
   },
   { _id: false },
@@ -68,6 +75,8 @@ const offerSchema = new Schema<PlacementOfferDoc>(
     status: { type: String, enum: OFFER_STATUSES, required: true, default: "PENDING" },
     joinedAt: { type: Date, default: null },
     notes: { type: String, default: null, maxlength: 1000 },
+    createdAt: { type: Date, default: null },
+    updatedAt: { type: Date, default: null },
   },
   { _id: false },
 );
@@ -75,6 +84,7 @@ const offerSchema = new Schema<PlacementOfferDoc>(
 const schema = new Schema<PlacementApplicationDoc>(
   {
     _id: { type: Number, required: true },
+    institutionId: { type: Number, default: null },
     driveId: { type: Number, required: true },
     userId: { type: Number, required: true },
     studentProfileId: { type: Number, required: true },
@@ -90,6 +100,7 @@ const schema = new Schema<PlacementApplicationDoc>(
 );
 schema.index({ driveId: 1, studentProfileId: 1 }, { name: "uk_placement_app_drive_student" });
 schema.index({ studentProfileId: 1, appliedAt: -1 }, { name: "idx_placement_app_student" });
+schema.index({ institutionId: 1, appliedAt: -1 }, { name: "idx_placement_app_institution" });
 
 export const PlacementApplication =
   (mongoose.models.PlacementApplication as mongoose.Model<PlacementApplicationDoc>) ??

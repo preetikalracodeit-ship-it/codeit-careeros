@@ -1,0 +1,152 @@
+import { AppError } from "../../lib/errors.js";
+import { getNextSequence } from "../../models/Counter.js";
+import { Career } from "../../models/Career.js";
+import { Skill } from "../../models/Skill.js";
+import { AssessmentTest } from "../../models/AssessmentTest.js";
+import { Project } from "../../models/Project.js";
+import { RoadmapPhase } from "../../models/RoadmapPhase.js";
+import { User } from "../../models/User.js";
+import { env } from "../../config/env.js";
+
+export async function getAdminMe(userId: number) {
+  const user = await User.findById(userId).lean();
+  if (!user) throw AppError.notFound("User not found");
+  return { id: user._id, email: user.email, fullName: user.fullName, role: user.role, status: user.status };
+}
+
+export function getAiStatus() {
+  return { configured: Boolean(env.googleClientId), provider: "gemini", model: "gemini-1.5-flash" };
+}
+
+export async function listCareers() {
+  return Career.find().sort({ _id: -1 }).lean();
+}
+
+export async function getCareer(id: number) {
+  const career = await Career.findById(id).lean();
+  if (!career) throw AppError.notFound("Career not found");
+  return career;
+}
+
+export async function createCareer(input: { name: string; description?: string | null; category: string; difficultyLevel: string; published?: boolean }) {
+  const exists = await Career.findOne({ name: input.name }).lean();
+  if (exists) throw AppError.conflict("A career with this name already exists");
+  const [career] = await Career.create([{
+    _id: await getNextSequence("careers"),
+    name: input.name,
+    description: input.description ?? null,
+    category: input.category,
+    difficultyLevel: input.difficultyLevel,
+    published: input.published ?? false,
+  }]);
+  return career;
+}
+
+export async function updateCareer(id: number, input: { name?: string; description?: string | null; category?: string; difficultyLevel?: string; published?: boolean }) {
+  const career = await Career.findById(id);
+  if (!career) throw AppError.notFound("Career not found");
+  if (input.name !== undefined) career.name = input.name;
+  if (input.description !== undefined) career.description = input.description;
+  if (input.category !== undefined) career.category = input.category;
+  if (input.difficultyLevel !== undefined) career.difficultyLevel = input.difficultyLevel;
+  if (input.published !== undefined) career.published = input.published;
+  await career.save();
+  return career;
+}
+
+export async function deleteCareer(id: number) {
+  const career = await Career.findById(id);
+  if (!career) throw AppError.notFound("Career not found");
+  await Career.deleteOne({ _id: id });
+  return { deleted: true };
+}
+
+export async function listSkills() {
+  return Skill.find().sort({ _id: -1 }).lean();
+}
+
+export async function getSkill(id: number) {
+  const skill = await Skill.findById(id).lean();
+  if (!skill) throw AppError.notFound("Skill not found");
+  return skill;
+}
+
+export async function createSkill(input: { name: string; category: string; description?: string | null; active?: boolean }) {
+  const exists = await Skill.findOne({ name: input.name }).lean();
+  if (exists) throw AppError.conflict("A skill with this name already exists");
+  const [skill] = await Skill.create([{
+    _id: await getNextSequence("skills"),
+    name: input.name,
+    category: input.category,
+    description: input.description ?? null,
+    active: input.active ?? true,
+  }]);
+  return skill;
+}
+
+export async function updateSkill(id: number, input: { name?: string; category?: string; description?: string | null; active?: boolean }) {
+  const skill = await Skill.findById(id);
+  if (!skill) throw AppError.notFound("Skill not found");
+  if (input.name !== undefined) skill.name = input.name;
+  if (input.category !== undefined) skill.category = input.category;
+  if (input.description !== undefined) skill.description = input.description;
+  if (input.active !== undefined) skill.active = input.active;
+  await skill.save();
+  return skill;
+}
+
+export async function deleteSkill(id: number) {
+  const skill = await Skill.findById(id);
+  if (!skill) throw AppError.notFound("Skill not found");
+  await Skill.deleteOne({ _id: id });
+  return { deleted: true };
+}
+
+export async function listAssessments() {
+  return AssessmentTest.find().sort({ _id: -1 }).lean();
+}
+
+export async function getAssessment(id: number) {
+  const assessment = await AssessmentTest.findById(id).lean();
+  if (!assessment) throw AppError.notFound("Assessment not found");
+  return assessment;
+}
+
+export async function createAssessment(input: { careerId: number; title: string; description?: string | null; durationMinutes: number; published?: boolean }) {
+  const [assessment] = await AssessmentTest.create([{
+    _id: await getNextSequence("assessment_tests"),
+    careerId: input.careerId,
+    title: input.title,
+    description: input.description ?? null,
+    durationMinutes: input.durationMinutes,
+    published: input.published ?? false,
+  }]);
+  return assessment;
+}
+
+export async function updateAssessment(id: number, input: { careerId?: number; title?: string; description?: string | null; durationMinutes?: number; published?: boolean }) {
+  const assessment = await AssessmentTest.findById(id);
+  if (!assessment) throw AppError.notFound("Assessment not found");
+  if (input.careerId !== undefined) assessment.careerId = input.careerId;
+  if (input.title !== undefined) assessment.title = input.title;
+  if (input.description !== undefined) assessment.description = input.description;
+  if (input.durationMinutes !== undefined) assessment.durationMinutes = input.durationMinutes;
+  if (input.published !== undefined) assessment.published = input.published;
+  await assessment.save();
+  return assessment;
+}
+
+export async function deleteAssessment(id: number) {
+  const assessment = await AssessmentTest.findById(id);
+  if (!assessment) throw AppError.notFound("Assessment not found");
+  await AssessmentTest.deleteOne({ _id: id });
+  return { deleted: true };
+}
+
+export async function listProjects() {
+  return Project.find().sort({ _id: -1 }).lean();
+}
+
+export async function listRoadmaps() {
+  return RoadmapPhase.find().sort({ _id: 1 }).lean();
+}

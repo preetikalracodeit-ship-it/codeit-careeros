@@ -5,6 +5,7 @@ export interface AssessmentQuestionDoc {
   assessmentId: number;
   skillId: number;
   questionText: string;
+  questionType: string;
   difficulty: string;
   displayOrder: number;
   explanation?: string | null;
@@ -19,6 +20,7 @@ const assessmentQuestionSchema = new Schema<AssessmentQuestionDoc>(
     assessmentId: { type: Number, required: true },
     skillId: { type: Number, required: true },
     questionText: { type: String, required: true },
+    questionType: { type: String, required: true, default: "MCQ", maxlength: 20 },
     difficulty: { type: String, required: true, maxlength: 20 },
     displayOrder: { type: Number, required: true, min: 0 },
     explanation: { type: String, default: null },

@@ -4,6 +4,9 @@ import { AppShell } from "./components/AppShell.jsx";
 import { LandingPage } from "./pages/LandingPage.jsx";
 import { LoginPage } from "./pages/LoginPage.jsx";
 import { PlaceholderPage } from "./pages/PlaceholderPage.jsx";
+import RegisterPage from "./pages/RegisterPage.jsx";
+import InvitationPage from "./pages/InvitationPage.jsx";
+import LegalPage from "./pages/LegalPage.jsx";
 import { StudentCareersPage } from "./pages/StudentCareersPage.jsx";
 import { StudentAssessmentPage } from "./pages/StudentAssessmentPage.jsx";
 import { AssessmentAttemptPage } from "./pages/AssessmentAttemptPage.jsx";
@@ -63,8 +66,6 @@ import {
   FacultyReportsPage,
   FacultySettingsPage,
 } from "./pages/workspace/FacultyPages.jsx";
-
-const publicRoutes = ["/accept-invitation", "/legal/privacy", "/legal/terms"];
 
 const studentRoutes = [
   ["/student/dashboard", StudentDashboardPage],
@@ -166,8 +167,10 @@ export default function App() {
     <Route path="/login" element={<PublicAuthRedirect />} />
     <Route path="/forgot-password" element={<SiteFrame><ForgotPasswordPage /></SiteFrame>} />
     <Route path="/reset-password" element={<SiteFrame><ResetPasswordPage /></SiteFrame>} />
-    <Route path="/register" element={auth.isAuthenticated() ? <Navigate to={homeForRole(auth.getRole())} replace /> : <SiteFrame><PlaceholderPage title="Create your CareerOS account" /></SiteFrame>} />
-    {publicRoutes.map((path) => <Route key={path} path={path} element={<SiteFrame><PlaceholderPage /></SiteFrame>} />)}
+    <Route path="/register" element={auth.isAuthenticated() ? <Navigate to={homeForRole(auth.getRole())} replace /> : <SiteFrame><RegisterPage /></SiteFrame>} />
+    <Route path="/accept-invitation" element={<InvitationPage />} />
+    <Route path="/legal/privacy" element={<SiteFrame><LegalPage /></SiteFrame>} />
+    <Route path="/legal/terms" element={<SiteFrame><LegalPage /></SiteFrame>} />
     <Route path="/" element={auth.isAuthenticated() ? <Navigate to={homeForRole(auth.getRole())} replace /> : <LandingPage />} />
 
     {studentRoutes.map(([path, Page]) => (

@@ -23,6 +23,26 @@ import { ProjectSkill } from "../models/ProjectSkill.js";
 import { ProjectProgress } from "../models/ProjectProgress.js";
 import { LinkedInProfile } from "../models/LinkedInProfile.js";
 import { College } from "../models/College.js";
+import { Institution } from "../models/Institution.js";
+import { InstitutionMembership } from "../models/InstitutionMembership.js";
+import { Department } from "../models/Department.js";
+import { Program } from "../models/Program.js";
+import { Batch } from "../models/Batch.js";
+import { Section } from "../models/Section.js";
+import { AcademicYear } from "../models/AcademicYear.js";
+import { StudentEnrollment } from "../models/StudentEnrollment.js";
+import { StaffInvitation } from "../models/StaffInvitation.js";
+import { PlacementDrive } from "../models/PlacementDrive.js";
+import { PlacementApplication } from "../models/PlacementApplication.js";
+import { Company } from "../models/Company.js";
+import { JobOpening } from "../models/JobOpening.js";
+import { ImprovementPlan } from "../models/ImprovementPlan.js";
+import { ImprovementTask } from "../models/ImprovementTask.js";
+import { CsvImportJob } from "../models/CsvImportJob.js";
+import { AiChatSession } from "../models/AiChatSession.js";
+import { AiChatMessage } from "../models/AiChatMessage.js";
+import { AuditEvent } from "../models/AuditEvent.js";
+import { CvDocument } from "../models/CvDocument.js";
 
 export async function connectDatabase(uri: string): Promise<void> {
   mongoose.set("strictQuery", true);
@@ -59,6 +79,26 @@ export async function ensureIndexes(): Promise<void> {
     ProjectProgress.createIndexes(),
     LinkedInProfile.createIndexes(),
     College.createIndexes(),
+    Institution.createIndexes(),
+    InstitutionMembership.createIndexes(),
+    Department.createIndexes(),
+    Program.createIndexes(),
+    Batch.createIndexes(),
+    Section.createIndexes(),
+    AcademicYear.createIndexes(),
+    StudentEnrollment.createIndexes(),
+    StaffInvitation.createIndexes(),
+    PlacementDrive.createIndexes(),
+    PlacementApplication.createIndexes(),
+    Company.createIndexes(),
+    JobOpening.createIndexes(),
+    ImprovementPlan.createIndexes(),
+    ImprovementTask.createIndexes(),
+    CsvImportJob.createIndexes(),
+    AiChatSession.createIndexes(),
+    AiChatMessage.createIndexes(),
+    AuditEvent.createIndexes(),
+    CvDocument.createIndexes(),
   ]);
 }
 

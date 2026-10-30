@@ -3,6 +3,10 @@ import { hashPassword, verifyPassword } from "../../lib/password.js";
 import { RefreshToken } from "../../models/RefreshToken.js";
 import { StudentProfile } from "../../models/StudentProfile.js";
 import { User } from "../../models/User.js";
+import { AiChatSession } from "../../models/AiChatSession.js";
+import { AiChatMessage } from "../../models/AiChatMessage.js";
+import { CvDocument } from "../../models/CvDocument.js";
+import { LinkedInProfile } from "../../models/LinkedInProfile.js";
 import { toStudentProfileResponse, toUserResponse } from "../auth/user.mapper.js";
 import type { ChangePasswordInput } from "../auth/auth.schemas.js";
 
@@ -14,11 +18,16 @@ export async function getSettings(userId: number) {
 
   const profile = await StudentProfile.findOne({ userId }).lean();
   const now = new Date();
-  const activeSessions = await RefreshToken.countDocuments({
-    userId,
-    revoked: false,
-    expiresAt: { $gt: now },
-  });
+  const [activeSessions, aiConversations, hasCv, hasLinkedIn] = await Promise.all([
+    RefreshToken.countDocuments({
+      userId,
+      revoked: false,
+      expiresAt: { $gt: now },
+    }),
+    AiChatSession.countDocuments({ userId }),
+    CvDocument.exists({ userId }).then(Boolean),
+    LinkedInProfile.exists({ userId }).then(Boolean),
+  ]);
 
   return {
     account: toUserResponse(user),
@@ -31,9 +40,9 @@ export async function getSettings(userId: number) {
       mode: "offline-smart",
     },
     activeSessions,
-    aiConversations: 0,
-    hasCv: false,
-    hasLinkedIn: false,
+    aiConversations,
+    hasCv,
+    hasLinkedIn,
     notificationsConnected: false,
   };
 }
@@ -67,4 +76,14 @@ export async function revokeAllSessions(userId: number): Promise<number> {
   });
   await RefreshToken.updateMany({ userId, revoked: false }, { $set: { revoked: true } });
   return active;
+}
+
+export async function clearAiHistory(userId: number): Promise<number> {
+  const sessions = await AiChatSession.find({ userId }).lean();
+  const sessionIds = sessions.map((s) => s._id);
+  if (sessionIds.length > 0) {
+    await AiChatMessage.deleteMany({ sessionId: { $in: sessionIds } });
+    await AiChatSession.deleteMany({ userId });
+  }
+  return sessionIds.length;
 }

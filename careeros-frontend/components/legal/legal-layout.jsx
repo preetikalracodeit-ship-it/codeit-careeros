@@ -5,8 +5,6 @@ import remarkGfm from "remark-gfm";
 import Link from "next/link";
 import { LogoWordmark } from "@/components/logo";
 
-const LAST_UPDATED = "October 26, 2026";
-
 const defaultMDX = {
   h1: (props) => (
     <h1
@@ -74,7 +72,7 @@ const defaultMDX = {
   ),
 };
 
-export function LegalLayout({ title, subtitle, lastUpdated = LAST_UPDATED, children }) {
+export function LegalLayout({ title, subtitle, lastUpdated, children }) {
   return (
     <main className="flex min-h-screen flex-col bg-background">
       <div className="mx-auto w-full max-w-4xl flex-1 px-6 pt-12 md:px-12">

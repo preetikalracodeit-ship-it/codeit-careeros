@@ -59,3 +59,5 @@ api.post = (path, data, options = {}) => api(path, { ...options, method: "POST",
 api.put = (path, data, options = {}) => api(path, { ...options, method: "PUT", body: data instanceof FormData ? data : JSON.stringify(data ?? {}) });
 api.patch = (path, data, options = {}) => api(path, { ...options, method: "PATCH", body: data instanceof FormData ? data : JSON.stringify(data ?? {}) });
 api.delete = (path, options = {}) => api(path, { ...options, method: "DELETE" });
+
+export default api;

@@ -11,15 +11,20 @@
     "lint": "eslint ."
   },
   "dependencies": {
+    "lucide-react": "^1.64.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+    "react-markdown": "^10.1.0",
     "react-router-dom": "^7.9.4",
+    "remark-gfm": "^4.0.1",
     "sonner": "^2.0.8"
   },
   "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
     "@vitejs/plugin-react": "^5.0.4",
     "eslint": "^9.0.0",
     "globals": "^16.0.0",
+    "tailwindcss": "^4.3.3",
     "vite": "^7.1.9"
   }
 }

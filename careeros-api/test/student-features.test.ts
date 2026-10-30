@@ -277,6 +277,454 @@ describe("improvement plans", () => {
   });
 });
 
+describe("college student cohort access", () => {
+  it("supports tenant-scoped placement setup, drive registration, stage updates, and offers", async () => {
+    const staff = await registerStudent("placement.tpo@example.edu");
+    const student = await registerStudent("placement.student@example.edu");
+    const { User } = await import("../src/models/User.js");
+    const { StudentProfile } = await import("../src/models/StudentProfile.js");
+    const { Institution } = await import("../src/models/Institution.js");
+    const { InstitutionMembership } = await import("../src/models/InstitutionMembership.js");
+    const { Department } = await import("../src/models/Department.js");
+    const { Program } = await import("../src/models/Program.js");
+    const { AcademicYear } = await import("../src/models/AcademicYear.js");
+    const { Batch } = await import("../src/models/Batch.js");
+    const { StudentEnrollment } = await import("../src/models/StudentEnrollment.js");
+
+    await User.updateOne({ _id: staff.userId }, { $set: { role: "TPO" } });
+    await Institution.create({ _id: 910, code: "PLACEMENT-COLLEGE", name: "Placement College", status: "ACTIVE" });
+    await Department.create({ _id: 911, institutionId: 910, code: "CSE", name: "Computer Science", status: "ACTIVE" });
+    await Program.create({ _id: 912, institutionId: 910, departmentId: 911, code: "BTECH", name: "B.Tech", status: "ACTIVE" });
+    await AcademicYear.create({ _id: 913, institutionId: 910, label: "2026-27", active: true });
+    await Batch.create({ _id: 914, programId: 912, academicYearId: 913, label: "2026", graduationYear: 2026, status: "ACTIVE" });
+    const profile = await StudentProfile.findOne({ userId: student.userId }).lean();
+    expect(profile).toBeTruthy();
+    await StudentEnrollment.create({
+      _id: 915,
+      studentProfileId: profile!._id,
+      institutionId: 910,
+      departmentId: 911,
+      programId: 912,
+      batchId: 914,
+      rollNumber: "P-001",
+      status: "ACTIVE",
+    });
+    await InstitutionMembership.create({
+      _id: 916,
+      userId: staff.userId,
+      institutionId: 910,
+      designation: "TPO",
+      status: "ACTIVE",
+      scopeType: "INSTITUTION",
+      scopeId: null,
+    });
+
+    const companyResponse = await request(app)
+      .post("/api/v1/college/placement/companies")
+      .set(authHeader(staff.token))
+      .send({ name: "Example Systems", contactEmail: "recruiting@example.com", recruitmentStatus: "ACTIVE" });
+    expect(companyResponse.status).toBe(200);
+    const companyId = companyResponse.body.data.id as number;
+
+    const jobResponse = await request(app)
+      .post("/api/v1/college/placement/jobs")
+      .set(authHeader(staff.token))
+      .send({ companyId, title: "Software Engineer", salaryMin: 50000, salaryMax: 90000, status: "OPEN" });
+    expect(jobResponse.status).toBe(200);
+    const jobId = jobResponse.body.data.id as number;
+
+    const driveResponse = await request(app)
+      .post("/api/v1/college/placement/drives")
+      .set(authHeader(staff.token))
+      .send({
+        companyId,
+        jobId,
+        name: "2026 Graduate Hiring",
+        registrationStart: "2026-10-01",
+        registrationEnd: "2026-12-01",
+        driveDate: "2026-12-10",
+        eligibleDepartmentId: 911,
+        eligibleProgramId: 912,
+        eligibleBatchId: 914,
+        eligibleGraduationYear: 2026,
+        status: "REGISTRATION_OPEN",
+      });
+    expect(driveResponse.status).toBe(200);
+    const driveId = driveResponse.body.data.id as number;
+    expect(driveResponse.body.data).toMatchObject({
+      companyName: "Example Systems",
+      jobTitle: "Software Engineer",
+      eligibleDepartmentName: "Computer Science",
+      applicationCount: 0,
+    });
+
+    const studentDrives = await request(app)
+      .get("/api/v1/students/me/placement/drives")
+      .set(authHeader(student.token));
+    expect(studentDrives.status).toBe(200);
+    expect(studentDrives.body.data.items).toHaveLength(1);
+    expect(studentDrives.body.data.items[0]).toMatchObject({ eligible: true, alreadyApplied: false });
+
+    const registered = await request(app)
+      .post(`/api/v1/students/me/placement/drives/${driveId}/register`)
+      .set(authHeader(student.token));
+    expect(registered.status).toBe(200);
+
+    const driveDetail = await request(app)
+      .get(`/api/v1/college/placement/drives/${driveId}`)
+      .set(authHeader(staff.token));
+    expect(driveDetail.status).toBe(200);
+    expect(driveDetail.body.data.applications).toHaveLength(1);
+    const applicationId = driveDetail.body.data.applications[0].id as number;
+
+    const advanced = await request(app)
+      .patch(`/api/v1/college/placement/applications/${applicationId}`)
+      .set(authHeader(staff.token))
+      .send({ stage: "TECHNICAL_INTERVIEW", note: "Technical round scheduled" });
+    expect(advanced.status).toBe(200);
+    expect(advanced.body.data.history.at(-1)).toMatchObject({ stage: "TECHNICAL_INTERVIEW", note: "Technical round scheduled" });
+
+    const offer = await request(app)
+      .post(`/api/v1/college/placement/applications/${applicationId}/offer`)
+      .set(authHeader(staff.token))
+      .send({ packageAmount: 80000, currency: "USD", status: "PENDING" });
+    expect(offer.status).toBe(200);
+    expect(offer.body.data).toMatchObject({ applicationId, packageAmount: 80000, currency: "USD", status: "PENDING" });
+
+    const forbiddenCompany = await request(app)
+      .get("/api/v1/college/placement/companies")
+      .set(authHeader(student.token));
+    expect(forbiddenCompany.status).toBe(403);
+  });
+
+  it("previews, validates, commits, and clears staged student CSV rows", async () => {
+    const staff = await registerStudent("import.hod@example.edu");
+    const { User } = await import("../src/models/User.js");
+    const { Institution } = await import("../src/models/Institution.js");
+    const { InstitutionMembership } = await import("../src/models/InstitutionMembership.js");
+    const { Department } = await import("../src/models/Department.js");
+    const { Program } = await import("../src/models/Program.js");
+    const { AcademicYear } = await import("../src/models/AcademicYear.js");
+    const { Batch } = await import("../src/models/Batch.js");
+    const { CsvImportJob } = await import("../src/models/CsvImportJob.js");
+    const { StudentEnrollment } = await import("../src/models/StudentEnrollment.js");
+
+    await User.updateOne({ _id: staff.userId }, { $set: { role: "HOD" } });
+    await Institution.create({
+      _id: 810,
+      code: "IMPORT-COLLEGE",
+      name: "Import College",
+      status: "ACTIVE",
+    });
+    await Department.create({
+      _id: 811,
+      institutionId: 810,
+      code: "CSE",
+      name: "Computer Science",
+      status: "ACTIVE",
+    });
+    await Program.create({
+      _id: 812,
+      institutionId: 810,
+      departmentId: 811,
+      code: "BTECH",
+      name: "B.Tech",
+      status: "ACTIVE",
+    });
+    await AcademicYear.create({ _id: 813, institutionId: 810, label: "2026-27", active: true });
+    await Batch.create({
+      _id: 814,
+      programId: 812,
+      academicYearId: 813,
+      label: "2026",
+      status: "ACTIVE",
+    });
+    await InstitutionMembership.create({
+      _id: 815,
+      userId: staff.userId,
+      institutionId: 810,
+      designation: "HOD",
+      status: "ACTIVE",
+      scopeType: "DEPARTMENT",
+      scopeId: 811,
+    });
+
+    const preview = await request(app)
+      .post("/api/v1/college/students/import/preview")
+      .set(authHeader(staff.token))
+      .attach(
+        "file",
+        Buffer.from([
+          "full_name,email,roll_number,department_code,program_code,batch_label",
+          "New Student,new.import@example.edu,IMP-001,CSE,BTECH,2026",
+          "Duplicate Student,new.import@example.edu,IMP-002,CSE,BTECH,2026",
+        ].join("\r\n")),
+        { filename: "students.csv", contentType: "text/csv" },
+      );
+    expect(preview.status).toBe(200);
+    expect(preview.body.data).toMatchObject({
+      totalRows: 2,
+      readyRows: 1,
+      rejectedRows: 1,
+    });
+    expect(preview.body.data.rows.map((row: { status: string }) => row.status)).toEqual(["READY", "REJECTED"]);
+    const jobId = preview.body.data.jobId as number;
+
+    const committed = await request(app)
+      .post(`/api/v1/college/students/import/${jobId}/commit`)
+      .set(authHeader(staff.token));
+    expect(committed.status).toBe(200);
+    expect(committed.body.data.rows.map((row: { status: string }) => row.status)).toEqual(["CREATED", "REJECTED"]);
+    expect(committed.body.data).toMatchObject({
+      jobId,
+      status: "COMMITTED",
+      totalRows: 2,
+      createdRows: 1,
+      rejectedRows: 1,
+    });
+    expect(committed.body.data.errorCsv).toContain("Duplicate email within the file");
+    expect(await StudentEnrollment.exists({ institutionId: 810, rollNumber: "IMP-001" })).toBeTruthy();
+    const storedJob = await CsvImportJob.findById(jobId).lean();
+    expect(storedJob?.rows).toHaveLength(0);
+
+    const replay = await request(app)
+      .post(`/api/v1/college/students/import/${jobId}/commit`)
+      .set(authHeader(staff.token));
+    expect(replay.status).toBe(409);
+  });
+
+  it("limits cohort reads and enrollment updates to the staff member's assigned tenant scope", async () => {
+    const staff = await registerStudent("hod.features@example.edu");
+    const firstStudent = await registerStudent("cohort.features@example.edu");
+    const foreignStudent = await registerStudent("foreign.features@example.edu");
+
+    const { User } = await import("../src/models/User.js");
+    const { StudentProfile } = await import("../src/models/StudentProfile.js");
+    const { Institution } = await import("../src/models/Institution.js");
+    const { InstitutionMembership } = await import("../src/models/InstitutionMembership.js");
+    const { Department } = await import("../src/models/Department.js");
+    const { Program } = await import("../src/models/Program.js");
+    const { AcademicYear } = await import("../src/models/AcademicYear.js");
+    const { Batch } = await import("../src/models/Batch.js");
+    const { StudentEnrollment } = await import("../src/models/StudentEnrollment.js");
+    const { AssessmentAttempt } = await import("../src/models/AssessmentAttempt.js");
+    const { AssessmentTest } = await import("../src/models/AssessmentTest.js");
+
+    const firstProfile = await StudentProfile.findOne({ userId: firstStudent.userId }).lean();
+    const foreignProfile = await StudentProfile.findOne({ userId: foreignStudent.userId }).lean();
+    expect(firstProfile).toBeTruthy();
+    expect(foreignProfile).toBeTruthy();
+
+    await Institution.create([
+      { _id: 710, code: "SCOPE-A", name: "Scope College A", status: "ACTIVE", timezone: "America/Los_Angeles" },
+      { _id: 720, code: "SCOPE-B", name: "Scope College B", status: "ACTIVE" },
+    ]);
+    await Department.create([
+      { _id: 711, institutionId: 710, code: "CSE", name: "Computer Science", status: "ACTIVE" },
+      { _id: 721, institutionId: 720, code: "CSE", name: "Foreign Computer Science", status: "ACTIVE" },
+    ]);
+    await Program.create([
+      { _id: 712, institutionId: 710, departmentId: 711, code: "BTECH", name: "B.Tech", status: "ACTIVE" },
+      { _id: 722, institutionId: 720, departmentId: 721, code: "BTECH", name: "Foreign B.Tech", status: "ACTIVE" },
+    ]);
+    await AcademicYear.create([
+      { _id: 713, institutionId: 710, label: "2026-27", active: true },
+      { _id: 723, institutionId: 720, label: "2026-27", active: true },
+    ]);
+    await Batch.create([
+      { _id: 714, programId: 712, academicYearId: 713, label: "2026", status: "ACTIVE" },
+      { _id: 724, programId: 722, academicYearId: 723, label: "2026", status: "ACTIVE" },
+    ]);
+    await StudentEnrollment.create([
+      {
+        _id: 715,
+        studentProfileId: firstProfile!._id,
+        institutionId: 710,
+        departmentId: 711,
+        programId: 712,
+        batchId: 714,
+        rollNumber: "A-001",
+        status: "ACTIVE",
+      },
+      {
+        _id: 725,
+        studentProfileId: foreignProfile!._id,
+        institutionId: 720,
+        departmentId: 721,
+        programId: 722,
+        batchId: 724,
+        rollNumber: "B-001",
+        status: "ACTIVE",
+      },
+    ]);
+    await AssessmentTest.create({
+      _id: 730,
+      careerId: 731,
+      title: "Scoped Assessment",
+      durationMinutes: 30,
+      published: true,
+    });
+    await AssessmentAttempt.create({
+      _id: 732,
+      attemptCode: "SCOPED-ATTEMPT",
+      userId: firstStudent.userId,
+      assessmentId: 730,
+      status: "SUBMITTED",
+      startedAt: new Date("2026-10-02T06:20:00.000Z"),
+      expiresAt: new Date("2026-10-02T06:50:00.000Z"),
+      submittedAt: new Date("2026-10-02T06:30:00.000Z"),
+      totalQuestions: 1,
+      answeredCount: 1,
+    });
+    await User.updateOne({ _id: staff.userId }, { $set: { role: "HOD" } });
+    await InstitutionMembership.create({
+      _id: 716,
+      userId: staff.userId,
+      institutionId: 710,
+      designation: "HOD",
+      status: "ACTIVE",
+      scopeType: "DEPARTMENT",
+      scopeId: 711,
+    });
+
+    const cohort = await request(app)
+      .get("/api/v1/college/students?page=0&size=10")
+      .set(authHeader(staff.token));
+    expect(cohort.status).toBe(200);
+    expect(cohort.body.data).toMatchObject({
+      totalElements: 1,
+      page: 0,
+      size: 10,
+    });
+    expect(cohort.body.data.items[0]).toMatchObject({
+      id: 715,
+      studentId: firstProfile!.studentId,
+      rollNumber: "A-001",
+    });
+
+    const dashboard = await request(app)
+      .get("/api/v1/college/dashboard?departmentId=711")
+      .set(authHeader(staff.token));
+    expect(dashboard.status).toBe(200);
+    expect(dashboard.body.data).toMatchObject({
+      institutionName: "Scope College A",
+      totalEnrolled: 1,
+      activeStudents: 1,
+      assessmentParticipants: 1,
+      studentsNotAssessed: 0,
+      assessmentCompletionPercent: 100,
+      readinessEvaluated: 0,
+      readinessUnavailable: 1,
+    });
+
+    const datedDashboard = await request(app)
+      .get("/api/v1/college/dashboard?assessmentDateFrom=2026-10-01&assessmentDateTo=2026-10-02")
+      .set(authHeader(staff.token));
+    expect(datedDashboard.status).toBe(200);
+    expect(datedDashboard.body.data).toMatchObject({
+      totalEnrolled: 1,
+      activeStudents: 1,
+      assessmentParticipants: 1,
+      studentsNotAssessed: 0,
+    });
+
+    const nextLocalDayDashboard = await request(app)
+      .get("/api/v1/college/dashboard?assessmentDateFrom=2026-10-02&assessmentDateTo=2026-10-02")
+      .set(authHeader(staff.token));
+    expect(nextLocalDayDashboard.status).toBe(200);
+    expect(nextLocalDayDashboard.body.data).toMatchObject({
+      totalEnrolled: 1,
+      assessmentParticipants: 0,
+      studentsNotAssessed: 1,
+    });
+
+    await StudentProfile.updateOne(
+      { _id: firstProfile!._id },
+      { $set: { fullName: "=SUM(1,1)" } },
+    );
+    const rosterReport = await request(app)
+      .get("/api/v1/college/reports/export.csv?type=roster")
+      .set(authHeader(staff.token));
+    expect(rosterReport.status).toBe(200);
+    expect(rosterReport.headers["content-type"]).toContain("text/csv");
+    expect(rosterReport.headers["content-disposition"]).toContain("careeros-student-roster-");
+    expect(rosterReport.text).toContain("Student ID,Roll Number,Full Name");
+    expect(rosterReport.text).toContain(firstProfile!.studentId);
+    expect(rosterReport.text).toContain("'=SUM(1,1)");
+
+    const studentExport = await request(app)
+      .get("/api/v1/college/students/export.csv")
+      .set(authHeader(staff.token));
+    expect(studentExport.status).toBe(200);
+    expect(studentExport.headers["content-disposition"]).toContain("careeros-students-");
+    expect(studentExport.text).toContain("Student ID,Roll Number,Full Name");
+
+    const unsupportedReport = await request(app)
+      .get("/api/v1/college/reports/export.csv?type=unknown")
+      .set(authHeader(staff.token));
+    expect(unsupportedReport.status).toBe(400);
+
+    const cohortPdf = await request(app)
+      .get("/api/v1/college/reports/cohort.pdf")
+      .set(authHeader(staff.token));
+    expect(cohortPdf.status).toBe(200);
+    expect(cohortPdf.headers["content-type"]).toContain("application/pdf");
+    expect(cohortPdf.body.subarray(0, 5).toString()).toBe("%PDF-");
+
+    const studentPdf = await request(app)
+      .get("/api/v1/college/students/715/report.pdf")
+      .set(authHeader(staff.token));
+    expect(studentPdf.status).toBe(200);
+    expect(studentPdf.headers["content-type"]).toContain("application/pdf");
+    expect(studentPdf.headers["content-disposition"]).toContain("careeros-student-715-report.pdf");
+    expect(studentPdf.body.subarray(0, 5).toString()).toBe("%PDF-");
+
+    const foreignDashboard = await request(app)
+      .get("/api/v1/college/dashboard?departmentId=721")
+      .set(authHeader(staff.token));
+    expect(foreignDashboard.status).toBe(404);
+
+    const invalidDashboardRange = await request(app)
+      .get("/api/v1/college/dashboard?assessmentDateFrom=2026-10-02&assessmentDateTo=2026-10-01")
+      .set(authHeader(staff.token));
+    expect(invalidDashboardRange.status).toBe(400);
+
+    const foreignDetail = await request(app)
+      .get("/api/v1/college/students/725")
+      .set(authHeader(staff.token));
+    expect(foreignDetail.status).toBe(404);
+
+    const foreignDepartment = await request(app)
+      .get("/api/v1/college/students?departmentId=721")
+      .set(authHeader(staff.token));
+    expect(foreignDepartment.status).toBe(404);
+
+    const update = await request(app)
+      .patch("/api/v1/college/students/715/status")
+      .set(authHeader(staff.token))
+      .send({ status: "GRADUATED" });
+    expect(update.status).toBe(200);
+    expect(update.body.data).toMatchObject({ enrollmentId: 715, status: "GRADUATED" });
+
+    const foreignUpdate = await request(app)
+      .patch("/api/v1/college/students/725/status")
+      .set(authHeader(staff.token))
+      .send({ status: "GRADUATED" });
+    expect(foreignUpdate.status).toBe(404);
+
+    const { AuditEvent } = await import("../src/models/AuditEvent.js");
+    const updateAudit = await AuditEvent.findOne({
+      action: "STUDENT_STATUS_UPDATE",
+      targetId: "715",
+    }).lean();
+    expect(updateAudit).toMatchObject({
+      actorUserId: staff.userId,
+      institutionId: 710,
+      details: "from=ACTIVE,to=GRADUATED",
+    });
+  });
+});
+
 describe("placements", () => {
   it("lists drives, registers, withdraws, and responds to an offer", async () => {
     const { token } = await registerStudent();
@@ -430,7 +878,3 @@ describe("AI assistant", () => {
     expect(reply.body.data.toolsUsed).toEqual([]);
   });
 });
-
-
-
-

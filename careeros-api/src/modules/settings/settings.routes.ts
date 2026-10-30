@@ -3,7 +3,7 @@ import { validate } from "../../lib/validators.js";
 import { sendSuccess } from "../../lib/response.js";
 import { requireAuth } from "../../middleware/auth.js";
 import { changePasswordSchema } from "../auth/auth.schemas.js";
-import { changePassword, getSettings, revokeAllSessions } from "./settings.service.js";
+import { changePassword, clearAiHistory, getSettings, revokeAllSessions } from "./settings.service.js";
 
 export const settingsRouter = Router();
 
@@ -42,6 +42,19 @@ settingsRouter.post(
     try {
       const revoked = await revokeAllSessions(req.user!.id);
       sendSuccess(res, { revokedSessions: revoked }, { message: "All sessions revoked" });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+settingsRouter.delete(
+  "/settings/me/ai-history",
+  requireAuth,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const deleted = await clearAiHistory(req.user!.id);
+      sendSuccess(res, { deletedSessions: deleted }, { message: "AI conversation history cleared" });
     } catch (error) {
       next(error);
     }

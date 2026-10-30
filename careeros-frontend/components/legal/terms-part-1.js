@@ -1,11 +1,11 @@
 // CODEIT CareerOS — Terms of Service content (react-markdown)
 // Last updated: October 26, 2026
 
-const LAST_UPDATED = "October 26, 2026";
+export const TERMS_LAST_UPDATED = "October 26, 2026";
 
 export const TERMS_PART_1 = `Terms of Service
 
-Last updated: ${LAST_UPDATED}
+Last updated: ${TERMS_LAST_UPDATED}
 
 Welcome to **CODEIT CareerOS** ("we," "our," or the "Company"). These Terms of Service govern your access to and use of the CareerOS website and mobile application (the "Service").
 
@@ -60,4 +60,3 @@ Your privacy is important to us. Our Privacy Policy explains how we collect, use
 ## 8. Accounts and Security
 
 You are responsible for all activity that occurs under your account. We may suspend or terminate your account and bar access to the Service immediately, without prior notice, for any suspected fraudulent, malicious, or prohibited activity. We reserve the right to request additional information and to block access for failure to comply with these Terms.`;
-

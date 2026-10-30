@@ -8,6 +8,9 @@ import {
   type OfferStatus,
 } from "../../models/PlacementApplication.js";
 import { PlacementDrive, type PlacementDriveDoc } from "../../models/PlacementDrive.js";
+import { StudentEnrollment } from "../../models/StudentEnrollment.js";
+import { Institution } from "../../models/Institution.js";
+import { Batch } from "../../models/Batch.js";
 import { StudentProfile, type StudentProfileDoc } from "../../models/StudentProfile.js";
 import { getStudentReadiness } from "../students/readiness.service.js";
 
@@ -100,14 +103,23 @@ async function eligibility(
   drive: PlacementDriveDoc,
   profile: StudentProfileDoc,
   userId: number,
+  enrollment?: { departmentId: number; programId: number; batchId: number; status: string } | null,
 ): Promise<{ eligible: boolean; reason: string | null }> {
-  if (drive.eligibleDepartmentId != null && drive.eligibleDepartmentId !== profile.departmentId) {
+  if (enrollment && enrollment.status !== "ACTIVE") {
+    return { eligible: false, reason: "Enrollment is not active" };
+  }
+  if (drive.eligibleDepartmentId != null && drive.eligibleDepartmentId !== (enrollment?.departmentId ?? profile.departmentId)) {
     return { eligible: false, reason: "Department is not in the eligible cohort" };
   }
-  if (drive.eligibleBatchId != null && drive.eligibleBatchId !== profile.batchId) {
+  if (drive.eligibleProgramId != null && drive.eligibleProgramId !== enrollment?.programId) {
+    return { eligible: false, reason: "Program is not in the eligible cohort" };
+  }
+  if (drive.eligibleBatchId != null && drive.eligibleBatchId !== (enrollment?.batchId ?? profile.batchId)) {
     return { eligible: false, reason: "Batch is not in the eligible cohort" };
   }
-  if (drive.eligibleGraduationYear != null && drive.eligibleGraduationYear !== profile.graduationYear) {
+  const batch = enrollment ? await Batch.findById(enrollment.batchId).select("graduationYear").lean() : null;
+  const graduationYear = batch?.graduationYear ?? profile.graduationYear;
+  if (drive.eligibleGraduationYear != null && drive.eligibleGraduationYear !== graduationYear) {
     return { eligible: false, reason: "Graduation year does not match" };
   }
   if (drive.minimumReadinessPercent != null && drive.minimumReadinessPercent > 0) {
@@ -137,12 +149,22 @@ async function recordStage(application: PlacementApplicationDoc, stage: Applicat
 
 export async function getMyDrives(userId: number) {
   const profile = await requireProfile(userId);
-  const collegeFilter = profile.collegeId == null
-    ? { $in: [null] }
-    : { $in: [profile.collegeId, null] };
+  const enrollment = await StudentEnrollment.findOne({
+    studentProfileId: profile._id,
+    status: "ACTIVE",
+  }).lean();
+  if (enrollment && !await Institution.exists({ _id: enrollment.institutionId, status: "ACTIVE" })) {
+    return { items: [], total: 0 };
+  }
+  const legacyDriveScope = enrollment
+    ? [{ institutionId: null, collegeId: null }, ...(profile.collegeId == null ? [] : [{ institutionId: null, collegeId: profile.collegeId }])]
+    : [{ institutionId: null, collegeId: null }, ...(profile.collegeId == null ? [] : [{ institutionId: null, collegeId: profile.collegeId }])];
   const drives = await PlacementDrive.find({
     status: { $in: VISIBLE_STATUSES },
-    collegeId: collegeFilter,
+    $or: [
+      ...(enrollment ? [{ institutionId: enrollment.institutionId }] : []),
+      ...legacyDriveScope,
+    ],
   }).sort({ createdAt: -1 }).lean();
   const applications = await PlacementApplication.find({
     userId,
@@ -151,7 +173,7 @@ export async function getMyDrives(userId: number) {
   const applicationByDrive = new Map(applications.map((application) => [application.driveId, application]));
 
   const items = await Promise.all(drives.map(async (drive) => {
-    const check = await eligibility(drive as PlacementDriveDoc, profile, userId);
+    const check = await eligibility(drive as PlacementDriveDoc, profile, userId, enrollment);
     const existing = applicationByDrive.get(drive._id);
     return {
       drive: driveResponse(drive as PlacementDriveDoc),
@@ -165,7 +187,17 @@ export async function getMyDrives(userId: number) {
 }
 
 export async function getMyApplications(userId: number) {
-  const applications = await PlacementApplication.find({ userId }).sort({ appliedAt: -1 }).lean();
+  const profile = await requireProfile(userId);
+  const enrollment = await StudentEnrollment.findOne({ studentProfileId: profile._id, status: "ACTIVE" }).lean();
+  if (enrollment && !await Institution.exists({ _id: enrollment.institutionId, status: "ACTIVE" })) {
+    return { items: [], total: 0 };
+  }
+  const applications = await PlacementApplication.find({
+    userId,
+    studentProfileId: profile._id,
+    ...(enrollment ? { $or: [{ institutionId: enrollment.institutionId }, { institutionId: null }] } : {}),
+    ...(!enrollment ? { institutionId: null } : {}),
+  }).sort({ appliedAt: -1 }).lean();
   const drives = await PlacementDrive.find({ _id: { $in: applications.map((application) => application.driveId) } }).lean();
   const driveById = new Map(drives.map((drive) => [drive._id, drive as PlacementDriveDoc]));
   const items = applications.map((application) => applicationResponse(
@@ -177,8 +209,18 @@ export async function getMyApplications(userId: number) {
 
 export async function registerForDrive(userId: number, driveId: number) {
   const profile = await requireProfile(userId);
-  const drive = await PlacementDrive.findById(driveId).lean();
-  if (!drive || (drive.collegeId != null && drive.collegeId !== profile.collegeId)) {
+  const enrollment = await StudentEnrollment.findOne({ studentProfileId: profile._id, status: "ACTIVE" }).lean();
+  if (enrollment && !await Institution.exists({ _id: enrollment.institutionId, status: "ACTIVE" })) {
+    throw AppError.badRequest("Your account is not linked to a college enrollment");
+  }
+  const drive = await PlacementDrive.findOne({
+    _id: driveId,
+    $or: [
+      ...(enrollment ? [{ institutionId: enrollment.institutionId }] : []),
+      { institutionId: null, collegeId: profile.collegeId ?? null },
+    ],
+  }).lean();
+  if (!drive) {
     throw AppError.notFound("Placement drive not found");
   }
   if (drive.status !== "REGISTRATION_OPEN") {
@@ -189,7 +231,7 @@ export async function registerForDrive(userId: number, driveId: number) {
   }
   const existing = await PlacementApplication.findOne({ driveId, studentProfileId: profile._id }).lean();
   if (existing) throw AppError.conflict("You are already registered for this drive");
-  const check = await eligibility(drive as PlacementDriveDoc, profile, userId);
+  const check = await eligibility(drive as PlacementDriveDoc, profile, userId, enrollment);
   if (!check.eligible) {
     throw AppError.badRequest(`You are not eligible for this drive: ${check.reason ?? "eligibility rules not met"}`);
   }
@@ -200,6 +242,7 @@ export async function registerForDrive(userId: number, driveId: number) {
     driveId,
     userId,
     studentProfileId: profile._id,
+    institutionId: enrollment?.institutionId ?? null,
     collegeId: profile.collegeId ?? null,
     stage: "REGISTERED",
     eligibilityOverride: false,
