@@ -151,6 +151,7 @@ export default function CollegeStudentDetailPage() {
   const projects = detail?.projects;
   const cv = detail?.cvAnalysis;
   const linkedin = detail?.linkedInAnalysis;
+  const profileCompletion = detail?.profileCompletion;
   const permissions = detail?.permissions || {};
   const canManage = me?.permissions?.includes("MANAGE_STUDENTS");
   const canReport = me?.permissions?.includes("GENERATE_REPORTS");
@@ -204,6 +205,12 @@ export default function CollegeStudentDetailPage() {
               <InfoRow label="Degree / branch" value={[profile.degree, profile.branch].filter(Boolean).join(" · ")} />
               <InfoRow label="Graduation" value={profile.graduationYear ? `Class of ${profile.graduationYear}` : null} />
               <InfoRow label="Semester" value={profile.semester ? `Semester ${profile.semester}` : null} />
+              <InfoRow
+                label="Profile completion"
+                value={profileCompletion
+                  ? `${profileCompletion.completionPercent}% (${labelOf(profileCompletion.status)})`
+                  : null}
+              />
             </dl>
             {!permissions.canViewSensitiveProfile && (
               <p className="mt-3 flex items-start gap-2 rounded-lg bg-muted/60 p-2.5 text-xs text-muted-foreground">
@@ -260,7 +267,13 @@ export default function CollegeStudentDetailPage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Career readiness</CardTitle>
-            <CardDescription>{readiness?.targetCareerName || "No target career selected"}</CardDescription>
+            <CardDescription>
+              {[
+                readiness?.targetCareerName || "No target career selected",
+                readiness?.status ? labelOf(readiness.status) : null,
+                readiness?.assessedAt ? formatDateTime(readiness.assessedAt) : null,
+              ].filter(Boolean).join(" · ")}
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {readiness?.hasTarget ? (
@@ -286,7 +299,7 @@ export default function CollegeStudentDetailPage() {
                   <div className="rounded-lg bg-muted/50 p-2.5">
                     <dt className="text-xs text-muted-foreground">Targets met</dt>
                     <dd className="font-semibold tnum">
-                      {readiness.metSkills ?? 0} / {readiness.totalSkills ?? 0}
+                      {readiness.metSkills ?? 0} / {readiness.assessedSkills ?? 0} assessed
                     </dd>
                   </div>
                 </dl>
@@ -443,6 +456,9 @@ export default function CollegeStudentDetailPage() {
                         <p className="mt-1 text-xs text-muted-foreground">
                           {cv.matchedSkills?.length || 0} matched · {cv.missingSkills?.length || 0} missing
                         </p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {labelOf(cv.status)} · {formatDateTime(cv.assessedAt)}
+                        </p>
                       </>
                     ) : (
                       <p className="mt-1 text-xs text-muted-foreground">No CV uploaded.</p>
@@ -458,6 +474,9 @@ export default function CollegeStudentDetailPage() {
                         <p className="text-xs text-muted-foreground">Alignment · {linkedin.completenessPercent ?? "—"}% complete</p>
                         <p className="mt-1 text-xs text-muted-foreground">
                           {linkedin.matchedSkills?.length || 0} matched · {linkedin.missingSkills?.length || 0} missing
+                        </p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {labelOf(linkedin.status)} · {formatDateTime(linkedin.assessedAt)}
                         </p>
                       </>
                     ) : (

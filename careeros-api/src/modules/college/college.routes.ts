@@ -2,7 +2,7 @@ import { Router, type NextFunction, type Request, type Response } from "express"
 import multer from "multer";
 import { AppError } from "../../lib/errors.js";
 import { sendSuccess } from "../../lib/response.js";
-import { sendCsv } from "../../lib/csv.js";
+import { sendCsv, toCsv } from "../../lib/csv.js";
 import { requireAuth } from "../../middleware/auth.js";
 import { validate } from "../../lib/validators.js";
 import { z } from "zod";
@@ -24,6 +24,7 @@ import {
   requireExport,
   requireManageStaff,
   requireManageStudents,
+  requireImport,
   requirePlacementReports,
   requireReports,
   type CollegeScope,
@@ -101,6 +102,7 @@ const studentFilterSchema = z.object({
   programId: optionalPositiveId,
   batchId: optionalPositiveId,
   sectionId: optionalPositiveId,
+  semester: z.coerce.number().int().min(1).max(20).optional(),
   status: z.enum(ENROLLMENT_STATUSES).optional(),
   assessmentCompleted: optionalBoolean,
   readinessEvaluated: optionalBoolean,
@@ -108,6 +110,7 @@ const studentFilterSchema = z.object({
   assessmentDateTo: z.iso.date().optional(),
 });
 const studentPageQuerySchema = studentFilterSchema.extend({
+  needsPreparation: optionalBoolean,
   page: z.coerce.number().int().min(0).default(0),
   size: z.coerce.number().int().min(1).max(100).default(25),
   sortBy: z.string().max(40).default("fullName"),
@@ -262,13 +265,32 @@ collegeRouter.get("/students/export.csv", async (req: Request, res: Response, ne
     next(error);
   }
 });
+collegeRouter.get("/students/import/template.csv", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const scope = await requireCollegeScope(req.user!.id);
+    requireImport(scope);
+    sendCsv(res, "careeros-student-import-template.csv", toCsv([[
+      "full_name",
+      "email",
+      "roll_number",
+      "department_code",
+      "program_code",
+      "batch_label",
+      "mobile",
+      "section_name",
+      "academic_year_label",
+    ]]));
+  } catch (error) {
+    next(error);
+  }
+});
 collegeRouter.post(
   "/students/import/preview",
   studentImportUpload.single("file"),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const scope = await requireCollegeScope(req.user!.id);
-      sendSuccess(res, await previewStudentImport(scope, req.file), { message: "Student import preview created" });
+      sendSuccess(res, await previewStudentImport(scope, req.file));
     } catch (error) {
       next(error);
     }
@@ -280,7 +302,7 @@ collegeRouter.post(
     try {
       const scope = await requireCollegeScope(req.user!.id);
       const jobId = numericId(String(req.params.jobId), "Import job");
-      sendSuccess(res, await commitStudentImport(scope, jobId), { message: "Student import completed" });
+      sendSuccess(res, await commitStudentImport(scope, jobId), { message: "Import committed" });
     } catch (error) {
       next(error);
     }

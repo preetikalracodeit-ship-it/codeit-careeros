@@ -163,7 +163,9 @@ const ALL_TOOLS = [
 function greetingReply(snapshot: Snapshot): GuidanceResult {
   const first = snapshot.profile.fullName?.split(/\s+/)[0] || "there";
   const readiness = snapshot.readiness.hasTarget
-    ? `You are currently **${snapshot.readiness.readinessPercent}% ready** for ${snapshot.readiness.targetCareerName}.`
+    ? snapshot.readiness.readinessPercent == null
+      ? `Your readiness for ${snapshot.readiness.targetCareerName} has not been assessed yet.`
+      : `You are currently **${snapshot.readiness.readinessPercent}% ready** for ${snapshot.readiness.targetCareerName}.`
     : "You have not picked a target career yet.";
   return {
     reply: `Hi ${first}! I am your CareerOS career assistant.\n\n${readiness}\n\nI can help with readiness, skill gaps, roadmap steps, projects, your CV, LinkedIn, assessments, placements, and improvement tasks. What would you like to work on?`,
@@ -187,9 +189,11 @@ function readinessReply(snapshot: Snapshot): string {
   const lines = [
     `**Career readiness for ${readiness.targetCareerName}**`,
     "",
-    `You are **${readiness.readinessPercent}% ready** (${levelWord(readiness.readinessLevel)}).`,
+    readiness.readinessPercent == null
+      ? "Readiness has not been assessed yet. Submit a relevant assessment to get a score."
+      : `You are **${readiness.readinessPercent}% ready** (${levelWord(readiness.readinessLevel)}).`,
     "",
-    `- Skills on target: **${readiness.metSkills} of ${readiness.totalSkills}**`,
+    `- Skills on target: **${readiness.metSkills} of ${readiness.assessedSkills} assessed skills**`,
     `- Skills assessed: **${readiness.assessedSkills} of ${readiness.totalSkills}**`,
     `- Submitted assessments: **${readiness.submittedAttempts}**`,
   ];
@@ -370,7 +374,9 @@ function profileReply(snapshot: Snapshot): string {
     `- Graduation year: **${profile.graduationYear ?? "-"}**`,
     "",
     snapshot.readiness.hasTarget
-      ? `You are ${snapshot.readiness.readinessPercent}% ready, with ${snapshot.readiness.metSkills} of ${snapshot.readiness.totalSkills} skills on target.`
+      ? snapshot.readiness.readinessPercent == null
+        ? `Readiness for ${snapshot.readiness.targetCareerName} has not been assessed yet.`
+        : `You are ${snapshot.readiness.readinessPercent}% ready, with ${snapshot.readiness.metSkills} of ${snapshot.readiness.assessedSkills} assessed skills on target.`
       : "Choose a target career to unlock readiness and a roadmap.",
   ].join("\n");
 }
@@ -381,7 +387,7 @@ function overviewReply(snapshot: Snapshot): string {
     "**Your CareerOS snapshot**",
     "",
     readiness.hasTarget
-      ? `- Readiness for ${readiness.targetCareerName}: **${readiness.readinessPercent}%** (${levelWord(readiness.readinessLevel)})`
+      ? `- Readiness for ${readiness.targetCareerName}: **${readiness.readinessPercent == null ? "not assessed" : `${readiness.readinessPercent}% (${levelWord(readiness.readinessLevel)})`}**`
       : "- Target career: **not selected**",
     `- Roadmap: **${snapshot.roadmap.completedItems}/${snapshot.roadmap.totalItems}** steps`,
     `- Projects: **${snapshot.projects.completedProjects}/${snapshot.projects.totalProjects}** complete`,

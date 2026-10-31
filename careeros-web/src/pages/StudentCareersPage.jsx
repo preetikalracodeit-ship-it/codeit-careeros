@@ -11,6 +11,9 @@ export function StudentCareersPage() {
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState(null);
   const [error, setError] = useState("");
+  const [openId, setOpenId] = useState(null);
+  const [skillsByCareer, setSkillsByCareer] = useState({});
+  const [skillsLoading, setSkillsLoading] = useState(null);
 
   useEffect(() => {
     let active = true;
@@ -51,6 +54,24 @@ export function StudentCareersPage() {
     }
   }
 
+  async function toggleSkills(career) {
+    if (openId === career.id) {
+      setOpenId(null);
+      return;
+    }
+    setOpenId(career.id);
+    if (skillsByCareer[career.id]) return;
+    setSkillsLoading(career.id);
+    try {
+      const rows = await api.get(`/careers/${career.id}/skills`);
+      setSkillsByCareer((current) => ({ ...current, [career.id]: Array.isArray(rows) ? rows : [] }));
+    } catch (reason) {
+      toast.error(reason.message || "Unable to load the skills for this career.");
+    } finally {
+      setSkillsLoading(null);
+    }
+  }
+
   return <main className="workspace-page">
     <div className="workspace-heading">
       <div><span className="eyebrow">CAREER EXPLORER</span><h1>Choose a direction that fits you.</h1><p className="muted">Compare career paths and set a target. CareerOS will use it to shape your skill assessment and next steps.</p></div>
@@ -70,7 +91,11 @@ export function StudentCareersPage() {
         return <article className={`career-card${selected ? " career-card-selected" : ""}`} key={career.id}>
           <div className="career-card-meta"><span className="category-pill">{(career.category || "CAREER").replaceAll("_", " ")}</span><span>{career.skillCount ?? 0} skills</span></div>
           <h2>{career.name}</h2><p>{career.description || "Build a focused skill profile and track your readiness for this path."}</p>
-          <div className="career-card-footer"><span className="difficulty">{career.difficultyLevel ? career.difficultyLevel.replaceAll("_", " ").toLowerCase() : "Career path"}</span><button className={selected ? "selected-button" : "primary-button"} disabled={selected || savingId !== null} onClick={() => chooseCareer(career)}>{savingId === career.id ? "Saving…" : selected ? "Current target" : "Set as target"}</button></div>
+          {openId === career.id && <div className="career-skills">
+            {skillsLoading === career.id ? <small className="muted">Loading skill framework…</small> : (skillsByCareer[career.id] || []).length === 0 ? <small className="muted">No skills have been published for this career yet.</small> : <ul>{(skillsByCareer[career.id] || []).map((skill) => <li key={skill.skillId}><span>{skill.skillName}<small>{skill.skillCategory}</small></span><b>{skill.weightPercent}% weight · target {skill.targetPercent}%</b></li>)}</ul>}
+            {selected && <Link className="primary-button" to="/student/assessment">Take the {career.name} assessment</Link>}
+          </div>}
+          <div className="career-card-footer"><button className="text-button" aria-expanded={openId === career.id} onClick={() => toggleSkills(career)}>{openId === career.id ? "Hide skills" : "View skills"}</button><span className="difficulty">{career.difficultyLevel ? career.difficultyLevel.replaceAll("_", " ").toLowerCase() : "Career path"}</span><button className={selected ? "selected-button" : "primary-button"} disabled={selected || savingId !== null} onClick={() => chooseCareer(career)}>{savingId === career.id ? "Saving…" : selected ? "Current target" : "Set as target"}</button></div>
         </article>;
       })}
     </section>

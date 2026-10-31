@@ -160,7 +160,7 @@ export function Distribution({ distribution }) {
   );
 }
 
-export function Avatar({ name, size = 40 }) {
+export function Avatar({ name, size = 40, src }) {
   const label = (name || "CareerOS")
     .trim()
     .split(/\s+/)
@@ -169,7 +169,7 @@ export function Avatar({ name, size = 40 }) {
     .join("");
   return (
     <span className="avatar" style={{ width: size, height: size, fontSize: size / 2.8 }} aria-hidden="true">
-      {label}
+      {src ? <img src={src} alt="" /> : label}
     </span>
   );
 }

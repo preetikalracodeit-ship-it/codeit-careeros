@@ -43,7 +43,7 @@ export function errorHandler(
     const isCsvImport = req.path.includes("/students/import/");
     sendError(
       res,
-      tooLarge ? 413 : 400,
+      400,
       tooLarge
         ? isCsvImport ? "CSV files are limited to 2 MB" : "Photo must be at most 2 MB"
         : isCsvImport ? "Please upload one CSV file using the file field" : "Please upload one photo using the file field",

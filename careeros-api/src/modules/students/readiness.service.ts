@@ -32,13 +32,13 @@ function resultLevel(score: number): string {
   return "PRIORITY_GAP";
 }
 
-function readinessPercent(gaps: Gap[]): number {
+function readinessPercent(gaps: Gap[]): number | null {
   let weightedTarget = 0;
   let weightedScore = 0;
   for (const gap of gaps) {
-    if (gap.targetPercent <= 0) continue;
-    weightedTarget += gap.weightPercent * gap.targetPercent;
-    if (gap.assessed && gap.scorePercent !== undefined) {
+    if (!gap.assessed || gap.scorePercent === undefined) continue;
+    if (gap.targetPercent > 0) {
+      weightedTarget += gap.weightPercent * gap.targetPercent;
       weightedScore += gap.weightPercent * Math.min(gap.scorePercent, gap.targetPercent);
     }
   }
@@ -46,7 +46,7 @@ function readinessPercent(gaps: Gap[]): number {
   const assessed = gaps.filter((gap) => gap.assessed && gap.scorePercent !== undefined);
   return assessed.length
     ? Math.round(assessed.reduce((total, gap) => total + gap.scorePercent!, 0) / assessed.length)
-    : 0;
+    : null;
 }
 
 export async function getStudentReadiness(userId: number) {
@@ -56,8 +56,8 @@ export async function getStudentReadiness(userId: number) {
       targetCareerId: null,
       targetCareerName: null,
       hasTarget: false,
-      readinessPercent: 0,
-      readinessLevel: resultLevel(0),
+      readinessPercent: null,
+      readinessLevel: "NOT_ASSESSED",
       totalSkills: 0,
       assessedSkills: 0,
       metSkills: 0,
@@ -74,8 +74,8 @@ export async function getStudentReadiness(userId: number) {
       targetCareerId: profile.targetCareerId,
       targetCareerName: profile.targetCareerName,
       hasTarget: true,
-      readinessPercent: 0,
-      readinessLevel: resultLevel(0),
+      readinessPercent: null,
+      readinessLevel: "NOT_ASSESSED",
       totalSkills: 0,
       assessedSkills: 0,
       metSkills: 0,
@@ -155,12 +155,13 @@ export async function getStudentReadiness(userId: number) {
   const met = assessed.filter((gap) => gap.metTarget);
   const allHistory = await getAttemptHistory(userId);
   const historyForCareer = allHistory.filter((item) => item.careerId === career._id);
+  const readiness = readinessPercent(gaps);
   return {
     targetCareerId: career._id,
     targetCareerName: career.name,
     hasTarget: true,
-    readinessPercent: readinessPercent(gaps),
-    readinessLevel: resultLevel(readinessPercent(gaps)),
+    readinessPercent: readiness,
+    readinessLevel: readiness == null ? "NOT_ASSESSED" : resultLevel(readiness),
     totalSkills: gaps.length,
     assessedSkills: assessed.length,
     metSkills: met.length,
@@ -168,7 +169,7 @@ export async function getStudentReadiness(userId: number) {
     ...(historyForCareer[0] ? { latestAttempt: historyForCareer[0] } : {}),
     strengths: [...met].sort((a, b) => b.scorePercent! - a.scorePercent!).slice(0, 3),
     improvements: [...gaps]
-      .filter((gap) => !gap.metTarget)
+      .filter((gap) => gap.assessed && !gap.metTarget)
       .sort((a, b) => (a.gapPercent ?? Number.MIN_SAFE_INTEGER) - (b.gapPercent ?? Number.MIN_SAFE_INTEGER))
       .slice(0, 3),
     gaps,

@@ -102,15 +102,64 @@ export async function ensureIndexes(): Promise<void> {
   ]);
 }
 
+// MongoDB only supports multi-document transactions on a replica set (or a
+// sharded cluster). Local development often runs a standalone `mongod`, which
+// would otherwise make every write endpoint fail with a 500. We detect support
+// once and transparently fall back to a non-transactional execution: mongoose
+// treats a null session as "no session", so the same service code still works.
+let transactionSupport: boolean | null = null;
+
+async function transactionsSupported(): Promise<boolean> {
+  if (transactionSupport !== null) return transactionSupport;
+  try {
+    const admin = mongoose.connection.db?.admin();
+    if (!admin) {
+      transactionSupport = false;
+      return transactionSupport;
+    }
+    const hello = await admin.command({ hello: 1 });
+    transactionSupport = Boolean(hello?.setName) || hello?.msg === "isdbgrid";
+    if (!transactionSupport) {
+      logger.warn(
+        "MongoDB is not running as a replica set; multi-document writes will run without transactions",
+      );
+    }
+  } catch (error) {
+    logger.warn({ err: error }, "Could not determine MongoDB transaction support");
+    transactionSupport = false;
+  }
+  return transactionSupport;
+}
+
+function isStandaloneTransactionError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  return (
+    message.includes("Transaction numbers are only allowed on a replica set member or mongos") ||
+    message.includes("Transactions are not supported")
+  );
+}
+
 export async function withTransaction<T>(
   fn: (session: ClientSession) => Promise<T>,
 ): Promise<T> {
+  if (!(await transactionsSupported())) {
+    // Cast keeps the service signatures intact while mongoose ignores the
+    // session on every `.session(null)` call.
+    return fn(null as unknown as ClientSession);
+  }
   const session = await mongoose.startSession();
   try {
     let result: T | undefined;
-    await session.withTransaction(async () => {
-      result = await fn(session);
-    });
+    try {
+      await session.withTransaction(async () => {
+        result = await fn(session);
+      });
+    } catch (error) {
+      if (!isStandaloneTransactionError(error)) throw error;
+      transactionSupport = false;
+      logger.warn("Falling back to non-transactional writes for this MongoDB deployment");
+      return fn(null as unknown as ClientSession);
+    }
     return result as T;
   } finally {
     await session.endSession();

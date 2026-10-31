@@ -10,11 +10,15 @@ import { Program } from "../../models/Program.js";
 import { Section } from "../../models/Section.js";
 import { StudentEnrollment, type EnrollmentStatus } from "../../models/StudentEnrollment.js";
 import { StudentProfile, type StudentProfileDoc } from "../../models/StudentProfile.js";
+import { CvDocument } from "../../models/CvDocument.js";
+import { LinkedInProfile } from "../../models/LinkedInProfile.js";
 import { User } from "../../models/User.js";
 import { getAttemptHistory } from "../students/attempt-history.service.js";
 import { getStudentReadiness } from "../students/readiness.service.js";
 import { getMyRoadmap } from "../roadmaps/roadmap.service.js";
 import { getRecommendedProjects } from "../projects/project.service.js";
+import { analyzeCvFor } from "../cvs/cv.service.js";
+import { analyzeLinkedInProfile } from "../linkedin/linkedin.service.js";
 import type { CollegeScope } from "./collegeScope.service.js";
 import {
   requireAcademicYear,
@@ -31,9 +35,11 @@ export interface StudentFilter {
   programId?: number | null;
   batchId?: number | null;
   sectionId?: number | null;
+  semester?: number | null;
   status?: EnrollmentStatus | null;
   assessmentCompleted?: boolean | null;
   readinessEvaluated?: boolean | null;
+  needsPreparation?: boolean | null;
   assessmentDateFrom?: string | null;
   assessmentDateTo?: string | null;
 }
@@ -162,6 +168,28 @@ export function profileResponse(row: CohortRow) {
     targetCareerId: profile.targetCareerId ?? null,
     targetCareerName: profile.targetCareerName ?? null,
     createdAt: profile.createdAt,
+  };
+}
+
+function profileCompletion(profile: StudentProfileDoc) {
+  const fields = [
+    "fullName",
+    "mobile",
+    "college",
+    "degree",
+    "branch",
+    "graduationYear",
+    "semester",
+    "linkedinUrl",
+  ] as const;
+  const missingFields = fields.filter((field) => !String(profile[field] ?? "").trim());
+  const completedFields = fields.length - missingFields.length;
+  return {
+    status: missingFields.length === 0 ? "COMPLETE" : "INCOMPLETE",
+    completionPercent: Math.round((completedFields * 100) / fields.length),
+    completedFields,
+    totalFields: fields.length,
+    missingFields,
   };
 }
 
@@ -299,6 +327,7 @@ export async function loadCohort(scope: CollegeScope, filter: StudentFilter = {}
     const program = programById.get(enrollment.programId);
     const batch = batchById.get(enrollment.batchId);
     if (!profile || !department || !program || !batch) continue;
+    if (filter.semester != null && profile.semester !== filter.semester) continue;
     const section = enrollment.sectionId == null ? null : sectionById.get(enrollment.sectionId) ?? null;
     rows.push({
       enrollment,
@@ -329,25 +358,38 @@ export async function loadCohort(scope: CollegeScope, filter: StudentFilter = {}
     : rows;
 
   if (filter.assessmentCompleted == null && filter.readinessEvaluated == null &&
-      !filter.assessmentDateFrom && !filter.assessmentDateTo) {
+      filter.needsPreparation == null && !filter.assessmentDateFrom && !filter.assessmentDateTo) {
     return filtered;
   }
   const contexts = await assessmentContexts(filtered.map((row) => row.userId));
-  return filtered.filter((row) => {
+  const assessmentFiltered = filtered.filter((row) => {
     const context = contexts.get(row.userId);
-    if (filter.assessmentCompleted != null && hasAttemptInRange(context, filter, scope.timezone) !== filter.assessmentCompleted) {
+    const hasAssessmentInRange = hasAttemptInRange(context, filter, scope.timezone);
+    if (filter.assessmentCompleted != null && hasAssessmentInRange !== filter.assessmentCompleted) {
       return false;
     }
+    if (filter.assessmentCompleted == null &&
+        (filter.assessmentDateFrom || filter.assessmentDateTo) &&
+        !hasAssessmentInRange) return false;
     if (filter.readinessEvaluated != null && isReadinessEvaluated(row, context, filter, scope.timezone) !== filter.readinessEvaluated) {
       return false;
     }
     return true;
   });
+  if (filter.needsPreparation == null) return assessmentFiltered;
+  const preparationStatus = await Promise.all(assessmentFiltered.map(async (row) => {
+    if (row.enrollment.status !== "ACTIVE") return false;
+    const readiness = await getStudentReadiness(row.userId);
+    return readiness.hasTarget && readiness.gaps.some((gap) => gap.assessed && !gap.metTarget);
+  }));
+  return assessmentFiltered.filter((_row, index) => preparationStatus[index] === filter.needsPreparation);
 }
 
 export async function listItem(row: CohortRow, filter: StudentFilter = {}, timezone = "UTC") {
   const readiness = await getStudentReadiness(row.userId);
   const contexts = await assessmentContexts([row.userId]);
+  const assessmentCompleted = hasAttemptInRange(contexts.get(row.userId), filter, timezone);
+  const completion = profileCompletion(row.profile);
   return {
     id: row.enrollment._id,
     studentId: row.profile.studentId,
@@ -364,9 +406,12 @@ export async function listItem(row: CohortRow, filter: StudentFilter = {}, timez
     sectionName: row.section?.name ?? null,
     academicYearLabel: row.academicYear?.label ?? null,
     status: row.enrollment.status,
+    profileCompletionStatus: completion.status,
+    profileCompletionPercent: completion.completionPercent,
     targetCareerName: row.profile.targetCareerName ?? null,
     readinessPercent: readiness.hasTarget ? readiness.readinessPercent : null,
-    assessmentCompleted: hasAttemptInRange(contexts.get(row.userId), filter, timezone),
+    assessmentStatus: assessmentCompleted ? "COMPLETED" : "NOT_ASSESSED",
+    assessmentCompleted,
   };
 }
 
@@ -480,12 +525,68 @@ export async function requireEnrollment(
 
 export async function getStudentDetail(scope: CollegeScope, enrollmentId: number) {
   const row = await requireEnrollment(scope, enrollmentId);
-  const [readiness, history, roadmap, projects] = await Promise.all([
+  const canViewCvAnalysis = scope.designation !== "FACULTY";
+  const [readiness, history, roadmap, projects, cvDocument, linkedInProfile] = await Promise.all([
     getStudentReadiness(row.userId),
     getAttemptHistory(row.userId),
     getMyRoadmap(row.userId),
     getRecommendedProjects(row.userId),
+    canViewCvAnalysis
+      ? CvDocument.findOne({ userId: row.userId }).select("status uploadedAt parseError").lean()
+      : Promise.resolve(null),
+    canViewCvAnalysis
+      ? LinkedInProfile.findOne({ userId: row.userId }).select("updatedAt").lean()
+      : Promise.resolve(null),
   ]);
+  const [cvResult, linkedInResult] = await Promise.all([
+    canViewCvAnalysis && cvDocument?.status === "PARSED"
+      ? analyzeCvFor(row.userId)
+      : Promise.resolve(null),
+    canViewCvAnalysis && linkedInProfile
+      ? analyzeLinkedInProfile(row.userId)
+      : Promise.resolve(null),
+  ]);
+  const generatedAt = new Date();
+  const cvAnalysis = cvDocument
+    ? {
+        hasCv: true,
+        status: cvDocument.status === "PARSED" ? "COMPLETED" : "FAILED",
+        sourceStatus: cvDocument.status,
+        assessedAt: cvDocument.uploadedAt,
+        parseError: cvDocument.parseError ?? null,
+        hasTarget: cvResult?.hasTarget ?? Boolean(row.profile.targetCareerId),
+        careerId: cvResult?.careerId ?? row.profile.targetCareerId ?? null,
+        careerName: cvResult?.careerName ?? row.profile.targetCareerName ?? null,
+        detectedSkills: cvResult?.detectedSkills ?? [],
+        matchedSkills: cvResult?.matchedSkills ?? [],
+        missingSkills: cvResult?.missingSkills ?? [],
+        completeness: cvResult?.completeness ?? null,
+        sections: cvResult?.sections ?? [],
+        atsScore: cvResult?.atsScore ?? null,
+        overallScore: cvResult?.overallScore ?? null,
+      }
+    : null;
+  const linkedInAnalysis = linkedInResult?.hasProfile
+    ? {
+        hasProfile: true,
+        status: "COMPLETED",
+        assessedAt: generatedAt,
+        sourceUpdatedAt: linkedInProfile?.updatedAt ?? null,
+        hasTarget: linkedInResult.hasTarget,
+        careerId: linkedInResult.careerId,
+        careerName: linkedInResult.careerName,
+        alignmentPercent: linkedInResult.alignmentPercent,
+        detectedSkills: linkedInResult.detectedSkills,
+        matchedSkills: linkedInResult.matchedSkills,
+        missingSkills: linkedInResult.missingSkills,
+        alsoOnCv: linkedInResult.alsoOnCv,
+        onlyOnLinkedIn: linkedInResult.onlyOnLinkedIn,
+        onlyOnCv: linkedInResult.onlyOnCv,
+        completenessPercent: linkedInResult.completenessPercent,
+        strengths: linkedInResult.strengths,
+        suggestions: linkedInResult.suggestions,
+      }
+    : null;
   await recordInstitutionEvent({
     actorUserId: scope.userId,
     actorRole: scope.designation,
@@ -499,20 +600,27 @@ export async function getStudentDetail(scope: CollegeScope, enrollmentId: number
   });
   return {
     profile: profileResponse(row),
+    profileCompletion: profileCompletion(row.profile),
     enrollment: { ...toEnrollmentResponse(row), institutionName: scope.institutionName },
-    readiness,
+    readiness: {
+      ...readiness,
+      status: readiness.assessedSkills > 0
+        ? "COMPLETED"
+        : readiness.submittedAttempts > 0 ? "NO_SKILL_RESULTS" : "NOT_ASSESSED",
+      assessedAt: "latestAttempt" in readiness ? readiness.latestAttempt?.submittedAt ?? null : null,
+    },
     assessmentHistory: history,
     roadmap,
     projects,
-    cvAnalysis: null,
-    linkedInAnalysis: null,
+    cvAnalysis,
+    linkedInAnalysis,
     permissions: {
       canViewSensitiveProfile: false,
-      canViewCvAnalysis: false,
+      canViewCvAnalysis,
       canViewReports: scope.designation !== "FACULTY",
       canExport: scope.designation !== "FACULTY",
     },
-    generatedAt: new Date(),
+    generatedAt,
   };
 }
 

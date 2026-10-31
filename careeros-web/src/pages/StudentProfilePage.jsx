@@ -138,6 +138,7 @@ export function StudentProfilePage() {
       setUpdatedAt(updated.updatedAt || "");
       const stored = auth.getUser();
       if (stored) auth.save({ accessToken: auth.getAccessToken(), refreshToken: auth.getRefreshToken(), user: { ...stored, fullName: updated.fullName } });
+      window.dispatchEvent(new CustomEvent("careeros:profile-updated"));
       toast.success("Profile saved.");
     } catch (reason) {
       const fieldErrors = Object.fromEntries((reason.fieldErrors || []).map((item) => [item.field, item.message]));
@@ -160,6 +161,7 @@ export function StudentProfilePage() {
     try {
       const result = await api.post("/students/me/photo", data);
       setPhotoKey(result.profilePhotoUrl || null);
+      window.dispatchEvent(new CustomEvent("careeros:profile-updated"));
       toast.success("Profile photo updated.");
     } catch (reason) {
       toast.error(reason.message || "Unable to upload this photo.");
@@ -173,6 +175,7 @@ export function StudentProfilePage() {
     try {
       const result = await api.delete("/students/me/photo");
       setPhotoKey(result.profilePhotoUrl || null);
+      window.dispatchEvent(new CustomEvent("careeros:profile-updated"));
       toast.success("Profile photo removed.");
     } catch (reason) {
       toast.error(reason.message || "Unable to remove this photo.");

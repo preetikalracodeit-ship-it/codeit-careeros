@@ -3,6 +3,12 @@ import { getNextSequence } from "../../models/Counter.js";
 import { Institution } from "../../models/Institution.js";
 import { InstitutionMembership } from "../../models/InstitutionMembership.js";
 import { StudentProfile } from "../../models/StudentProfile.js";
+import { Career } from "../../models/Career.js";
+import { Skill } from "../../models/Skill.js";
+import { AssessmentTest } from "../../models/AssessmentTest.js";
+import { AssessmentQuestion } from "../../models/AssessmentQuestion.js";
+import { AssessmentAttempt } from "../../models/AssessmentAttempt.js";
+import { StaffInvitation } from "../../models/StaffInvitation.js";
 import { User, STAFF_ROLES, type Role } from "../../models/User.js";
 import { recordInstitutionEvent } from "../../lib/audit.js";
 import { scopeLabel } from "../invitations/invitation.service.js";
@@ -23,7 +29,6 @@ export interface InstitutionResponse {
   timezone: string | null;
   contactEmail: string | null;
   status: "ACTIVE" | "INACTIVE";
-  studentCount: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -37,6 +42,37 @@ export interface UserWithCollegeResponse {
   branch: string | null;
   graduationYear: number | null;
   createdAt: Date;
+}
+
+export interface AdminStudentResponse {
+  id: number;
+  studentId: string;
+  fullName: string;
+  email: string;
+  mobile: string | null;
+  dateOfBirth: string | null;
+  college: string | null;
+  degree: string | null;
+  branch: string | null;
+  graduationYear: number | null;
+  semester: number | null;
+  location: string | null;
+  githubUrl: string | null;
+  linkedinUrl: string | null;
+  portfolioUrl: string | null;
+  profilePhotoUrl: string | null;
+  targetCareerId: number | null;
+  targetCareerName: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface AdminStudentsPage {
+  content: AdminStudentResponse[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
 }
 
 export interface MembershipResponse {
@@ -67,7 +103,6 @@ function institutionResponse(inst: any): InstitutionResponse {
     timezone: inst.timezone ?? null,
     contactEmail: inst.contactEmail ?? null,
     status: inst.status,
-    studentCount: 0,
     createdAt: inst.createdAt,
     updatedAt: inst.updatedAt,
   };
@@ -332,42 +367,132 @@ export async function getStudentCount(institutionId: number): Promise<number> {
   return await StudentProfile.countDocuments({ collegeId: institutionId });
 }
 
-export async function listStudentsForAdmin(page = 0, size = 10): Promise<UserWithCollegeResponse[]> {
-  const skip = page * size;
-  const students = await StudentProfile.find()
-    .select("userId fullName")
-    .sort({ createdAt: -1 })
-    .skip(skip)
-    .limit(size)
-    .lean();
-  const ids = students.map((s) => s.userId);
-  const users = ids.length > 0 ? await User.find({ _id: { $in: ids } }).lean() : [];
-  const userMap = new Map<number, any>();
-  for (const u of users) userMap.set(u._id, u);
-  const studentMap = new Map<number, any>();
-  for (const s of students) studentMap.set(s.userId, s);
-  return users
-    .filter((u) => u && u._id && u.role === "STUDENT")
-    .map((u) => {
-      const student = studentMap.get(u._id);
-      return {
-        id: u._id,
-        fullName: u.fullName,
-        email: u.email,
-        studentId: student?.studentId ?? null,
-        college: student?.college ?? null,
-        branch: student?.branch ?? null,
-        graduationYear: student?.graduationYear ?? null,
-        createdAt: u.createdAt,
-      };
-    });
+export async function getAllStudentCount(): Promise<number> {
+  return StudentProfile.countDocuments();
 }
 
-export async function getStats(): Promise<{ institutionCount: number; studentCount: number; staffCount: number }> {
-  const [institutions, students, staff] = await Promise.all([
-    Institution.countDocuments(),
-    StudentProfile.countDocuments(),
-    User.countDocuments({ role: { $in: STAFF_ROLES } }),
+export async function listStudentsForAdmin(
+  requestedPage = 0,
+  requestedSize = 20,
+  search?: string,
+): Promise<AdminStudentsPage> {
+  const page = Math.max(0, requestedPage);
+  const size = Math.min(Math.max(requestedSize, 1), 100);
+  const term = search?.trim();
+  const profileFilter: Record<string, unknown> = {};
+  if (term) {
+    const pattern = new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+    const [matchingUsers, matchingCareers] = await Promise.all([
+      User.find({ email: pattern }).select("_id").lean(),
+      Career.find({ name: pattern }).select("_id").lean(),
+    ]);
+    profileFilter.$or = [
+      { fullName: pattern },
+      { studentId: pattern },
+      { college: pattern },
+      { branch: pattern },
+      { mobile: pattern },
+      { userId: { $in: matchingUsers.map((user) => user._id) } },
+      { targetCareerId: { $in: matchingCareers.map((career) => career._id) } },
+    ];
+  }
+
+  const [totalElements, profiles] = await Promise.all([
+    StudentProfile.countDocuments(profileFilter),
+    StudentProfile.find(profileFilter)
+      .sort({ createdAt: -1, _id: -1 })
+      .skip(page * size)
+      .limit(size)
+      .lean(),
   ]);
-  return { institutionCount: institutions, studentCount: students, staffCount: staff };
+  const userIds = profiles.map((profile) => profile.userId);
+  const careerIds = profiles.flatMap((profile) => profile.targetCareerId == null ? [] : [profile.targetCareerId]);
+  const [users, careers] = await Promise.all([
+    User.find({ _id: { $in: userIds } }).select("_id email").lean(),
+    Career.find({ _id: { $in: careerIds } }).select("_id name").lean(),
+  ]);
+  const emailByUserId = new Map(users.map((user) => [user._id, user.email]));
+  const careerNameById = new Map(careers.map((career) => [career._id, career.name]));
+  const content = profiles.map((profile) => {
+    const email = emailByUserId.get(profile.userId);
+    if (!email) throw AppError.internal("Student profile is missing its user account");
+    return {
+      id: profile._id,
+      studentId: profile.studentId,
+      fullName: profile.fullName,
+      email,
+      mobile: profile.mobile ?? null,
+      dateOfBirth: profile.dateOfBirth ?? null,
+      college: profile.college ?? null,
+      degree: profile.degree ?? null,
+      branch: profile.branch ?? null,
+      graduationYear: profile.graduationYear ?? null,
+      semester: profile.semester ?? null,
+      location: profile.location ?? null,
+      githubUrl: profile.githubUrl ?? null,
+      linkedinUrl: profile.linkedinUrl ?? null,
+      portfolioUrl: profile.portfolioUrl ?? null,
+      profilePhotoUrl: profile.profilePhotoUrl ?? null,
+      targetCareerId: profile.targetCareerId ?? null,
+      targetCareerName: profile.targetCareerId == null
+        ? null
+        : careerNameById.get(profile.targetCareerId) ?? null,
+      createdAt: profile.createdAt,
+      updatedAt: profile.updatedAt,
+    };
+  });
+
+  return {
+    content,
+    page,
+    size,
+    totalElements,
+    totalPages: totalElements === 0 ? 0 : Math.ceil(totalElements / size),
+  };
+}
+
+export async function getStats(): Promise<Record<string, number>> {
+  const now = new Date();
+  const [
+    institutions,
+    collegeStaff,
+    collegeAdmins,
+    pendingInvitations,
+    students,
+    careers,
+    skills,
+    assessments,
+    questions,
+    attempts,
+    assessmentsCompleted,
+  ] = await Promise.all([
+    Institution.countDocuments(),
+    InstitutionMembership.countDocuments({ status: "ACTIVE" }),
+    InstitutionMembership.countDocuments({ designation: "COLLEGE_ADMIN", status: "ACTIVE" }),
+    StaffInvitation.countDocuments({
+      acceptedAt: null,
+      revokedAt: null,
+      expiresAt: { $gt: now },
+    }),
+    User.countDocuments({ role: "STUDENT" }),
+    Career.countDocuments(),
+    Skill.countDocuments(),
+    AssessmentTest.countDocuments(),
+    AssessmentQuestion.countDocuments(),
+    AssessmentAttempt.countDocuments(),
+    AssessmentAttempt.countDocuments({ status: "SUBMITTED" }),
+  ]);
+  return {
+    institutions,
+    collegeStaff,
+    collegeAdmins,
+    pendingInvitations,
+    students,
+    careers,
+    skills,
+    assessments,
+    questions,
+    attempts,
+    assessmentsCompleted,
+  };
 }

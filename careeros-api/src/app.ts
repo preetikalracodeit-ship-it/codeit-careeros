@@ -92,12 +92,15 @@ export function createApp() {
   // Auth guard: all /api routes require authentication except explicitly public endpoints
   app.use("/api", (req: Request, _res: Response, next: NextFunction) => {
     // Invitations are public (students click email links)
-    if (req.path.startsWith("/v1/invitations")) {
+    if (req.path === "/v1/invitations" || req.path.startsWith("/v1/invitations/")) {
       next();
       return;
     }
-    // Public career and skill browsing
-    if (req.method === "GET" && (req.path.startsWith("/v1/careers") || req.path.startsWith("/v1/skills"))) {
+    // Published careers are public; the Spring API requires auth for skills.
+    if (
+      req.method === "GET" &&
+      (req.path === "/v1/careers" || req.path.startsWith("/v1/careers/"))
+    ) {
       next();
       return;
     }
@@ -127,7 +130,7 @@ export function createApp() {
   app.use("/api/v1/college", requireCollegeStaff);
   app.use("/api/v1/college", collegeInvitationManagementRouter);
   app.use("/api/v1/college", collegeRouter);
-  app.use("/api/v1/college", collegeImprovementPlanRouter);
+  app.use("/api/v1/college/improvement-plans", collegeImprovementPlanRouter);
 
   // Super admin routes (requireRole applied first)
   app.use("/api/v1/platform", requireRole("SUPER_ADMIN"));

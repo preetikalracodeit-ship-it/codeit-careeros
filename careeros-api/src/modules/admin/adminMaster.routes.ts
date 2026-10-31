@@ -69,7 +69,7 @@ adminMasterRouter.post("/careers", async (req: Request, res: Response, next: Nex
       }),
       req.body,
     );
-    sendSuccess(res, await createCareer(input), { status: 201 });
+    sendSuccess(res, await createCareer(input), { message: "Career created" });
   } catch (e) { next(e); }
 });
 
@@ -91,7 +91,7 @@ adminMasterRouter.put("/careers/:id", async (req: Request, res: Response, next: 
       }),
       req.body,
     );
-    sendSuccess(res, await updateCareer(Number(req.params.id), input));
+    sendSuccess(res, await updateCareer(Number(req.params.id), input), { message: "Career updated" });
   } catch (e) { next(e); }
 });
 
@@ -106,12 +106,14 @@ adminMasterRouter.put("/careers/:id/skills", async (req: Request, res: Response,
       })),
       req.body,
     );
-    sendSuccess(res, await replaceCareerSkills(Number(req.params.id), skills));
+    sendSuccess(res, await replaceCareerSkills(Number(req.params.id), skills), {
+      message: "Competency framework updated",
+    });
   } catch (e) { next(e); }
 });
 
 adminMasterRouter.delete("/careers/:id", async (req: Request, res: Response, next: NextFunction) => {
-  try { sendSuccess(res, await deleteCareer(Number(req.params.id))); } catch (e) { next(e); }
+  try { sendSuccess(res, await deleteCareer(Number(req.params.id)), { message: "Career deleted" }); } catch (e) { next(e); }
 });
 
 // Skills
@@ -134,7 +136,7 @@ adminMasterRouter.post("/skills", async (req: Request, res: Response, next: Next
       }),
       req.body,
     );
-    sendSuccess(res, await createSkill(input), { status: 201 });
+    sendSuccess(res, await createSkill(input), { message: "Skill created" });
   } catch (e) { next(e); }
 });
 
@@ -149,12 +151,12 @@ adminMasterRouter.put("/skills/:id", async (req: Request, res: Response, next: N
       }),
       req.body,
     );
-    sendSuccess(res, await updateSkill(Number(req.params.id), input));
+    sendSuccess(res, await updateSkill(Number(req.params.id), input), { message: "Skill updated" });
   } catch (e) { next(e); }
 });
 
 adminMasterRouter.delete("/skills/:id", async (req: Request, res: Response, next: NextFunction) => {
-  try { sendSuccess(res, await deleteSkill(Number(req.params.id))); } catch (e) { next(e); }
+  try { sendSuccess(res, await deleteSkill(Number(req.params.id)), { message: "Skill deleted" }); } catch (e) { next(e); }
 });
 
 // Assessments
@@ -178,7 +180,7 @@ adminMasterRouter.post("/assessments", async (req: Request, res: Response, next:
       }),
       req.body,
     );
-    sendSuccess(res, await createAssessment(input), { status: 201 });
+    sendSuccess(res, await createAssessment(input), { message: "Assessment created" });
   } catch (e) { next(e); }
 });
 
@@ -194,12 +196,14 @@ adminMasterRouter.put("/assessments/:id", async (req: Request, res: Response, ne
       }),
       req.body,
     );
-    sendSuccess(res, await updateAssessment(Number(req.params.id), input));
+    sendSuccess(res, await updateAssessment(Number(req.params.id), input), { message: "Assessment updated" });
   } catch (e) { next(e); }
 });
 
 adminMasterRouter.delete("/assessments/:id", async (req: Request, res: Response, next: NextFunction) => {
-  try { sendSuccess(res, await deleteAssessment(Number(req.params.id))); } catch (e) { next(e); }
+  try {
+    sendSuccess(res, await deleteAssessment(Number(req.params.id)), { message: "Assessment deleted" });
+  } catch (e) { next(e); }
 });
 
 // Assessment Question Bank
@@ -231,20 +235,22 @@ adminMasterRouter.get("/assessments/:id/questions", async (req: Request, res: Re
 adminMasterRouter.post("/assessments/:id/questions", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const input = validate(questionSchema, req.body);
-    sendSuccess(res, await createAssessmentQuestion(Number(req.params.id), input), { status: 201 });
+    sendSuccess(res, await createAssessmentQuestion(Number(req.params.id), input), { message: "Question added" });
   } catch (e) { next(e); }
 });
 
 adminMasterRouter.put("/questions/:questionId", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const input = validate(questionSchema, req.body);
-    sendSuccess(res, await updateAssessmentQuestion(Number(req.params.questionId), input));
+    sendSuccess(res, await updateAssessmentQuestion(Number(req.params.questionId), input), {
+      message: "Question updated",
+    });
   } catch (e) { next(e); }
 });
 
 adminMasterRouter.delete("/questions/:questionId", async (req: Request, res: Response, next: NextFunction) => {
   try {
-    sendSuccess(res, await deleteAssessmentQuestion(Number(req.params.questionId)));
+    sendSuccess(res, await deleteAssessmentQuestion(Number(req.params.questionId)), { message: "Question deleted" });
   } catch (e) { next(e); }
 });
 

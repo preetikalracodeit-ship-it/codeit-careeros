@@ -164,15 +164,22 @@ export async function exportCollegeCsv(
         aggregates.set(key, aggregate);
       }
     }
+    const rankedAggregates = [...aggregates.values()].sort((a, b) =>
+      a.departmentId - b.departmentId ||
+      b.belowTarget.size - a.belowTarget.size ||
+      a.skill.localeCompare(b.skill),
+    );
+    let previousDepartmentId: number | null = null;
+    let priorityRank = 0;
     csvRows = [[
-      "Department", "Skill", "Students Below Target", "Assessed Students", "% Below",
-    ], ...[...aggregates.values()]
-      .sort((a, b) => a.departmentId - b.departmentId || a.skillId - b.skillId)
-      .map((aggregate) => {
+      "Department", "Training Priority Rank", "Skill", "Students Below Target", "Assessed Students", "% Below",
+    ], ...rankedAggregates.map((aggregate) => {
+        priorityRank = aggregate.departmentId === previousDepartmentId ? priorityRank + 1 : 1;
+        previousDepartmentId = aggregate.departmentId;
         const below = aggregate.belowTarget.size;
         const assessed = aggregate.assessed.size;
         return [
-          aggregate.department, aggregate.skill, below, assessed,
+          aggregate.department, priorityRank, aggregate.skill, below, assessed,
           assessed ? `${Math.round((below * 100) / assessed)}%` : "",
         ];
       })];
@@ -312,7 +319,9 @@ export async function generateStudentPdf(scope: CollegeScope, enrollmentId: numb
     doc.heading("Career readiness");
     if (readiness.hasTarget) {
       doc.keyValue("Target career", readiness.targetCareerName);
-      doc.keyValue("Readiness", `${readiness.readinessPercent}% (${readiness.readinessLevel})`);
+      doc.keyValue("Readiness", readiness.readinessPercent == null
+        ? "Not assessed"
+        : `${readiness.readinessPercent}% (${readiness.readinessLevel})`);
       doc.keyValue("Assessed skills", `${readiness.assessedSkills} of ${readiness.totalSkills}`);
       if (readiness.improvements.length > 0) {
         doc.text("Priority improvements:");

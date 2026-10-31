@@ -206,6 +206,23 @@ export function SettingsPage({ label }) {
   );
 }
 
+export function Modal({ title, description, onClose, children, wide = false }) {
+  return (
+    <div className="dialog-backdrop" onClick={onClose} role="presentation">
+      <div className={`app-modal${wide ? " app-modal-wide" : ""}`} role="dialog" aria-modal="true" aria-label={title} onClick={(event) => event.stopPropagation()}>
+        <header>
+          <div>
+            <h2>{title}</h2>
+            {description && <p>{description}</p>}
+          </div>
+          <button type="button" className="icon-button" onClick={onClose} aria-label="Close">×</button>
+        </header>
+        <div className="app-modal-body">{children}</div>
+      </div>
+    </div>
+  );
+}
+
 export function StudentDetailDrawer({ student, onClose }) {
   if (!student) return null;
   return (

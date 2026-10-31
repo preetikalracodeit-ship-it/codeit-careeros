@@ -53,6 +53,10 @@ studentRouter.post("/me/photo", photoUpload.single("file"), async (req: Request,
 studentRouter.get("/me/photo", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const photo = await downloadStudentPhoto(req.user!.id);
+    if (!photo) {
+      res.status(204).end();
+      return;
+    }
     res.status(200).type(photo.mimeType).set("Content-Length", String(photo.bytes.length)).send(photo.bytes);
   } catch (error) {
     next(error);

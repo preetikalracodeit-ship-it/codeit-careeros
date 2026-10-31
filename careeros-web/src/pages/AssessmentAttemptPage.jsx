@@ -49,13 +49,17 @@ export function AssessmentAttemptPage() {
     setError("");
     try {
       const data = await api.get(`/assessments/attempts/${attemptId}`);
-      setState(data);
-      if (data.status === "IN_PROGRESS") {
-        const initial = Object.fromEntries((data.questions || []).filter((question) => question.selectedOptionId).map((question) => [question.questionId, question.selectedOptionId]));
+      const derivedExpiry = data.expiresAt || (data.startedAt && data.durationMinutes
+        ? new Date(new Date(data.startedAt).getTime() + data.durationMinutes * 60_000).toISOString()
+        : null);
+      const normalized = { ...data, expiresAt: derivedExpiry };
+      setState(normalized);
+      if (normalized.status === "IN_PROGRESS") {
+        const initial = Object.fromEntries((normalized.questions || []).filter((question) => question.selectedOptionId).map((question) => [question.questionId, question.selectedOptionId]));
         setSelections(initial);
-        setSecondsLeft(remainingSeconds(data.expiresAt));
+        setSecondsLeft(derivedExpiry ? remainingSeconds(derivedExpiry) : null);
         setExpired(false);
-      } else if (data.status === "EXPIRED") {
+      } else if (normalized.status === "EXPIRED") {
         setExpired(true);
       }
     } catch (reason) {

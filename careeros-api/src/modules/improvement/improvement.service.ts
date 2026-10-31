@@ -6,7 +6,7 @@ import { getStudentReadiness } from "../students/readiness.service.js";
 import type { UpdateTaskInput } from "./improvement.schemas.js";
 
 type ProfileLike = { fullName: string; studentId: string; branch?: string | null; degree?: string | null };
-type ReadinessLike = { hasTarget: boolean; readinessPercent: number };
+type ReadinessLike = { hasTarget: boolean; readinessPercent: number | null };
 
 function isOverdue(task: ImprovementTaskDoc, today: number): boolean {
   if (!task.targetDate) return false;

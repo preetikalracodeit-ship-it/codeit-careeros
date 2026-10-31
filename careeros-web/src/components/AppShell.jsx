@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { auth, homeForRole } from "../lib/auth.js";
+import { api } from "../lib/api.js";
 import { ROLE_NAV, roleLabel, ROLE_TAGLINES } from "../lib/roles.js";
 import { useApi } from "../lib/useApi.js";
 import { Icon } from "./Icon.jsx";
@@ -10,7 +11,9 @@ export function AppShell({ children }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [open, setOpen] = useState(false);
-  const user = auth.getUser();
+  const [user, setUser] = useState(() => auth.getUser());
+  const [photoUrl, setPhotoUrl] = useState(null);
+  const [photoVersion, setPhotoVersion] = useState(0);
   const role = user?.role;
   const nav = ROLE_NAV[role] || [];
   const { data: workspace } = useApi("/workspace/me");
@@ -19,6 +22,37 @@ export function AppShell({ children }) {
     .find((item) => location.pathname === item.to || location.pathname.startsWith(`${item.to}/`));
   const college = workspace?.college;
   const department = workspace?.department;
+
+  useEffect(() => {
+    function onProfileUpdated() {
+      setUser(auth.getUser());
+      setPhotoVersion((value) => value + 1);
+    }
+    window.addEventListener("careeros:profile-updated", onProfileUpdated);
+    return () => window.removeEventListener("careeros:profile-updated", onProfileUpdated);
+  }, []);
+
+  useEffect(() => {
+    if (role !== "STUDENT") {
+      setPhotoUrl(null);
+      return undefined;
+    }
+    let active = true;
+    let objectUrl;
+    api.get("/students/me/photo", { responseType: "blob" }).then((blob) => {
+      if (!active) return;
+      if (!blob?.size) {
+        setPhotoUrl(null);
+        return;
+      }
+      objectUrl = URL.createObjectURL(blob);
+      setPhotoUrl(objectUrl);
+    }).catch(() => { if (active) setPhotoUrl(null); });
+    return () => {
+      active = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [role, photoVersion]);
 
   function signOut() {
     auth.clear();
@@ -60,7 +94,7 @@ export function AppShell({ children }) {
 
         <div className="app-sidebar-footer">
           <div className="app-user">
-            <Avatar name={user?.fullName} size={38} />
+            <Avatar name={user?.fullName} size={38} src={photoUrl} />
             <div>
               <strong>{user?.fullName || "CareerOS member"}</strong>
               <span>{user?.email || ""}</span>

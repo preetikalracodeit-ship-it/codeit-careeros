@@ -22,18 +22,23 @@ function formatDate(value) {
 }
 
 function Inline({ text }) {
-  const parts = String(text).split(/(\*\*[^*]+\*\*)/g);
-  return <>{parts.map((part, index) => part.startsWith("**") && part.endsWith("**") ? <strong key={index}>{part.slice(2, -2)}</strong> : <span key={index}>{part}</span>)}</>;
+  const parts = String(text).split(/(\*\*[^*]+\*\*|`[^`]+`)/g);
+  return <>{parts.map((part, index) => {
+    if (part.startsWith("**") && part.endsWith("**")) return <strong key={index}>{part.slice(2, -2)}</strong>;
+    if (part.startsWith("`") && part.endsWith("`")) return <code key={index}>{part.slice(1, -1)}</code>;
+    return <span key={index}>{part}</span>;
+  })}</>;
 }
 
 function Markdown({ content }) {
   const blocks = [];
-  let list = [];
+  let list = null;
+  let key = 0;
   const flush = () => {
-    if (list.length > 0) {
-      blocks.push(<ul key={`list-${blocks.length}`}>{list.map((item, index) => <li key={index}><Inline text={item} /></li>)}</ul>);
-      list = [];
-    }
+    if (!list) return;
+    const Tag = list.ordered ? "ol" : "ul";
+    blocks.push(<Tag key={`list-${key++}`}>{list.items.map((item, index) => <li key={index}><Inline text={item} /></li>)}</Tag>);
+    list = null;
   };
   for (const raw of String(content || "").split("\n")) {
     const line = raw.trim();
@@ -41,15 +46,23 @@ function Markdown({ content }) {
       flush();
       continue;
     }
-    if (line.startsWith("- ")) {
-      list.push(line.slice(2));
+    const ordered = /^\d+[.)]\s+/.test(line);
+    const bullet = line.startsWith("- ") || line.startsWith("* ");
+    if (bullet || ordered) {
+      if (list && list.ordered !== ordered) flush();
+      if (!list) list = { ordered, items: [] };
+      list.items.push(line.replace(/^([-*]|\d+[.)])\s+/, ""));
       continue;
     }
     flush();
     if (line === "---") {
-      blocks.push(<hr key={`hr-${blocks.length}`} />);
+      blocks.push(<hr key={`hr-${key++}`} />);
+    } else if (/^#{1,4}\s+/.test(line)) {
+      const level = Math.min(5, (line.match(/^#+/)?.[0].length || 1) + 1);
+      const Tag = `h${level}`;
+      blocks.push(<Tag key={`h-${key++}`}><Inline text={line.replace(/^#+\s+/, "")} /></Tag>);
     } else {
-      blocks.push(<p key={`p-${blocks.length}`}><Inline text={line} /></p>);
+      blocks.push(<p key={`p-${key++}`}><Inline text={line} /></p>);
     }
   }
   flush();

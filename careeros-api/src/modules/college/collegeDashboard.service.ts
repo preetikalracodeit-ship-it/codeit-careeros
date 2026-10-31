@@ -16,6 +16,7 @@ const METRIC_DEFINITIONS = [
   { metric: "studentsNotAssessed", definition: "Active students with no submitted assessment attempt." },
   { metric: "assessmentCompletionPercent", definition: "Active students with a submitted attempt divided by all active students." },
   { metric: "readinessEvaluated", definition: "Active students with a target career and at least one submitted assessment for that career." },
+  { metric: "studentsNeedingPreparation", definition: "Active students with a target career and at least one assessed skill below target." },
   { metric: "readinessDistribution", definition: "Evaluated students grouped by readiness percentage band." },
   { metric: "commonGaps", definition: "Skills where assessed students scored below the live career framework target." },
 ];
@@ -68,6 +69,7 @@ export async function getCollegeDashboard(scope: CollegeScope, filter: StudentFi
   let activeStudents = 0;
   let assessmentParticipants = 0;
   let readinessEvaluated = 0;
+  let studentsNeedingPreparation = 0;
   const bands = [0, 0, 0, 0];
   const gaps = new Map<number, GapAggregate>();
   const departments = new Map<number, DepartmentAggregate>();
@@ -84,14 +86,10 @@ export async function getCollegeDashboard(scope: CollegeScope, filter: StudentFi
     if (active && row.profile.targetCareerId &&
         hasAttemptForCareerInRange(context, row.profile.targetCareerId, filter, scope.timezone)) {
       const readiness = await getStudentReadiness(row.userId);
-      if (readiness.hasTarget && readiness.readinessPercent != null) {
-        readinessPercent = readiness.readinessPercent;
-        readinessEvaluated++;
-        if (readinessPercent < 25) bands[0]++;
-        else if (readinessPercent < 50) bands[1]++;
-        else if (readinessPercent < 75) bands[2]++;
-        else bands[3]++;
-
+      if (readiness.hasTarget) {
+        if (readiness.gaps.some((gap) => gap.assessed && !gap.metTarget)) {
+          studentsNeedingPreparation++;
+        }
         for (const gap of readiness.gaps) {
           if (!gap.assessed || gap.skillId == null) continue;
           const aggregate = gaps.get(gap.skillId) ?? {
@@ -103,6 +101,14 @@ export async function getCollegeDashboard(scope: CollegeScope, filter: StudentFi
           aggregate.assessed++;
           if (!gap.metTarget) aggregate.belowTarget++;
           gaps.set(gap.skillId, aggregate);
+        }
+        if (readiness.readinessPercent != null) {
+          readinessPercent = readiness.readinessPercent;
+          readinessEvaluated++;
+          if (readinessPercent < 25) bands[0]++;
+          else if (readinessPercent < 50) bands[1]++;
+          else if (readinessPercent < 75) bands[2]++;
+          else bands[3]++;
         }
       }
     }
@@ -150,6 +156,10 @@ export async function getCollegeDashboard(scope: CollegeScope, filter: StudentFi
     }))
     .sort((a, b) => b.studentsBelowTarget - a.studentsBelowTarget || a.skillName.localeCompare(b.skillName))
     .slice(0, 10);
+  const prioritizedGaps = commonGaps.map((gap, index) => ({
+    ...gap,
+    priorityRank: index + 1,
+  }));
 
   const departmentComparisons = [...departments.values()]
     .map((department) => ({
@@ -181,6 +191,7 @@ export async function getCollegeDashboard(scope: CollegeScope, filter: StudentFi
       programId: filter.programId ?? null,
       batchId: filter.batchId ?? null,
       sectionId: filter.sectionId ?? null,
+      semester: filter.semester ?? null,
       enrollmentStatus: filter.status ?? null,
       assessmentCompleted: filter.assessmentCompleted ?? null,
       assessmentDateFrom: filter.assessmentDateFrom ?? null,
@@ -194,13 +205,14 @@ export async function getCollegeDashboard(scope: CollegeScope, filter: StudentFi
     assessmentCompletionPercent: percentage(assessmentParticipants, activeStudents),
     readinessEvaluated,
     readinessUnavailable: activeStudents - readinessEvaluated,
+    studentsNeedingPreparation,
     readinessDistribution: [
       { band: "0-24%", students: bands[0] },
       { band: "25-49%", students: bands[1] },
       { band: "50-74%", students: bands[2] },
       { band: "75-100%", students: bands[3] },
     ],
-    commonGaps,
+    commonGaps: prioritizedGaps,
     departmentComparisons,
     batchComparisons,
     trendAvailable: false,

@@ -11,7 +11,7 @@ cvRouter.use(requireAuth, requireRole("STUDENT"));
 
 cvRouter.post("/", upload.single("file"), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    sendSuccess(res, await uploadCv(req.user!.id, req.file), { message: "CV uploaded", status: 201 });
+    sendSuccess(res, await uploadCv(req.user!.id, req.file), { message: "CV uploaded" });
   } catch (error) {
     next(error);
   }

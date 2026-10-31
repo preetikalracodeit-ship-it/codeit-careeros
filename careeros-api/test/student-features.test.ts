@@ -108,7 +108,7 @@ describe("CV analysis", () => {
       .post("/api/v1/cvs")
       .set(authHeader(token))
       .attach("file", bytes, { filename: "feature-cv.pdf", contentType: "application/pdf" });
-    expect(uploaded.status).toBe(201);
+    expect(uploaded.status).toBe(200);
     expect(uploaded.body.data).toMatchObject({
       originalFilename: "feature-cv.pdf",
       status: "PARSED",
@@ -146,6 +146,74 @@ describe("CV analysis", () => {
       .set(authHeader(token))
       .attach("file", Buffer.from("hello"), { filename: "cv.txt", contentType: "text/plain" });
     expect(response.status).toBe(400);
+  });
+});
+
+describe("readiness evidence", () => {
+  it("does not score unassessed skills as failed and excludes them from improvement gaps", async () => {
+    const { token, userId } = await registerStudent("partial-assessment@example.edu");
+    const ids = await seedTarget();
+    const notAssessed = await request(app)
+      .get("/api/v1/students/me/readiness")
+      .set(authHeader(token));
+    expect(notAssessed.status).toBe(200);
+    expect(notAssessed.body.data.readinessPercent).toBeUndefined();
+    expect(notAssessed.body.data).toMatchObject({
+      readinessLevel: "NOT_ASSESSED",
+      assessedSkills: 0,
+      improvements: [],
+    });
+
+    const { AssessmentTest } = await import("../src/models/AssessmentTest.js");
+    const { AssessmentAttempt } = await import("../src/models/AssessmentAttempt.js");
+    const { SkillScore } = await import("../src/models/SkillScore.js");
+    await AssessmentTest.create({
+      _id: 401,
+      careerId: ids.careerId,
+      title: "Partial backend assessment",
+      durationMinutes: 30,
+      published: true,
+    });
+    await AssessmentAttempt.create({
+      _id: 402,
+      attemptCode: "PARTIAL-ATTEMPT",
+      userId,
+      assessmentId: 401,
+      status: "SUBMITTED",
+      startedAt: new Date("2026-10-30T09:00:00.000Z"),
+      expiresAt: new Date("2026-10-30T09:30:00.000Z"),
+      submittedAt: new Date("2026-10-30T09:20:00.000Z"),
+      totalQuestions: 5,
+      answeredCount: 5,
+    });
+    await SkillScore.create({
+      _id: 403,
+      attemptId: 402,
+      skillId: ids.javascriptId,
+      scorePercent: 50,
+      correctCount: 2,
+      questionCount: 4,
+      weightPercent: 60,
+      targetPercent: 75,
+      level: "DEVELOPING",
+    });
+
+    const partial = await request(app)
+      .get("/api/v1/students/me/readiness")
+      .set(authHeader(token));
+    expect(partial.status).toBe(200);
+    expect(partial.body.data).toMatchObject({
+      readinessPercent: 67,
+      readinessLevel: "GOOD",
+      assessedSkills: 1,
+      improvements: [{ skillId: ids.javascriptId, assessed: true }],
+    });
+    expect(partial.body.data.gaps).toEqual(expect.arrayContaining([
+      expect.objectContaining({ skillId: ids.sqlId, assessed: false }),
+    ]));
+    expect(partial.body.data.improvements).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ skillId: ids.sqlId }),
+    ]));
   });
 });
 
@@ -274,6 +342,223 @@ describe("improvement plans", () => {
       .set(authHeader((await registerStudent("third.features@example.edu")).token))
       .send({ status: "OVERDUE" });
     expect(staffOnly.status).toBe(400);
+  });
+});
+
+describe("college improvement plan routes and tenant scope", () => {
+  it("serves Spring-compatible paths and hides plans belonging to another institution", async () => {
+    const staff = await registerStudent("plans-admin@example.edu");
+    const foreignStudent = await registerStudent("foreign-student@example.edu");
+    const { User } = await import("../src/models/User.js");
+    const { Institution } = await import("../src/models/Institution.js");
+    const { InstitutionMembership } = await import("../src/models/InstitutionMembership.js");
+    const { StudentProfile } = await import("../src/models/StudentProfile.js");
+    const { ImprovementPlan } = await import("../src/models/ImprovementPlan.js");
+
+    await User.updateOne({ _id: staff.userId }, { $set: { role: "COLLEGE_ADMIN" } });
+    await Institution.create({
+      _id: 701,
+      code: "PLAN-ROUTE-TEST",
+      name: "Plan Route Test College",
+      status: "ACTIVE",
+    });
+    await InstitutionMembership.create({
+      _id: 702,
+      userId: staff.userId,
+      institutionId: 701,
+      designation: "COLLEGE_ADMIN",
+      status: "ACTIVE",
+      scopeType: "INSTITUTION",
+      scopeId: null,
+    });
+    const foreignProfile = await StudentProfile.findOne({ userId: foreignStudent.userId }).lean();
+    expect(foreignProfile).not.toBeNull();
+    await ImprovementPlan.create({
+      _id: 703,
+      studentProfileId: foreignProfile!._id,
+      userId: foreignStudent.userId,
+      title: "Another institution's private plan",
+      status: "ACTIVE",
+    });
+
+    const listed = await request(app)
+      .get("/api/v1/college/improvement-plans")
+      .set(authHeader(staff.token));
+    expect(listed.status).toBe(200);
+    expect(listed.body.data).toEqual({ items: [], total: 0 });
+
+    const foreignPlan = await request(app)
+      .get("/api/v1/college/improvement-plans/703")
+      .set(authHeader(staff.token));
+    expect(foreignPlan.status).toBe(404);
+  });
+
+  it("creates scoped plans with enrollment IDs and advances plan status with completed tasks", async () => {
+    const staff = await registerStudent("plan-staff@example.edu");
+    const student = await registerStudent("plan-student@example.edu");
+    const { User } = await import("../src/models/User.js");
+    const { Institution } = await import("../src/models/Institution.js");
+    const { InstitutionMembership } = await import("../src/models/InstitutionMembership.js");
+    const { Department } = await import("../src/models/Department.js");
+    const { Program } = await import("../src/models/Program.js");
+    const { AcademicYear } = await import("../src/models/AcademicYear.js");
+    const { Batch } = await import("../src/models/Batch.js");
+    const { StudentEnrollment } = await import("../src/models/StudentEnrollment.js");
+    const { StudentProfile } = await import("../src/models/StudentProfile.js");
+
+    await User.updateOne({ _id: staff.userId }, { $set: { role: "TPO" } });
+    await Institution.create({ _id: 711, code: "IMPROVEMENT-TEST", name: "Improvement Test College", status: "ACTIVE" });
+    await Department.create({ _id: 712, institutionId: 711, code: "CSE", name: "Computer Science", status: "ACTIVE" });
+    await Program.create({ _id: 713, institutionId: 711, departmentId: 712, code: "BTECH", name: "B.Tech", status: "ACTIVE" });
+    await AcademicYear.create({ _id: 714, institutionId: 711, label: "2026-27", active: true });
+    await Batch.create({ _id: 715, programId: 713, academicYearId: 714, label: "2026", graduationYear: 2026, status: "ACTIVE" });
+    const profile = await StudentProfile.findOne({ userId: student.userId }).lean();
+    expect(profile).not.toBeNull();
+    await StudentEnrollment.create({
+      _id: 716,
+      studentProfileId: profile!._id,
+      institutionId: 711,
+      departmentId: 712,
+      programId: 713,
+      batchId: 715,
+      rollNumber: "I-001",
+      status: "ACTIVE",
+    });
+    await InstitutionMembership.create({
+      _id: 717,
+      userId: staff.userId,
+      institutionId: 711,
+      designation: "TPO",
+      status: "ACTIVE",
+      scopeType: "INSTITUTION",
+      scopeId: null,
+    });
+
+    const created = await request(app)
+      .post("/api/v1/college/improvement-plans")
+      .set(authHeader(staff.token))
+      .send({
+        enrollmentId: 716,
+        title: "Build backend skills",
+        tasks: [{ title: "Complete API project", targetDate: "2026-11-30" }],
+      });
+    expect(created.status).toBe(200);
+      expect(created.body.message).toBe("Improvement plan created");
+      expect(created.body.data).toMatchObject({
+      studentEnrollmentId: 716,
+      studentProfileId: profile!._id,
+      studentName: profile!.fullName,
+      rollNumber: "I-001",
+      departmentName: "Computer Science",
+      programName: "B.Tech",
+      status: "ACTIVE",
+      totalTasks: 1,
+      tasks: [{ title: "Complete API project", ownerUserId: staff.userId }],
+    });
+
+    const planId = created.body.data.id as number;
+    const completed = await request(app)
+      .patch(`/api/v1/college/improvement-plans/${planId}/tasks/${created.body.data.tasks[0].id}`)
+      .set(authHeader(staff.token))
+      .send({ status: "COMPLETED" });
+    expect(completed.status).toBe(200);
+    expect(completed.body.data.status).toBe("COMPLETED");
+    expect(completed.body.data.tasks[0].completedAt).toBeTruthy();
+
+    const listed = await request(app)
+      .get("/api/v1/college/improvement-plans?studentEnrollmentId=716")
+      .set(authHeader(staff.token));
+    expect(listed.status).toBe(200);
+    expect(listed.body.data).toMatchObject({ total: 1, items: [{ id: planId }] });
+
+    const invalidStatus = await request(app)
+      .patch(`/api/v1/college/improvement-plans/${planId}/tasks/${created.body.data.tasks[0].id}`)
+      .set(authHeader(staff.token))
+      .send({ status: "NOT_A_TASK_STATUS" });
+    expect(invalidStatus.status).toBe(400);
+
+    const invalidDate = await request(app)
+      .post("/api/v1/college/improvement-plans")
+      .set(authHeader(staff.token))
+      .send({
+        enrollmentId: 716,
+        title: "Invalid date plan",
+        tasks: [{ title: "Invalid date", targetDate: "2026-02-31" }],
+      });
+    expect(invalidDate.status).toBe(400);
+
+    const { Career } = await import("../src/models/Career.js");
+    const { CareerSkill } = await import("../src/models/CareerSkill.js");
+    const { Skill } = await import("../src/models/Skill.js");
+    const { AssessmentTest } = await import("../src/models/AssessmentTest.js");
+    const { AssessmentAttempt } = await import("../src/models/AssessmentAttempt.js");
+    const { SkillScore } = await import("../src/models/SkillScore.js");
+    await Career.create({
+      _id: 721,
+      name: "Backend Engineer",
+      category: "SOFTWARE_DEVELOPMENT",
+      difficultyLevel: "INTERMEDIATE",
+      published: true,
+    });
+    await Skill.create([
+      { _id: 722, name: "TypeScript", category: "PROGRAMMING_LANGUAGES", active: true },
+      { _id: 723, name: "MongoDB", category: "DATABASES", active: true },
+      { _id: 724, name: "Testing", category: "SOFTWARE_ENGINEERING", active: true },
+    ]);
+    await CareerSkill.create([
+      { _id: 725, careerId: 721, skillId: 722, weightPercent: 50, requiredLevel: "INTERMEDIATE", targetPercent: 75 },
+      { _id: 726, careerId: 721, skillId: 723, weightPercent: 30, requiredLevel: "INTERMEDIATE", targetPercent: 70 },
+      { _id: 727, careerId: 721, skillId: 724, weightPercent: 20, requiredLevel: "INTERMEDIATE", targetPercent: 65 },
+    ]);
+    await StudentProfile.updateOne(
+      { _id: profile!._id },
+      { $set: { targetCareerId: 721, targetCareerName: "Backend Engineer" } },
+    );
+    await AssessmentTest.create({
+      _id: 728,
+      careerId: 721,
+      title: "Backend fundamentals",
+      durationMinutes: 30,
+      published: true,
+    });
+    await AssessmentAttempt.create({
+      _id: 729,
+      attemptCode: "improvement-plan-assessment",
+      userId: student.userId,
+      assessmentId: 728,
+      status: "SUBMITTED",
+      startedAt: new Date(),
+      expiresAt: new Date(),
+      submittedAt: new Date(),
+      totalQuestions: 10,
+      answeredCount: 10,
+      overallScore: 60,
+    });
+    await SkillScore.create([
+      { _id: 730, attemptId: 729, skillId: 722, scorePercent: 40, correctCount: 4, questionCount: 10, weightPercent: 50, targetPercent: 75, level: "NEEDS_IMPROVEMENT" },
+      { _id: 731, attemptId: 729, skillId: 723, scorePercent: 90, correctCount: 9, questionCount: 10, weightPercent: 30, targetPercent: 70, level: "STRONG" },
+    ]);
+
+    const generated = await request(app)
+      .post("/api/v1/college/improvement-plans/generate")
+      .set(authHeader(staff.token))
+      .send({ enrollmentId: 716, horizonDays: 30 });
+    expect(generated.status).toBe(200);
+      const generatedTargetDate = Date.parse(generated.body.data.tasks[0].targetDate);
+      expect(generatedTargetDate).toBeGreaterThan(Date.now() + 28 * 24 * 60 * 60 * 1000);
+      expect(generatedTargetDate).toBeLessThan(Date.now() + 32 * 24 * 60 * 60 * 1000);
+      expect(generated.body.data).toMatchObject({
+      studentEnrollmentId: 716,
+      title: "Readiness plan - Backend Engineer",
+      status: "ACTIVE",
+      totalTasks: 1,
+      tasks: [{
+        skillId: 722,
+        evidenceSource: "ASSESSMENT",
+        baselineScore: 40,
+        targetScore: 75,
+      }],
+    });
   });
 });
 
@@ -423,6 +708,13 @@ describe("college student cohort access", () => {
       name: "Computer Science",
       status: "ACTIVE",
     });
+    await Department.create({
+      _id: 817,
+      institutionId: 810,
+      code: "ECE",
+      name: "Electronics",
+      status: "ACTIVE",
+    });
     await Program.create({
       _id: 812,
       institutionId: 810,
@@ -431,12 +723,27 @@ describe("college student cohort access", () => {
       name: "B.Tech",
       status: "ACTIVE",
     });
+    await Program.create({
+      _id: 818,
+      institutionId: 810,
+      departmentId: 817,
+      code: "BE-ECE",
+      name: "B.E. Electronics",
+      status: "ACTIVE",
+    });
     await AcademicYear.create({ _id: 813, institutionId: 810, label: "2026-27", active: true });
     await Batch.create({
       _id: 814,
       programId: 812,
       academicYearId: 813,
       label: "2026",
+      status: "ACTIVE",
+    });
+    await Batch.create({
+      _id: 819,
+      programId: 818,
+      academicYearId: 813,
+      label: "2026-ECE",
       status: "ACTIVE",
     });
     await InstitutionMembership.create({
@@ -449,6 +756,13 @@ describe("college student cohort access", () => {
       scopeId: 811,
     });
 
+    const template = await request(app)
+      .get("/api/v1/college/students/import/template.csv")
+      .set(authHeader(staff.token));
+    expect(template.status).toBe(200);
+    expect(template.headers["content-disposition"]).toContain("careeros-student-import-template.csv");
+    expect(template.text).toContain("full_name,email,roll_number,department_code,program_code,batch_label");
+
     const preview = await request(app)
       .post("/api/v1/college/students/import/preview")
       .set(authHeader(staff.token))
@@ -457,31 +771,34 @@ describe("college student cohort access", () => {
         Buffer.from([
           "full_name,email,roll_number,department_code,program_code,batch_label",
           "New Student,new.import@example.edu,IMP-001,CSE,BTECH,2026",
+          "Out of Scope,out.of.scope@example.edu,IMP-002,ECE,BE-ECE,2026-ECE",
           "Duplicate Student,new.import@example.edu,IMP-002,CSE,BTECH,2026",
         ].join("\r\n")),
         { filename: "students.csv", contentType: "text/csv" },
       );
     expect(preview.status).toBe(200);
     expect(preview.body.data).toMatchObject({
-      totalRows: 2,
+      totalRows: 3,
       readyRows: 1,
-      rejectedRows: 1,
+      rejectedRows: 2,
     });
-    expect(preview.body.data.rows.map((row: { status: string }) => row.status)).toEqual(["READY", "REJECTED"]);
+    expect(preview.body.data.rows.map((row: { status: string }) => row.status)).toEqual(["READY", "REJECTED", "REJECTED"]);
+    expect(preview.body.data.rows[1].message).toContain("outside your assigned academic scope");
     const jobId = preview.body.data.jobId as number;
 
     const committed = await request(app)
       .post(`/api/v1/college/students/import/${jobId}/commit`)
       .set(authHeader(staff.token));
     expect(committed.status).toBe(200);
-    expect(committed.body.data.rows.map((row: { status: string }) => row.status)).toEqual(["CREATED", "REJECTED"]);
+    expect(committed.body.data.rows.map((row: { status: string }) => row.status)).toEqual(["CREATED", "REJECTED", "REJECTED"]);
     expect(committed.body.data).toMatchObject({
       jobId,
       status: "COMMITTED",
-      totalRows: 2,
+      totalRows: 3,
       createdRows: 1,
-      rejectedRows: 1,
+      rejectedRows: 2,
     });
+    expect(committed.body.data.errorCsv).toContain("outside your assigned academic scope");
     expect(committed.body.data.errorCsv).toContain("Duplicate email within the file");
     expect(await StudentEnrollment.exists({ institutionId: 810, rollNumber: "IMP-001" })).toBeTruthy();
     const storedJob = await CsvImportJob.findById(jobId).lean();
@@ -491,6 +808,29 @@ describe("college student cohort access", () => {
       .post(`/api/v1/college/students/import/${jobId}/commit`)
       .set(authHeader(staff.token));
     expect(replay.status).toBe(409);
+
+    const changedScopePreview = await request(app)
+      .post("/api/v1/college/students/import/preview")
+      .set(authHeader(staff.token))
+      .attach(
+        "file",
+        Buffer.from([
+          "full_name,email,roll_number,department_code,program_code,batch_label",
+          "Scope Changed,scope.changed@example.edu,IMP-004,CSE,BTECH,2026",
+        ].join("\r\n")),
+        { filename: "scope-change.csv", contentType: "text/csv" },
+      );
+    expect(changedScopePreview.status).toBe(200);
+    await InstitutionMembership.updateOne(
+      { _id: 815 },
+      { $set: { scopeId: 817 } },
+    );
+    const changedScopeCommit = await request(app)
+      .post(`/api/v1/college/students/import/${changedScopePreview.body.data.jobId}/commit`)
+      .set(authHeader(staff.token));
+    expect(changedScopeCommit.status).toBe(200);
+    expect(changedScopeCommit.body.data.rows[0]).toMatchObject({ status: "REJECTED" });
+    expect(await StudentEnrollment.exists({ institutionId: 810, rollNumber: "IMP-004" })).toBeFalsy();
   });
 
   it("limits cohort reads and enrollment updates to the staff member's assigned tenant scope", async () => {
@@ -535,6 +875,30 @@ describe("college student cohort access", () => {
       { _id: 714, programId: 712, academicYearId: 713, label: "2026", status: "ACTIVE" },
       { _id: 724, programId: 722, academicYearId: 723, label: "2026", status: "ACTIVE" },
     ]);
+    const { Career } = await import("../src/models/Career.js");
+    const { CareerSkill } = await import("../src/models/CareerSkill.js");
+    const { Skill } = await import("../src/models/Skill.js");
+    const { SkillScore } = await import("../src/models/SkillScore.js");
+    await Career.create({
+      _id: 731,
+      name: "Scoped Career",
+      category: "SOFTWARE",
+      difficultyLevel: "INTERMEDIATE",
+      published: true,
+    });
+    await Skill.create({ _id: 735, name: "Scoped Skill", category: "PROGRAMMING", active: true });
+    await CareerSkill.create({
+      _id: 736,
+      careerId: 731,
+      skillId: 735,
+      weightPercent: 100,
+      requiredLevel: "INTERMEDIATE",
+      targetPercent: 75,
+    });
+    await StudentProfile.updateOne(
+      { _id: firstProfile!._id },
+      { $set: { targetCareerId: 731, targetCareerName: "Scoped Career" } },
+    );
     await StudentEnrollment.create([
       {
         _id: 715,
@@ -576,6 +940,17 @@ describe("college student cohort access", () => {
       totalQuestions: 1,
       answeredCount: 1,
     });
+    await SkillScore.create({
+      _id: 737,
+      attemptId: 732,
+      skillId: 735,
+      scorePercent: 50,
+      correctCount: 1,
+      questionCount: 2,
+      weightPercent: 100,
+      targetPercent: 75,
+      level: "DEVELOPING",
+    });
     await User.updateOne({ _id: staff.userId }, { $set: { role: "HOD" } });
     await InstitutionMembership.create({
       _id: 716,
@@ -586,6 +961,43 @@ describe("college student cohort access", () => {
       scopeType: "DEPARTMENT",
       scopeId: 711,
     });
+    const { CvDocument } = await import("../src/models/CvDocument.js");
+    const { LinkedInProfile } = await import("../src/models/LinkedInProfile.js");
+    await CvDocument.create({
+      _id: 733,
+      userId: firstStudent.userId,
+      originalFilename: "student-resume.pdf",
+      contentType: "application/pdf",
+      fileSize: 64,
+      status: "PARSED",
+      extractedText: "Computer science student with project experience and education.",
+      uploadedAt: new Date("2026-10-01T00:00:00.000Z"),
+    });
+    await LinkedInProfile.create({
+      _id: 734,
+      userId: firstStudent.userId,
+      profileUrl: "https://www.linkedin.com/in/scoped-student",
+      headline: "Computer science student",
+      educationText: "Computer Science",
+    });
+
+    const studentDetail = await request(app)
+      .get("/api/v1/college/students/715")
+      .set(authHeader(staff.token));
+    expect(studentDetail.status).toBe(200);
+    expect(studentDetail.body.data).toMatchObject({
+      profileCompletion: {
+        status: "INCOMPLETE",
+        completionPercent: 38,
+        totalFields: 8,
+      },
+      readiness: { status: "COMPLETED", assessedSkills: 1 },
+      cvAnalysis: { hasCv: true, status: "COMPLETED", sourceStatus: "PARSED" },
+      linkedInAnalysis: { hasProfile: true, status: "COMPLETED" },
+      permissions: { canViewCvAnalysis: true },
+    });
+    expect(studentDetail.body.data.cvAnalysis.assessedAt).toBeTruthy();
+    expect(studentDetail.body.data.linkedInAnalysis.assessedAt).toBeTruthy();
 
     const cohort = await request(app)
       .get("/api/v1/college/students?page=0&size=10")
@@ -600,7 +1012,20 @@ describe("college student cohort access", () => {
       id: 715,
       studentId: firstProfile!.studentId,
       rollNumber: "A-001",
+      assessmentStatus: "COMPLETED",
     });
+    const semesterFilter = await request(app)
+      .get("/api/v1/college/students?semester=2")
+      .set(authHeader(staff.token));
+    expect(semesterFilter.status).toBe(200);
+    expect(semesterFilter.body.data.totalElements).toBe(0);
+    const preparationFilter = await request(app)
+      .get("/api/v1/college/students?needsPreparation=true")
+      .set(authHeader(staff.token));
+    expect(preparationFilter.status).toBe(200);
+    expect(preparationFilter.body.data.items).toMatchObject([
+      { id: 715, readinessPercent: 67 },
+    ]);
 
     const dashboard = await request(app)
       .get("/api/v1/college/dashboard?departmentId=711")
@@ -613,8 +1038,17 @@ describe("college student cohort access", () => {
       assessmentParticipants: 1,
       studentsNotAssessed: 0,
       assessmentCompletionPercent: 100,
-      readinessEvaluated: 0,
-      readinessUnavailable: 1,
+      readinessEvaluated: 1,
+      readinessUnavailable: 0,
+      studentsNeedingPreparation: 1,
+      commonGaps: [{
+        skillId: "735",
+        skillName: "Scoped Skill",
+        studentsBelowTarget: 1,
+        assessedStudents: 1,
+        percentBelowTarget: 100,
+        priorityRank: 1,
+      }],
     });
 
     const datedDashboard = await request(app)
@@ -651,6 +1085,13 @@ describe("college student cohort access", () => {
     expect(rosterReport.text).toContain("Student ID,Roll Number,Full Name");
     expect(rosterReport.text).toContain(firstProfile!.studentId);
     expect(rosterReport.text).toContain("'=SUM(1,1)");
+
+    const skillGapReport = await request(app)
+      .get("/api/v1/college/reports/export.csv?type=department-skill-gaps")
+      .set(authHeader(staff.token));
+    expect(skillGapReport.status).toBe(200);
+    expect(skillGapReport.text).toContain("Department,Training Priority Rank,Skill");
+    expect(skillGapReport.text).toContain("Computer Science,1,Scoped Skill,1,1,100%");
 
     const studentExport = await request(app)
       .get("/api/v1/college/students/export.csv")
@@ -876,5 +1317,58 @@ describe("AI assistant", () => {
     expect(reply.status).toBe(200);
     expect(reply.body.data.reply).toContain("SQL");
     expect(reply.body.data.toolsUsed).toEqual([]);
+  });
+
+  it("uses configured providers and falls back to grounded guidance on provider failure", async () => {
+    const { token } = await registerStudent();
+    await seedTarget();
+    const { env } = await import("../src/config/env.js");
+    const originalKey = env.AI_API_KEY;
+    const originalRetries = env.AI_MAX_RETRIES;
+    env.AI_API_KEY = "test-provider-key";
+    env.AI_MAX_RETRIES = 0;
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({
+        choices: [{ message: { content: "Provider-generated response." } }],
+      }), { status: 200 }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    try {
+      const status = await request(app).get("/api/v1/ai/status").set(authHeader(token));
+      expect(status.body.data).toMatchObject({
+        configured: true,
+        provider: "openai",
+        model: "gpt-4o-mini",
+        mode: "llm",
+      });
+
+      const session = await request(app).post("/api/v1/ai/chat/sessions").set(authHeader(token)).send({});
+      const reply = await request(app)
+        .post(`/api/v1/ai/chat/sessions/${session.body.data.id}/messages`)
+        .set(authHeader(token))
+        .send({ message: "What are my biggest skill gaps?" });
+      expect(reply.status).toBe(200);
+      expect(reply.body.data).toMatchObject({
+        reply: "Provider-generated response.",
+        offline: false,
+        mode: "llm",
+      });
+      expect(fetchMock).toHaveBeenCalledOnce();
+
+      fetchMock.mockResolvedValueOnce(new Response("", { status: 503 }));
+      const fallbackSession = await request(app).post("/api/v1/ai/chat/sessions").set(authHeader(token)).send({});
+      const fallback = await request(app)
+        .post(`/api/v1/ai/chat/sessions/${fallbackSession.body.data.id}/messages`)
+        .set(authHeader(token))
+        .send({ message: "What are my biggest skill gaps?" });
+      expect(fallback.status).toBe(200);
+      expect(fallback.body.data).toMatchObject({ offline: true, mode: "offline-smart" });
+      expect(fallback.body.data.reply).toContain("Backend Engineer");
+    } finally {
+      env.AI_API_KEY = originalKey;
+      env.AI_MAX_RETRIES = originalRetries;
+      vi.unstubAllGlobals();
+    }
   });
 });

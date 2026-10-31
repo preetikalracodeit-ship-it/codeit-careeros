@@ -141,6 +141,7 @@ export function StudentCvPage() {
   if (error && !document) return <main className="workspace-page"><ErrorBlock message={error} onRetry={load} /></main>;
 
   const parsed = document?.status === "PARSED";
+  const previewable = (document?.contentType || "").includes("pdf") || /\.pdf$/i.test(document?.originalFilename || "");
   const matched = analysis?.matchedSkills || [];
   const missing = analysis?.missingSkills || [];
   const detected = analysis?.detectedSkills || [];
@@ -242,7 +243,15 @@ export function StudentCvPage() {
     {preview && <div className="dialog-backdrop" onClick={closePreview} role="presentation">
       <div className="cv-preview" onClick={(event) => event.stopPropagation()}>
         <header><strong>{document?.originalFilename}</strong><button className="icon-button" onClick={closePreview} aria-label="Close preview">x</button></header>
-        <iframe title="CV preview" src={preview} />
+        {previewable ? <iframe title="CV preview" src={preview} /> : <div className="cv-preview-fallback">
+          <Icon name="file" size={32} />
+          <h3>Preview is available for PDF files</h3>
+          <p>Word documents open best in Word, Pages or Google Docs. Download your CV to view the full file.</p>
+          <div className="button-row">
+            <button className="primary-button" disabled={busy === "download"} onClick={download}><Icon name="download" size={14} /> {busy === "download" ? "Downloading…" : "Download CV"}</button>
+            <button className="secondary-button" onClick={closePreview}>Close</button>
+          </div>
+        </div>}
       </div>
     </div>}
   </main>;

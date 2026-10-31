@@ -65,7 +65,11 @@ export async function listReports(userId: number) {
       generatedAt: now,
       available: hasTarget && hasAttempts,
       statusDetail: hasTarget
-        ? (hasAttempts ? `${readiness.readinessPercent}% ready` : "No assessment submitted yet")
+        ? (hasAttempts
+          ? readiness.readinessPercent == null
+            ? "Assessment submitted; no skill score is available yet"
+            : `${readiness.readinessPercent}% ready`
+          : "No assessment submitted yet")
         : "No target career selected",
     },
     {
@@ -210,7 +214,9 @@ async function readinessPdf(userId: number) {
     doc.keyValue("Student ID", student.studentId);
     doc.keyValue("Target career", readiness.targetCareerName ?? "Not selected yet");
     doc.heading("Overall readiness");
-    doc.keyValue("Readiness", `${readiness.readinessPercent}% (${pretty(readiness.readinessLevel)})`);
+    doc.keyValue("Readiness", readiness.readinessPercent == null
+      ? "Not assessed"
+      : `${readiness.readinessPercent}% (${pretty(readiness.readinessLevel)})`);
     doc.keyValue("Skills assessed", `${readiness.assessedSkills} of ${readiness.totalSkills} (${readiness.metSkills} on target, ${readiness.submittedAttempts} submissions)`);
     doc.heading("Strengths");
     if (readiness.strengths.length === 0) {
@@ -266,7 +272,7 @@ async function gapPdf(userId: number) {
     doc.keyValue("Name", student.fullName);
     doc.keyValue("Student ID", student.studentId);
     doc.keyValue("Target career", readiness.targetCareerName ?? "Not selected yet");
-    doc.keyValue("Skills on target", `${readiness.metSkills} of ${readiness.totalSkills}`);
+    doc.keyValue("Skills on target", `${readiness.metSkills} of ${readiness.assessedSkills} assessed`);
     doc.heading("Required skills - current vs target (largest gaps first)");
     doc.table(["Skill", "Current", "Required", "Gap"], sorted.map((gap) => [
       gap.skillName,
@@ -313,8 +319,10 @@ async function overallPdf(userId: number) {
     doc.keyValue("Target career", overall.readiness.hasTarget ? overall.readiness.targetCareerName : "Not selected yet");
     doc.heading("Career readiness");
     if (overall.readiness.hasTarget) {
-      doc.keyValue("Readiness", `${overall.readiness.readinessPercent}% (${pretty(overall.readiness.readinessLevel)})`);
-      doc.keyValue("Gaps", `${overall.readiness.metSkills} of ${overall.readiness.totalSkills} skills on target`);
+      doc.keyValue("Readiness", overall.readiness.readinessPercent == null
+        ? "Not assessed"
+        : `${overall.readiness.readinessPercent}% (${pretty(overall.readiness.readinessLevel)})`);
+      doc.keyValue("Gaps", `${overall.readiness.metSkills} of ${overall.readiness.assessedSkills} assessed skills on target`);
     } else {
       doc.text("No target career selected yet - choose one to unlock readiness, gaps and roadmap.");
     }
@@ -355,4 +363,3 @@ export async function generateReportPdf(userId: number, type: string) {
       throw AppError.badRequest(`Unknown report type: ${type} (expected readiness, assessment, gap-analysis, roadmap or overall)`);
   }
 }
-

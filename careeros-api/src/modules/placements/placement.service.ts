@@ -127,6 +127,9 @@ async function eligibility(
     if (!readiness.hasTarget) {
       return { eligible: false, reason: "Readiness is unavailable; the drive requires a minimum readiness score" };
     }
+    if (readiness.readinessPercent == null) {
+      return { eligible: false, reason: "Readiness is unavailable; the drive requires a minimum readiness score" };
+    }
     if (readiness.readinessPercent < drive.minimumReadinessPercent) {
       return { eligible: false, reason: `Readiness is below the drive minimum of ${drive.minimumReadinessPercent}%` };
     }

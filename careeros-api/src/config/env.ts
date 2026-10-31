@@ -4,15 +4,16 @@ import { fileURLToPath } from "node:url";
 import { z } from "zod";
 
 const configDir = path.dirname(fileURLToPath(import.meta.url));
-dotenv.config({ path: path.resolve(configDir, "../../../careeros-backend/.env") });
-// Shared repo-root .env (e.g. GOOGLE_CLIENT_ID). Existing backend values win.
-dotenv.config({ path: path.resolve(configDir, "../../../.env") });
+dotenv.config({ path: path.resolve(configDir, "../../.env") });
 
-// The existing Spring backend stores its local Mongo connection string under
-// MONGO_URI. Keep MONGODB_URI as the deployment override used by the API.
-if (!process.env.MONGODB_URI && process.env.MONGO_URI) {
-  process.env.MONGODB_URI = process.env.MONGO_URI;
-}
+const booleanEnv = z.preprocess((value) => {
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (["true", "1", "yes", "y", "on"].includes(normalized)) return true;
+    if (["false", "0", "no", "n", "off"].includes(normalized)) return false;
+  }
+  return value;
+}, z.boolean());
 
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
@@ -41,8 +42,23 @@ const envSchema = z.object({
   SMTP_USER: z.string().default(""),
   SMTP_PASSWORD: z.string().default(""),
   SMTP_FROM: z.string().default("CareerOS <no-reply@example.com>"),
-  SMTP_SECURE: z.stringbool().default(false),
+  SMTP_SECURE: booleanEnv.default(false),
   FRONTEND_BASE_URL: z.string().url().default("http://localhost:5173"),
+  AI_PROVIDER: z.enum(["openai", "gemini", "ollama", "custom", "disabled"]).default("openai"),
+  AI_MODEL: z.string().default("gpt-4o-mini"),
+  AI_BASE_URL: z.string().default("").transform((value) =>
+    value.trim() || "https://api.openai.com/v1",
+  ).pipe(z.string().url()),
+  AI_API_KEY: z.string().default(""),
+  GEMINI_API_KEY: z.string().default(""),
+  GEMINI_MODEL: z.string().default(""),
+  AI_OFFLINE_FALLBACK: booleanEnv.default(true),
+  AI_HISTORY_LIMIT: z.coerce.number().int().min(1).max(100).default(20),
+  AI_MAX_TOOL_ITERATIONS: z.coerce.number().int().min(0).max(20).default(6),
+  AI_REQUEST_TIMEOUT_SECONDS: z.coerce.number().int().min(1).max(300).default(120),
+  AI_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().min(1).max(1000).default(20),
+  AI_MAX_RETRIES: z.coerce.number().int().min(0).max(3).default(2),
+  AI_RETRY_BACKOFF_MILLIS: z.coerce.number().int().min(0).max(10000).default(800),
 });
 
 const parsed = envSchema.safeParse(process.env);

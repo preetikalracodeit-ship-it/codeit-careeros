@@ -33,6 +33,16 @@ import {
   PlatformStudentsPage,
 } from "./pages/workspace/PlatformPages.jsx";
 import {
+  AdminAiPage,
+  AdminAssessmentDetailPage,
+  AdminAssessmentsPage,
+  AdminCareersPage,
+  AdminProjectsPage,
+  AdminReportsPage,
+  AdminRoadmapsPage,
+  AdminSkillsPage,
+} from "./pages/workspace/AdminMasterPages.jsx";
+import {
   CollegeBatchesPage,
   CollegeDashboardPage,
   CollegeDepartmentsPage,
@@ -42,6 +52,7 @@ import {
   CollegeStaffPage,
   CollegeStudentsPage,
 } from "./pages/workspace/CollegePages.jsx";
+import { CollegePlanDetailPage, CollegePlansPage } from "./pages/workspace/CollegePlanPages.jsx";
 import {
   TpoDashboardPage,
   TpoPlacementPage,
@@ -94,6 +105,14 @@ const roleRoutes = [
       ["/platform/colleges/:id", PlatformCollegeDetailPage],
       ["/platform/staff", PlatformStaffPage],
       ["/platform/students", PlatformStudentsPage],
+      ["/platform/skills", AdminSkillsPage],
+      ["/platform/careers", AdminCareersPage],
+      ["/platform/assessments", AdminAssessmentsPage],
+      ["/platform/assessments/:id", AdminAssessmentDetailPage],
+      ["/platform/roadmaps", AdminRoadmapsPage],
+      ["/platform/projects", AdminProjectsPage],
+      ["/platform/reports", AdminReportsPage],
+      ["/platform/ai", AdminAiPage],
       ["/platform/activity", PlatformActivityPage],
       ["/platform/settings", PlatformSettingsPage],
     ],
@@ -107,6 +126,8 @@ const roleRoutes = [
       ["/college/batches", CollegeBatchesPage],
       ["/college/staff", CollegeStaffPage],
       ["/college/students", CollegeStudentsPage],
+      ["/college/plans", CollegePlansPage],
+      ["/college/plans/:id", CollegePlanDetailPage],
       ["/college/reports", CollegeReportsPage],
       ["/college/settings", CollegeSettingsPage],
     ],

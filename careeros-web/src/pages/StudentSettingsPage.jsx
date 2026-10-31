@@ -20,6 +20,7 @@ export function StudentSettingsPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [changingPassword, setChangingPassword] = useState(false);
   const [revokingSessions, setRevokingSessions] = useState(false);
+  const [clearingAi, setClearingAi] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
 
   const load = useCallback(async () => {
@@ -69,6 +70,19 @@ export function StudentSettingsPage() {
     }
   }
 
+  async function clearAiHistory() {
+    setClearingAi(true);
+    try {
+      const result = await api.delete("/settings/me/ai-history");
+      toast.success(`Cleared ${result?.deletedSessions ?? 0} AI conversation(s).`);
+      await load();
+    } catch (reason) {
+      toast.error(reason.message || "Unable to clear your AI history.");
+    } finally {
+      setClearingAi(false);
+    }
+  }
+
   async function logout() {
     setLoggingOut(true);
     try {
@@ -95,6 +109,8 @@ export function StudentSettingsPage() {
     <section className="settings-card"><div className="settings-section-heading"><span className="settings-icon" aria-hidden="true">⌖</span><div><h2>Career preference</h2><p>Your target career guides your assessments and skill progress.</p></div></div><div className="settings-summary-row career-preference-row"><div><strong>{profile.targetCareerName || "No target career selected"}</strong><p>Changing your target keeps your previous assessment history.</p></div><Link className="secondary-button" to="/student/careers">{profile.targetCareerName ? "Change career" : "Choose career"}</Link></div></section>
 
     <section className="settings-card"><div className="settings-section-heading"><span className="settings-icon" aria-hidden="true">▣</span><div><h2>Security</h2><p>Change your password or revoke sessions from other devices.</p></div></div><form className="settings-password-form" onSubmit={changePassword}><label className="profile-field">Current password<input type="password" autoComplete="current-password" required value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} /></label><label className="profile-field">New password<input type="password" autoComplete="new-password" minLength={8} required value={newPassword} onChange={(event) => setNewPassword(event.target.value)} /><small>At least 8 characters, with a letter and a number.</small></label><label className="profile-field">Confirm new password<input type="password" autoComplete="new-password" minLength={8} required value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} /></label><div className="settings-password-submit"><button className="primary-button" type="submit" disabled={changingPassword || !currentPassword || !newPassword || !confirmPassword}>{changingPassword ? "Updating…" : "Change password"}</button><p>A successful password change revokes all refresh-token sessions.</p></div></form><div className="settings-session-row"><div><strong>{settings.activeSessions ?? 0} active session(s)</strong><p>Revoking sessions signs out every device when its access token expires.</p></div><button className="secondary-button" disabled={revokingSessions} onClick={revokeSessions}>{revokingSessions ? "Revoking…" : "Log out all sessions"}</button><button className="text-button" disabled={loggingOut} onClick={logout}>{loggingOut ? "Signing out…" : "Log out"}</button></div></section>
+
+    <section className="settings-card"><div className="settings-section-heading"><span className="settings-icon" aria-hidden="true">✦</span><div><h2>AI assistant history</h2><p>Conversations with the career assistant are private to your account.</p></div></div><div className="settings-session-row"><div><strong>{settings.aiConversations ?? 0} saved AI conversation(s)</strong><p>{settings.aiStatus?.mode === "offline-smart" ? "The assistant is running in offline-smart mode using your saved CareerOS data." : "The assistant uses your saved profile, assessments and career data."} Clearing history cannot be undone.</p></div><button className="secondary-button" disabled={clearingAi || !(settings.aiConversations > 0)} onClick={clearAiHistory}>{clearingAi ? "Clearing…" : "Clear AI history"}</button></div></section>
 
     <section className="settings-data-note"><h2>Data and privacy</h2><p>Your profile and assessment history are associated with your account. Review the <Link to="/legal/privacy">Privacy Policy</Link> for information about data handling.</p></section>
   </main>;

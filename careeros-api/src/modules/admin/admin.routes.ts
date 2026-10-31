@@ -1,5 +1,7 @@
 import { Router, type NextFunction, type Request, type Response } from "express";
+import { AppError } from "../../lib/errors.js";
 import { validate } from "../../lib/validators.js";
+import { z } from "zod";
 import { sendSuccess } from "../../lib/response.js";
 import { requireRole } from "../../middleware/auth.js";
 import {
@@ -13,6 +15,7 @@ import {
   inviteAdministrator,
   updateAdministratorStatus,
   listStudentsForAdmin,
+  getAllStudentCount,
   getStats,
   getStudentCount,
 } from "./admin.service.js";
@@ -38,7 +41,7 @@ adminRouter.get("/institutions", async (req: Request, res: Response, next: NextF
 adminRouter.post("/institutions", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const input = validate(institutionCreateSchema, req.body);
-    sendSuccess(res, await createInstitution(input, req.user as any), { status: 201 });
+    sendSuccess(res, await createInstitution(input, req.user as any), { message: "Institution created" });
   } catch (error) {
     next(error);
   }
@@ -59,7 +62,7 @@ adminRouter.patch("/institutions/:id/status", async (req: Request, res: Response
     const rawStatus = (req.query.status as string) || req.body?.status;
     const status = String(rawStatus ?? "").toUpperCase();
     if (status !== "ACTIVE" && status !== "INACTIVE") {
-      throw new Error("Status must be ACTIVE or INACTIVE");
+      throw AppError.badRequest("Status must be ACTIVE or INACTIVE");
     }
     const institution = await toggleInstitutionStatus(Number(req.params.id), status, req.user as any);
     sendSuccess(res, institution, { message: "Institution status updated" });
@@ -82,7 +85,7 @@ adminRouter.patch("/institutions/:id/memberships/:membershipId/status", async (r
     const rawStatus = (req.query.status as string) || req.body?.status;
     const status = String(rawStatus ?? "").toUpperCase();
     if (status !== "ACTIVE" && status !== "INACTIVE") {
-      throw new Error("Status must be ACTIVE or INACTIVE");
+      throw AppError.badRequest("Status must be ACTIVE or INACTIVE");
     }
     const membership = await updateInstitutionMembershipStatus(
       Number(req.params.id),
@@ -133,7 +136,7 @@ adminRouter.patch("/administrators/:id", async (req: Request, res: Response, nex
 // Students & Stats
 adminRouter.get("/students/count", async (req: Request, res: Response, next: NextFunction) => {
   try {
-    sendSuccess(res, { count: await getStudentCount(0) });
+    sendSuccess(res, { count: await getAllStudentCount() });
   } catch (error) {
     next(error);
   }
@@ -150,9 +153,12 @@ adminRouter.get("/students/count/:institutionId", async (req: Request, res: Resp
 
 adminRouter.get("/students", async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const page = Number(req.query.page) || 0;
-    const size = Number(req.query.size) || 10;
-    sendSuccess(res, await listStudentsForAdmin(page, size));
+    const query = validate(z.object({
+      page: z.coerce.number().int().min(-2147483648).max(2147483647).optional(),
+      size: z.coerce.number().int().min(-2147483648).max(2147483647).optional(),
+      search: z.string().optional(),
+    }), req.query);
+    sendSuccess(res, await listStudentsForAdmin(query.page ?? 0, query.size ?? 20, query.search));
   } catch (error) {
     next(error);
   }

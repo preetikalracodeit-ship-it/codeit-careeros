@@ -9,6 +9,7 @@ import { CvDocument } from "../../models/CvDocument.js";
 import { LinkedInProfile } from "../../models/LinkedInProfile.js";
 import { toStudentProfileResponse, toUserResponse } from "../auth/user.mapper.js";
 import type { ChangePasswordInput } from "../auth/auth.schemas.js";
+import { getAiStatus } from "../ai/ai.provider.js";
 
 export async function getSettings(userId: number) {
   const user = await User.findById(userId).lean();
@@ -32,13 +33,7 @@ export async function getSettings(userId: number) {
   return {
     account: toUserResponse(user),
     profile: profile ? toStudentProfileResponse(profile, user.email) : null,
-    aiStatus: {
-      configured: false,
-      provider: null,
-      model: null,
-      offlineFallback: true,
-      mode: "offline-smart",
-    },
+    aiStatus: getAiStatus(),
     activeSessions,
     aiConversations,
     hasCv,

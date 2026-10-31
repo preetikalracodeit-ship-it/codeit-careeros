@@ -37,6 +37,22 @@ type ImportFields = Pick<
   "programCode" | "batchLabel" | "sectionName" | "academicYearLabel"
 >;
 
+function importScopeMatches(
+  scope: CollegeScope,
+  departmentId: number,
+  programId: number,
+  batchId: number,
+  sectionId: number | null,
+): boolean {
+  switch (scope.scopeType) {
+    case "INSTITUTION": return true;
+    case "DEPARTMENT": return scope.scopeId === departmentId;
+    case "PROGRAM": return scope.scopeId === programId;
+    case "BATCH": return scope.scopeId === batchId;
+    case "SECTION": return scope.scopeId === sectionId;
+  }
+}
+
 function normalizeEmail(value: string | null | undefined): string {
   const email = value?.trim().toLowerCase() ?? "";
   if (email.length > 190 || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
@@ -93,11 +109,12 @@ function errorCsv(rows: CsvImportRowDoc[]): string {
 }
 
 async function validateImportRow(
-  institutionId: number,
+  scope: CollegeScope,
   fields: ImportFields,
   seenEmails: Set<string>,
   seenRolls: Set<string>,
 ): Promise<{ fields: ImportFields; status: CsvImportRowDoc["status"]; message: string | null }> {
+  const institutionId = scope.institutionId;
   const email = normalizeEmail(fields.email);
   const rollNumber = required(fields.rollNumber, "Roll number", 40);
   const fullName = required(fields.fullName, "Full name", 120);
@@ -134,11 +151,16 @@ async function validateImportRow(
       return { fields: row, status: "REJECTED", message: "Batch does not belong to the selected academic year" };
     }
   }
+  let sectionId: number | null = null;
   if (fields.sectionName) {
     const sectionName = required(fields.sectionName, "Section name", 40);
     const section = await Section.findOne({ batchId: batch._id, name: sectionName })
       .collation({ locale: "en", strength: 2 }).lean();
     if (!section) return { fields: row, status: "REJECTED", message: "Unknown section for the selected batch" };
+    sectionId = section._id;
+  }
+  if (!importScopeMatches(scope, department._id, program._id, batch._id, sectionId)) {
+    return { fields: row, status: "REJECTED", message: "Student is outside your assigned academic scope" };
   }
   if (fields.mobile && !/^[0-9+\- ]{6,20}$/.test(fields.mobile.trim())) {
     return { fields: row, status: "REJECTED", message: "Mobile number is not valid" };
@@ -238,7 +260,7 @@ export async function previewStudentImport(scope: CollegeScope, file: Express.Mu
     };
     let result: Awaited<ReturnType<typeof validateImportRow>>;
     try {
-      result = await validateImportRow(scope.institutionId, fields, seenEmails, seenRolls);
+      result = await validateImportRow(scope, fields, seenEmails, seenRolls);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Invalid CSV row";
       result = { fields, status: "REJECTED", message: message.slice(0, 500) };
@@ -295,7 +317,8 @@ export async function previewStudentImport(scope: CollegeScope, file: Express.Mu
   };
 }
 
-async function processImportRow(jobId: number, rowNumber: number, institutionId: number) {
+async function processImportRow(jobId: number, rowNumber: number, scope: CollegeScope) {
+  const institutionId = scope.institutionId;
   let outcome: CsvImportRowDoc | undefined;
   await withTransaction(async (session) => {
     const job = await CsvImportJob.findOne({ _id: jobId, institutionId, status: "COMMITTING" })
@@ -343,6 +366,9 @@ async function processImportRow(jobId: number, rowNumber: number, institutionId:
           .collation({ locale: "en", strength: 2 }).session(session).lean();
         if (!section) throw AppError.badRequest(`Unknown section: ${row.sectionName}`);
         sectionId = section._id;
+      }
+      if (!importScopeMatches(scope, department._id, program._id, batch._id, sectionId)) {
+        throw AppError.forbidden("Student is outside your assigned academic scope");
       }
       const mobile = row.mobile?.trim() || null;
       if (mobile && !/^[0-9+\- ]{6,20}$/.test(mobile)) {
@@ -480,7 +506,7 @@ export async function commitStudentImport(scope: CollegeScope, jobId: number) {
     for (const row of job.rows) {
       if (row.status === "READY") {
         try {
-          outcomes.push(await processImportRow(jobId, row.rowNumber, scope.institutionId));
+          outcomes.push(await processImportRow(jobId, row.rowNumber, scope));
         } catch (error) {
           logger.error({ err: error, jobId, rowNumber: row.rowNumber }, "Student CSV row import failed");
           const failed: CsvImportRowDoc = {

@@ -13,15 +13,27 @@ import { Project } from "../../models/Project.js";
 import { RoadmapPhase } from "../../models/RoadmapPhase.js";
 import { User } from "../../models/User.js";
 import { env } from "../../config/env.js";
+import { getAiStatus as getRuntimeAiStatus } from "../ai/ai.provider.js";
 
 export async function getAdminMe(userId: number) {
   const user = await User.findById(userId).lean();
   if (!user) throw AppError.notFound("User not found");
-  return { id: user._id, email: user.email, fullName: user.fullName, role: user.role, status: user.status };
+  return { id: user._id, email: user.email, fullName: user.fullName, role: user.role };
 }
 
 export function getAiStatus() {
-  return { configured: Boolean(env.googleClientId), provider: "gemini", model: "gemini-1.5-flash" };
+  const status = getRuntimeAiStatus();
+  return {
+    configured: status.configured,
+    provider: status.provider,
+    model: status.model,
+    mode: status.mode,
+    offlineFallbackEnabled: status.offlineFallback,
+    maxToolIterations: env.AI_MAX_TOOL_ITERATIONS,
+    historyLimit: env.AI_HISTORY_LIMIT,
+    requestTimeoutSeconds: env.AI_REQUEST_TIMEOUT_SECONDS,
+    rateLimitPerMinute: env.AI_RATE_LIMIT_PER_MINUTE,
+  };
 }
 
 // ---------------- Careers & Competency Framework ----------------

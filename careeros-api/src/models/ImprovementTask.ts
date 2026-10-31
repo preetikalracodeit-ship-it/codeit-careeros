@@ -21,6 +21,7 @@ export interface ImprovementTaskDoc {
   priority: TaskPriority;
   status: TaskStatus;
   targetDate?: Date | null;
+  ownerUserId?: number | null;
   ownerName?: string | null;
   baselineScore?: number | null;
   targetScore?: number | null;
@@ -41,6 +42,7 @@ const schema = new Schema<ImprovementTaskDoc>(
     priority: { type: String, enum: TASK_PRIORITIES, required: true, default: "MEDIUM" },
     status: { type: String, enum: TASK_STATUSES, required: true, default: "NOT_STARTED" },
     targetDate: { type: Date, default: null },
+    ownerUserId: { type: Number, default: null },
     ownerName: { type: String, default: null, maxlength: 120 },
     baselineScore: { type: Number, default: null, min: 0, max: 100 },
     targetScore: { type: Number, default: null, min: 0, max: 100 },

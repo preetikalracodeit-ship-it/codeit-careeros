@@ -92,6 +92,17 @@ describe("health and meta", () => {
     expect(response.body.data.skillLevels).toContain("EXPERT");
     expect(response.body.data.questionTypes).toEqual(["MCQ"]);
   });
+
+  it("keeps career browsing public but requires authentication for skills", async () => {
+    const careers = await request(app).get("/api/v1/careers");
+    expect(careers.status).toBe(200);
+
+    const skills = await request(app).get("/api/v1/skills");
+    expect(skills.status).toBe(401);
+
+    expect((await request(app).get("/api/v1/careers-extra")).status).toBe(401);
+    expect((await request(app).get("/api/v1/invitations-extra/token")).status).toBe(401);
+  });
 });
 
 describe("public college invitations", () => {
@@ -1118,7 +1129,7 @@ describe("settings and role guards", () => {
       .post("/api/v1/students/me/photo")
       .set(headers)
       .attach("file", Buffer.alloc(2 * 1024 * 1024 + 1), { filename: "large.png", contentType: "image/png" });
-    expect(tooLarge.status).toBe(413);
+    expect(tooLarge.status).toBe(400);
   });
 
   it("changes the password and revokes existing sessions", async () => {
@@ -1428,5 +1439,129 @@ describe("role workspaces", () => {
     const registered = await request(app).post("/api/v1/auth/register").send(registration);
     const response = await request(app).get("/api/v1/workspace/colleges").set(authHeader(registered.body.data.accessToken));
     expect(response.status).toBe(403);
+  });
+
+  it("matches the Spring admin create status and response message", async () => {
+    await createUser({ id: 901, email: "master.admin@example.edu", fullName: "Master Admin", role: "SUPER_ADMIN" });
+    const login = await request(app).post("/api/v1/auth/login").send({
+      email: "master.admin@example.edu",
+      password: "Password1",
+    });
+    const adminHeaders = authHeader(login.body.data.accessToken);
+    const adminMe = await request(app).get("/api/v1/admin/me").set(adminHeaders);
+    expect(adminMe.status).toBe(200);
+    expect(adminMe.body.data).toEqual({
+      id: 901,
+      email: "master.admin@example.edu",
+      fullName: "Master Admin",
+      role: "SUPER_ADMIN",
+    });
+    const created = await request(app)
+      .post("/api/v1/admin/skills")
+      .set(adminHeaders)
+      .send({ name: "Parity Skill", category: "PROGRAMMING_LANGUAGES" });
+
+    expect(created.status).toBe(200);
+    expect(created.body.message).toBe("Skill created");
+
+    const aiStatus = await request(app).get("/api/v1/admin/ai/status").set(adminHeaders);
+    expect(aiStatus.status).toBe(200);
+    expect(aiStatus.body.data).toMatchObject({
+      configured: false,
+      provider: "openai",
+      model: "gpt-4o-mini",
+      mode: "offline-smart",
+      offlineFallbackEnabled: true,
+      maxToolIterations: 6,
+      historyLimit: 20,
+      requestTimeoutSeconds: 120,
+      rateLimitPerMinute: 1000,
+    });
+
+    const invalidInstitutionStatus = await request(app)
+      .patch("/api/v1/admin/institutions/1/status?status=INVALID")
+      .set(adminHeaders);
+    expect(invalidInstitutionStatus.status).toBe(400);
+
+    const invalidMembershipStatus = await request(app)
+      .patch("/api/v1/admin/institutions/1/memberships/1/status?status=INVALID")
+      .set(adminHeaders);
+    expect(invalidMembershipStatus.status).toBe(400);
+  });
+
+  it("returns Spring-compatible paginated and searchable admin student profiles", async () => {
+    const first = await request(app).post("/api/v1/auth/register").send({
+      ...registration,
+      fullName: "First Searchable Student",
+      email: "first.searchable@example.edu",
+    });
+    await request(app).post("/api/v1/auth/register").send({
+      ...registration,
+      fullName: "Second Searchable Student",
+      email: "second.searchable@example.edu",
+    });
+    const { StudentProfile } = await import("../src/models/StudentProfile.js");
+    const profile = await StudentProfile.findOne({ userId: first.body.data.user.id }).lean();
+    expect(profile).not.toBeNull();
+    await StudentProfile.updateOne(
+      { userId: first.body.data.user.id },
+      { $set: { degree: "B.Tech", college: "Search College" } },
+    );
+
+    await createUser({ id: 902, email: "students.admin@example.edu", fullName: "Student Admin", role: "SUPER_ADMIN" });
+    const login = await request(app).post("/api/v1/auth/login").send({
+      email: "students.admin@example.edu",
+      password: "Password1",
+    });
+    const headers = authHeader(login.body.data.accessToken);
+
+    const allStudents = await request(app).get("/api/v1/admin/students").set(headers);
+    expect(allStudents.status).toBe(200);
+    expect(allStudents.body.data).toMatchObject({
+      page: 0,
+      size: 20,
+      totalElements: 2,
+      totalPages: 1,
+    });
+
+    const count = await request(app).get("/api/v1/admin/students/count").set(headers);
+    expect(count.status).toBe(200);
+    expect(count.body.data).toEqual({ count: 2 });
+
+    const stats = await request(app).get("/api/v1/admin/stats").set(headers);
+    expect(stats.status).toBe(200);
+    expect(stats.body.data).toEqual({
+      institutions: 0,
+      collegeStaff: 0,
+      collegeAdmins: 0,
+      pendingInvitations: 0,
+      students: 2,
+      careers: 0,
+      skills: 0,
+      assessments: 0,
+      questions: 0,
+      attempts: 0,
+      assessmentsCompleted: 0,
+    });
+
+    const filtered = await request(app)
+      .get("/api/v1/admin/students?search=FIRST.SEARCHABLE&page=0&size=1")
+      .set(headers);
+    expect(filtered.status).toBe(200);
+    expect(filtered.body.data).toMatchObject({
+      page: 0,
+      size: 1,
+      totalElements: 1,
+      totalPages: 1,
+      content: [{
+        id: profile!._id,
+        studentId: profile!.studentId,
+        fullName: "First Searchable Student",
+        email: "first.searchable@example.edu",
+        mobile: registration.mobile,
+        college: "Search College",
+        degree: "B.Tech",
+      }],
+    });
   });
 });
