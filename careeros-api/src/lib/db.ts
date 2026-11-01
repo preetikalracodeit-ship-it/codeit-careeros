@@ -44,9 +44,9 @@ import { AiChatMessage } from "../models/AiChatMessage.js";
 import { AuditEvent } from "../models/AuditEvent.js";
 import { CvDocument } from "../models/CvDocument.js";
 
-export async function connectDatabase(uri: string): Promise<void> {
+export async function connectDatabase(uri: string, databaseName: string): Promise<void> {
   mongoose.set("strictQuery", true);
-  await mongoose.connect(uri, { serverSelectionTimeoutMS: 15000 });
+  await mongoose.connect(uri, { dbName: databaseName, serverSelectionTimeoutMS: 15000 });
   logger.info({ database: mongoose.connection.name }, "Connected to MongoDB");
 }
 

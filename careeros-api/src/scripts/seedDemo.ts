@@ -1020,6 +1020,7 @@ async function ensurePlacementData(
       collegeId: college._id,
       companyId: company._id,
       jobId: job._id,
+      name: seed.name,
       companyName: seed.companyName,
       jobTitle: seed.jobTitle,
       location: seed.location,
@@ -1145,7 +1146,7 @@ async function ensureAiConversation(user: UserDoc): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  await connectDatabase(env.MONGODB_URI);
+  await connectDatabase(env.MONGODB_URI, env.MONGODB_DATABASE);
   await ensureIndexes();
 
   const college = await ensureCollege();

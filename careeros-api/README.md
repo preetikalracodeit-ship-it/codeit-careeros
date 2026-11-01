@@ -16,6 +16,6 @@ Use `GET /api/v1/college/students/import/template.csv` to download the CSV heade
 
 ## Local development
 
-From this folder, copy `.env.example` to `.env`, set a strong `JWT_SECRET`, and configure `MONGODB_URI` to point to a MongoDB replica set. MongoDB must be running separately; this API does not depend on the Spring Boot backend. Install dependencies with `npm ci`, then run `npm run dev`. The `PROFILE_PHOTO_DIR` default is covered by the repository's ignored `data/` directory.
+From this folder, copy `.env.example` to `.env`, set a strong `JWT_SECRET`, and configure `MONGODB_URI` (or `MONGO_URI`) to point to the live MongoDB replica set. The API has no localhost MongoDB fallback and will fail startup if neither variable is set. `MONGODB_DATABASE` defaults to `careeros`. MongoDB must be running separately; this API does not depend on the Spring Boot backend. Install dependencies with `npm ci`, then run `npm run dev`. The `PROFILE_PHOTO_DIR` default is covered by the repository's ignored `data/` directory.
 
 The AI assistant works with grounded offline guidance by default. To enable a provider, configure `AI_PROVIDER` and the matching `AI_API_KEY` (or `GEMINI_API_KEY` for Gemini); OpenAI-compatible endpoints also support Ollama and custom providers through `AI_BASE_URL`. Provider errors fall back to offline guidance unless `AI_OFFLINE_FALLBACK=false`.

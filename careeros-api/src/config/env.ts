@@ -19,7 +19,9 @@ const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   PORT: z.coerce.number().int().positive().default(8080),
   LOG_LEVEL: z.string().default("info"),
-  MONGODB_URI: z.string().min(1).default("mongodb://127.0.0.1:27017/careeros"),
+  MONGODB_URI: z.string().min(1).optional(),
+  MONGO_URI: z.string().min(1).optional(),
+  MONGODB_DATABASE: z.string().min(1).default("careeros"),
   JWT_SECRET: z
     .string()
     .min(32, "JWT_SECRET must be at least 32 bytes (256 bits). Generate one with: openssl rand -base64 48"),
@@ -70,10 +72,16 @@ if (!parsed.success) {
   throw new Error(`Invalid environment configuration: ${details}`);
 }
 
-const raw = parsed.data;
+const { MONGO_URI, ...raw } = parsed.data;
+const mongoUri = raw.MONGODB_URI ?? MONGO_URI;
+
+if (!mongoUri) {
+  throw new Error("Invalid environment configuration: set MONGODB_URI or MONGO_URI to the live MongoDB URI");
+}
 
 export const env = {
   ...raw,
+  MONGODB_URI: mongoUri,
   profilePhotoDir: path.resolve(raw.PROFILE_PHOTO_DIR),
   isTest: raw.NODE_ENV === "test",
   isProduction: raw.NODE_ENV === "production",

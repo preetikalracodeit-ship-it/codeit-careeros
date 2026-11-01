@@ -5,7 +5,7 @@ import { bootstrapAdmin } from "./lib/bootstrapAdmin.js";
 import { logger } from "./lib/logger.js";
 
 async function main(): Promise<void> {
-  await connectDatabase(env.MONGODB_URI);
+  await connectDatabase(env.MONGODB_URI, env.MONGODB_DATABASE);
   await ensureIndexes();
   await bootstrapAdmin();
 
