@@ -40,13 +40,15 @@ export function errorHandler(
 
   if (err instanceof MulterError) {
     const tooLarge = err.code === "LIMIT_FILE_SIZE";
-    const isCsvImport = req.path.includes("/students/import/");
+    const path = req.originalUrl || req.path;
+    const isCsvImport = path.includes("/students/import/");
+    const isCvUpload = path.includes("/cvs");
     sendError(
       res,
       400,
       tooLarge
-        ? isCsvImport ? "CSV files are limited to 2 MB" : "Photo must be at most 2 MB"
-        : isCsvImport ? "Please upload one CSV file using the file field" : "Please upload one photo using the file field",
+        ? isCsvImport ? "CSV files are limited to 2 MB" : isCvUpload ? "CV file must be at most 5 MB" : "Photo must be at most 2 MB"
+        : isCsvImport ? "Please upload one CSV file using the file field" : isCvUpload ? "Please upload one CV file using the file field" : "Please upload one photo using the file field",
       "BAD_REQUEST",
     );
     return;

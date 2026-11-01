@@ -184,6 +184,7 @@ export async function getMyDrives(userId: number) {
       eligibilityReason: check.reason,
       alreadyApplied: Boolean(existing),
       applicationId: existing?._id ?? null,
+      applicationStage: existing?.stage ?? null,
     };
   }));
   return { items, total: items.length };
@@ -257,7 +258,16 @@ export async function registerForDrive(userId: number, driveId: number) {
     updatedAt: new Date(),
   };
   await recordStage(application, "REGISTERED", "Student registered");
-  const saved = await PlacementApplication.create(application);
+  let saved;
+  try {
+    saved = await PlacementApplication.create(application);
+  } catch (error) {
+    // Two rapid registration attempts can race past the findOne check above.
+    if ((error as { code?: number }).code === 11000) {
+      throw AppError.conflict("You are already registered for this drive");
+    }
+    throw error;
+  }
   return applicationResponse(saved.toObject() as PlacementApplicationDoc, drive as PlacementDriveDoc);
 }
 
@@ -283,8 +293,18 @@ export async function respondToOffer(userId: number, offerId: number, status: Of
   }
   const application = await PlacementApplication.findOne({ userId, "offer.id": offerId });
   if (!application?.offer) throw AppError.notFound("Offer not found");
-  if (application.offer.status === "JOINED" || application.offer.status === "WITHDRAWN") {
-    throw AppError.badRequest("This offer can no longer be changed by the student");
+  if (application.offer.status !== "PENDING") {
+    throw AppError.badRequest("This offer has already been answered and can no longer be changed");
+  }
+  if (status === "ACCEPTED") {
+    const acceptedElsewhere = await PlacementApplication.exists({
+      userId,
+      _id: { $ne: application._id },
+      "offer.status": { $in: ["ACCEPTED", "JOINED"] },
+    });
+    if (acceptedElsewhere) {
+      throw AppError.conflict("You have already accepted another offer. Contact your placement cell to change it.");
+    }
   }
   application.offer.status = status;
   await application.save();

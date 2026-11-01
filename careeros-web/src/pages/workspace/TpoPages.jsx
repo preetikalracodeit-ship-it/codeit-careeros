@@ -271,6 +271,7 @@ export function TpoPlacementPage() {
   const canManageJobs = permissions.has("MANAGE_JOBS");
   const canManageDrives = permissions.has("MANAGE_DRIVES");
   const canViewContacts = permissions.has("VIEW_COMPANY_CONTACTS");
+  const eyebrow = data?.me?.designation === "TPO" ? "PLACEMENT OFFICER" : "PLACEMENT";
 
   const companies = data?.companies || [];
   const jobs = data?.jobs || [];
@@ -511,7 +512,7 @@ export function TpoPlacementPage() {
   return (
     <div className="workspace-page-content">
       <PageHeader
-        eyebrow="PLACEMENT OFFICER"
+        eyebrow={eyebrow}
         title="Placement drives"
         description="Manage recruiting companies, job openings, eligibility and application outcomes for your institution."
         actions={

@@ -1,0 +1,80 @@
+/* ---------------------------------------------------------------------------
+   Shared CareerOS logo lockups (sign in, registration, invitations, legal,
+   workspace shell and marketing site)
+--------------------------------------------------------------------------- */
+.logo {
+  display: block;
+  flex: none;
+  max-width: 100%;
+  border-radius: 22%;
+  background: #fff;
+  object-fit: contain;
+}
+
+.logo-wordmark {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.logo-wordmark-text {
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.025em;
+  white-space: nowrap;
+  color: #163f30;
+}
+
+.logo-wordmark-text.is-light {
+  color: #fff;
+}
+
+.logo-wordmark-accent {
+  font-weight: 600;
+  color: #24764a;
+}
+
+.logo-wordmark-text.is-light .logo-wordmark-accent {
+  color: #a9d8b7;
+}
+
+/* Auth pages ------------------------------------------------------------- */
+.auth-mark-logo {
+  padding: 7px;
+  background: #fff;
+  border-color: #ffffff8c;
+}
+
+.auth-mark-logo .logo {
+  border-radius: 10px;
+}
+
+.auth-brand {
+  display: flex;
+  width: fit-content;
+  margin-bottom: 20px;
+}
+
+/* Workspace shell -------------------------------------------------------- */
+.app-brand-mark {
+  padding: 5px;
+  background: #fff;
+  border-color: transparent;
+}
+
+.app-brand-mark .logo {
+  border-radius: 7px;
+}
+
+/* Minimal site header (password recovery, legal, not-found) -------------- */
+.site-brand {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
+
+.site-brand:hover {
+  text-decoration: none;
+}

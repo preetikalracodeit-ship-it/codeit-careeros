@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { api } from "../lib/api.js";
 import { auth, homeForRole } from "../lib/auth.js";
 import { GoogleSignInButton } from "../components/auth/GoogleSignInButton.jsx";
+import { Logo } from "../components/Logo.jsx";
 import { DEMO_ACCOUNTS, DEMO_PASSWORD } from "../lib/roles.js";
 
 export function LoginPage() {
@@ -34,7 +35,7 @@ export function LoginPage() {
     setError("");
   }
 
-  return <main className="auth-layout"><section className="auth-art"><div className="auth-mark">C</div><p className="eyebrow">YOUR CAREER JOURNEY</p><h1>One platform. Every campus role.</h1><p>Platform administrators, college teams, placement officers, faculty, and students each get a focused workspace built around their responsibilities.</p></section><section className="auth-panel"><div className="auth-card"><p className="eyebrow">WELCOME BACK</p><h2>Sign in to CareerOS</h2><p className="muted">Continue in your role-based workspace.</p><form onSubmit={submit}>
+  return <main className="auth-layout"><section className="auth-art"><div className="auth-mark auth-mark-logo"><Logo size={38} /></div><p className="eyebrow">YOUR CAREER JOURNEY</p><h1>One platform. Every campus role.</h1><p>Platform administrators, college teams, placement officers, faculty, and students each get a focused workspace built around their responsibilities.</p></section><section className="auth-panel"><div className="auth-card"><p className="eyebrow">WELCOME BACK</p><h2>Sign in to CareerOS</h2><p className="muted">Continue in your role-based workspace.</p><form onSubmit={submit}>
     {error && <div className="error-banner" role="alert">{error}</div>}
     <label>Email<input type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@college.edu" /></label>
     <label>Password<input type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Your password" /></label>

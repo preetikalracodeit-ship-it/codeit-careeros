@@ -198,8 +198,8 @@ export function StudentReportsPage() {
         <button className="primary-button" disabled={!report.available || downloading === report.type} onClick={() => download(report.type)}><Icon name="download" size={14} /> {downloading === report.type ? "Preparing..." : "Download PDF"}</button>
       </div>
       {viewing === report.type && <div className="report-preview">
-        <div className="report-preview-head"><strong>{summary(viewData[report.type])}</strong><span>{report.type === "gap-analysis" ? "Largest gaps first." : "Live data preview."}</span></div>
-        <Detail type={report.type} data={viewData[report.type]} />
+        <div className="report-preview-head"><strong>{viewData[report.type] ? summary(viewData[report.type]) : "Loading report..."}</strong><span>{report.type === "gap-analysis" ? "Largest gaps first." : "Live data preview."}</span></div>
+        {viewData[report.type] && <Detail type={report.type} data={viewData[report.type]} />}
       </div>}
     </Panel>)}</div>
   </main>;

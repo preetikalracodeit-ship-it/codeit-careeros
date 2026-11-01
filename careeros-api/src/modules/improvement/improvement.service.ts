@@ -8,10 +8,17 @@ import type { UpdateTaskInput } from "./improvement.schemas.js";
 type ProfileLike = { fullName: string; studentId: string; branch?: string | null; degree?: string | null };
 type ReadinessLike = { hasTarget: boolean; readinessPercent: number | null };
 
+function endOfDay(value: Date): number {
+  const date = new Date(value);
+  date.setHours(23, 59, 59, 999);
+  return date.getTime();
+}
+
 function isOverdue(task: ImprovementTaskDoc, today: number): boolean {
   if (!task.targetDate) return false;
   if (task.status === "COMPLETED" || task.status === "REASSESSMENT_REQUIRED") return false;
-  return new Date(task.targetDate).getTime() < today;
+  // A task is due at the end of its target date, not at midnight at the start of it.
+  return endOfDay(task.targetDate) < today;
 }
 
 function taskResponse(task: ImprovementTaskDoc, today: number) {
@@ -24,6 +31,7 @@ function taskResponse(task: ImprovementTaskDoc, today: number) {
     skillName: task.skillName ?? null,
     priority: task.priority,
     status: overdue ? "OVERDUE" : task.status,
+    progressStatus: task.status,
     targetDate: task.targetDate ?? null,
     ownerUserId: null,
     ownerName: task.ownerName ?? null,

@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import api from "../lib/api.js";
 import { auth, homeForRole } from "../lib/auth.js";
+import { LogoWordmark } from "../components/Logo.jsx";
 
 export default function InvitationPage() {
   const location = useLocation(); const navigate = useNavigate();
@@ -29,10 +30,10 @@ export default function InvitationPage() {
     finally { setBusy(false); }
   };
 
-  if (loading) return <main className="auth-layout"><section className="auth-card" role="status">Checking your invitation…</section></main>;
+  if (loading) return <main className="auth-layout auth-layout-single"><section className="auth-card" role="status">Checking your invitation…</section></main>;
   const valid = invitation?.status === "VALID";
-  return <main className="auth-layout"><section className="auth-card">
-    <div className="brand auth-brand"><span className="brand-mark">C</span><span>CareerOS</span></div>
+  return <main className="auth-layout auth-layout-single"><section className="auth-card">
+    <LogoWordmark className="auth-brand" />
     <p className="eyebrow">STAFF INVITATION</p>
     <h1>{valid ? "Activate your staff account" : invitation ? "This invitation is unavailable" : "Invitation link unavailable"}</h1>
     {invitation && <div className="invitation-summary"><p>You’re invited to join <strong>{invitation.institutionName}</strong>.</p><dl><div><dt>Invited email</dt><dd>{invitation.maskedEmail}</dd></div><div><dt>Role</dt><dd>{invitation.designation?.toLowerCase().replaceAll("_", " ")}</dd></div><div><dt>Access scope</dt><dd>{invitation.scopeLabel}</dd></div><div><dt>Status</dt><dd>{invitation.status?.toLowerCase()}</dd></div></dl></div>}

@@ -1,5 +1,6 @@
 import { Navigate, Link, Route, Routes, useLocation } from "react-router-dom";
 import { auth, homeForRole } from "./lib/auth.js";
+import { LogoWordmark } from "./components/Logo.jsx";
 import { AppShell } from "./components/AppShell.jsx";
 import { LandingPage } from "./pages/LandingPage.jsx";
 import { LoginPage } from "./pages/LoginPage.jsx";
@@ -128,6 +129,7 @@ const roleRoutes = [
       ["/college/students", CollegeStudentsPage],
       ["/college/plans", CollegePlansPage],
       ["/college/plans/:id", CollegePlanDetailPage],
+      ["/college/placement", TpoPlacementPage],
       ["/college/reports", CollegeReportsPage],
       ["/college/settings", CollegeSettingsPage],
     ],
@@ -141,6 +143,8 @@ const roleRoutes = [
       ["/tpo/skill-gaps", TpoSkillGapsPage],
       ["/tpo/reports", TpoReportsPage],
       ["/tpo/placement", TpoPlacementPage],
+      ["/tpo/plans", CollegePlansPage],
+      ["/tpo/plans/:id", CollegePlanDetailPage],
       ["/tpo/settings", TpoSettingsPage],
     ],
   },
@@ -151,6 +155,9 @@ const roleRoutes = [
       ["/hod/students", HodStudentsPage],
       ["/hod/readiness", HodReadinessPage],
       ["/hod/department", HodDepartmentPage],
+      ["/hod/plans", CollegePlansPage],
+      ["/hod/plans/:id", CollegePlanDetailPage],
+      ["/hod/placement", TpoPlacementPage],
       ["/hod/reports", HodReportsPage],
       ["/hod/settings", HodSettingsPage],
     ],
@@ -180,7 +187,7 @@ function PublicAuthRedirect() {
 }
 
 function SiteFrame({ children }) {
-  return <div className="site-frame"><header className="site-header"><Link className="brand" to="/">CODEIT <span>CareerOS</span></Link><nav><Link to="/login">Sign in</Link><Link className="nav-cta" to="/register">Get started</Link></nav></header>{children}</div>;
+  return <div className="site-frame"><header className="site-header"><Link className="site-brand" to="/" aria-label="CODEIT CareerOS home"><LogoWordmark /></Link><nav><Link to="/login">Sign in</Link><Link className="nav-cta" to="/register">Get started</Link></nav></header>{children}</div>;
 }
 
 export default function App() {
@@ -188,7 +195,7 @@ export default function App() {
     <Route path="/login" element={<PublicAuthRedirect />} />
     <Route path="/forgot-password" element={<SiteFrame><ForgotPasswordPage /></SiteFrame>} />
     <Route path="/reset-password" element={<SiteFrame><ResetPasswordPage /></SiteFrame>} />
-    <Route path="/register" element={auth.isAuthenticated() ? <Navigate to={homeForRole(auth.getRole())} replace /> : <SiteFrame><RegisterPage /></SiteFrame>} />
+    <Route path="/register" element={auth.isAuthenticated() ? <Navigate to={homeForRole(auth.getRole())} replace /> : <RegisterPage />} />
     <Route path="/accept-invitation" element={<InvitationPage />} />
     <Route path="/legal/privacy" element={<SiteFrame><LegalPage /></SiteFrame>} />
     <Route path="/legal/terms" element={<SiteFrame><LegalPage /></SiteFrame>} />

@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { api } from "../lib/api.js";
 import { Badge, EmptyState, ErrorBlock, LoadingBlock, PageHeader, Panel, StatCard } from "../components/ui.jsx";
 import { Icon } from "../components/Icon.jsx";
+import { Modal } from "./workspace/shared.jsx";
 
 function formatDate(value) {
   if (!value) return "Not set";
@@ -33,6 +34,7 @@ export function StudentPlacementsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
+  const [confirming, setConfirming] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -92,6 +94,14 @@ export function StudentPlacementsPage() {
     }
   }
 
+  async function confirmAction() {
+    const action = confirming;
+    if (!action) return;
+    setConfirming(null);
+    if (action.kind === "offer") await respond(action.application, action.status);
+    else await withdraw(action.application);
+  }
+
   if (loading && !drives) return <main className="workspace-page"><LoadingBlock label="Loading placements..." /></main>;
   if (error && !drives) return <main className="workspace-page"><ErrorBlock message={error} onRetry={load} /></main>;
 
@@ -124,7 +134,7 @@ export function StudentPlacementsPage() {
           </dl>
           {drive.eligibilityCriteria && <p className="placement-note">{drive.eligibilityCriteria}</p>}
           <div className="button-row">
-            {item.alreadyApplied ? <Badge tone="positive">Registered</Badge> : item.eligible ? <Badge tone="info">Eligible</Badge> : <Badge tone="danger">Not eligible</Badge>}
+            {item.alreadyApplied ? <Badge tone={stageTone(item.applicationStage || "REGISTERED")}>{pretty(item.applicationStage || "REGISTERED")}</Badge> : item.eligible ? <Badge tone="info">Eligible</Badge> : <Badge tone="danger">Not eligible</Badge>}
             {canRegister && <button className="primary-button" disabled={busy === `drive-${drive.id}`} onClick={() => register(drive)}>{busy === `drive-${drive.id}` ? "Registering..." : "Register"}</button>}
           </div>
           {!item.eligible && item.eligibilityReason && <p className="placement-note placement-note-warn">{item.eligibilityReason}</p>}
@@ -139,16 +149,41 @@ export function StudentPlacementsPage() {
 
         {application.offer && <div className="placement-offer">
           <div><strong>Offer {money(application.offer.packageAmount, application.offer.currency)}</strong><span>Status: {pretty(application.offer.status)}{application.offer.offerDate ? ` - offered ${formatDate(application.offer.offerDate)}` : ""}</span></div>
-          {application.offer.status !== "JOINED" && application.offer.status !== "WITHDRAWN" && <div className="button-row">
-            <button className="primary-button" disabled={busy === `offer-${application.offer.id}`} onClick={() => respond(application, "ACCEPTED")}><Icon name="check" size={14} /> Accept</button>
-            <button className="secondary-button" disabled={busy === `offer-${application.offer.id}`} onClick={() => respond(application, "DECLINED")}>Decline</button>
+          {application.offer.status === "PENDING" && <div className="button-row">
+            <button className="primary-button" disabled={busy === `offer-${application.offer.id}`} onClick={() => setConfirming({ kind: "offer", application, status: "ACCEPTED" })}><Icon name="check" size={14} /> Accept</button>
+            <button className="secondary-button" disabled={busy === `offer-${application.offer.id}`} onClick={() => setConfirming({ kind: "offer", application, status: "DECLINED" })}>Decline</button>
           </div>}
         </div>}
 
-        {application.stage !== "JOINED" && application.stage !== "WITHDRAWN" && <div className="button-row"><button className="secondary-button" disabled={busy === `application-${application.id}`} onClick={() => withdraw(application)}>{busy === `application-${application.id}` ? "Withdrawing..." : "Withdraw application"}</button></div>}
+        {application.stage !== "JOINED" && application.stage !== "WITHDRAWN" && <div className="button-row"><button className="secondary-button" disabled={busy === `application-${application.id}`} onClick={() => setConfirming({ kind: "withdraw", application })}>{busy === `application-${application.id}` ? "Withdrawing..." : "Withdraw application"}</button></div>}
 
         {application.history?.length > 0 && <details className="placement-history"><summary>Stage history</summary><ul>{application.history.map((event) => <li key={event.id}><strong>{pretty(event.stage)}</strong>{event.note ? ` - ${event.note}` : ""} <span>{formatDate(event.recordedAt)}</span></li>)}</ul></details>}
       </article>)}</div>}
     </Panel>
+
+    {confirming && <Modal
+      title={confirming.kind === "offer"
+        ? confirming.status === "ACCEPTED" ? "Accept this offer?" : "Decline this offer?"
+        : "Withdraw this application?"}
+      description={`${confirming.application.companyName} - ${confirming.application.jobTitle || confirming.application.driveName}`}
+      onClose={() => setConfirming(null)}
+    >
+      <p className="muted">
+        {confirming.kind === "withdraw"
+          ? "This cannot be undone and you may not be able to register for the same drive again."
+          : confirming.status === "ACCEPTED"
+            ? "Accepting an offer is final from your side. You can only accept one offer at a time."
+            : "Declining an offer is final from your side and cannot be undone."}
+      </p>
+      <div className="button-row">
+        <button className="secondary-button" onClick={() => setConfirming(null)}>Cancel</button>
+        <button
+          className={confirming.kind === "offer" && confirming.status === "ACCEPTED" ? "primary-button" : "danger-button"}
+          onClick={confirmAction}
+        >
+          {confirming.kind === "withdraw" ? "Withdraw application" : confirming.status === "ACCEPTED" ? "Accept offer" : "Decline offer"}
+        </button>
+      </div>
+    </Modal>}
   </main>;
 }

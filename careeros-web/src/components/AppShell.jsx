@@ -6,6 +6,7 @@ import { ROLE_NAV, roleLabel, ROLE_TAGLINES } from "../lib/roles.js";
 import { useApi } from "../lib/useApi.js";
 import { Icon } from "./Icon.jsx";
 import { Avatar } from "./ui.jsx";
+import { Logo } from "./Logo.jsx";
 
 export function AppShell({ children }) {
   const navigate = useNavigate();
@@ -55,6 +56,8 @@ export function AppShell({ children }) {
   }, [role, photoVersion]);
 
   function signOut() {
+    const refreshToken = auth.getRefreshToken();
+    if (refreshToken) api.post("/auth/logout", { refreshToken }).catch(() => null);
     auth.clear();
     navigate("/login", { replace: true });
   }
@@ -64,7 +67,7 @@ export function AppShell({ children }) {
       <aside className="app-sidebar">
         <div className="app-sidebar-top">
           <Link className="app-brand" to={homeForRole(role)} onClick={() => setOpen(false)}>
-            <span className="app-brand-mark">C</span>
+            <span className="app-brand-mark"><Logo size={24} alt="" /></span>
             <span>CODEIT <strong>CareerOS</strong></span>
           </Link>
           <button type="button" className="icon-button mobile-only" onClick={() => setOpen(false)} aria-label="Close navigation">

@@ -57,30 +57,30 @@ export async function uploadCv(userId: number, file: Express.Multer.File | undef
     throw AppError.badRequest("Only PDF, DOC or DOCX files are accepted");
   }
 
+  let extractedText: string;
+  try {
+    extractedText = extractCvText(file.buffer, extension);
+  } catch (error) {
+    throw AppError.badRequest(error instanceof Error ? error.message : "We could not read this CV file.");
+  }
+  if (!extractedText.trim()) {
+    throw AppError.badRequest("We could not read any text from this CV. Upload a text-based PDF or DOCX.");
+  }
+
+  // Only replace the stored CV after the new file has been read successfully.
+  // A failed upload must not destroy the student's existing document.
   const existing = await CvDocument.findOne({ userId });
   const documentId = existing?._id ?? (await getNextSequence("cv_documents"));
   const now = new Date();
-  let extractedText: string | null = null;
-  let parseError: string | null = null;
-  try {
-    extractedText = extractCvText(file.buffer, extension);
-    if (!extractedText.trim()) {
-      extractedText = null;
-      parseError = "We could not read any text from this CV. Upload a text-based PDF or DOCX.";
-    }
-  } catch (error) {
-    parseError = error instanceof Error ? error.message : "We could not read this CV file.";
-  }
-
   const payload = {
     originalFilename,
     contentType: CONTENT_TYPES[extension]!,
     fileSize: file.size,
-    status: parseError ? ("FAILED" as const) : ("PARSED" as const),
-    parseError,
-    candidateName: extractedText ? candidateNameFromText(extractedText) : null,
-    candidateEmail: extractedText ? emailEvidence(extractedText) : null,
-    candidatePhone: extractedText ? phoneEvidence(extractedText) : null,
+    status: "PARSED" as const,
+    parseError: null,
+    candidateName: candidateNameFromText(extractedText),
+    candidateEmail: emailEvidence(extractedText),
+    candidatePhone: phoneEvidence(extractedText),
     extractedText,
     fileData: file.buffer,
     uploadedAt: now,
@@ -95,7 +95,6 @@ export async function uploadCv(userId: number, file: Express.Multer.File | undef
     saved = created.toObject() as CvDocumentDoc;
   }
 
-  if (parseError) throw AppError.badRequest(parseError);
   return toResponse(saved);
 }
 

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { LandingIcon } from "../components/landing/LandingIcons.jsx";
+import { LogoWordmark } from "../components/Logo.jsx";
 
 const cx = (...classes) => classes.filter(Boolean).join(" ");
 
@@ -64,17 +65,6 @@ function Reveal({ children, className, delay = 0, variant }) {
     >
       {children}
     </div>
-  );
-}
-
-function LogoWordmark({ tone = "dark" }) {
-  return (
-    <span className="lp-wordmark">
-      <img src="/images/codeit-logo.png" alt="" aria-hidden="true" className="lp-logo-img" />
-      <span className={cx("lp-wordmark-text", tone === "light" && "is-light")}>
-        CODEIT&nbsp;<span className="lp-wordmark-accent">CareerOS</span>
-      </span>
-    </span>
   );
 }
 

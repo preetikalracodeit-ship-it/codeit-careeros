@@ -1,0 +1,162 @@
+/* ---------------------------------------------------------------------------
+   Standalone auth pages (registration, staff invitation, reset flows)
+--------------------------------------------------------------------------- */
+.auth-layout-single {
+  grid-template-columns: minmax(0, 1fr);
+  place-items: center;
+  padding: clamp(28px, 6vw, 64px) 20px;
+  background:
+    radial-gradient(ellipse at 50% 0%, #dcefe1 0, transparent 55%),
+    #f6f8f6;
+}
+
+.auth-layout-single .auth-card {
+  width: min(100%, 480px);
+  padding: clamp(26px, 4vw, 36px);
+  border: 1px solid #e3ebe5;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 24px 60px #143d2912;
+}
+
+.auth-card h1 {
+  margin: 10px 0;
+  font-size: clamp(26px, 4vw, 32px);
+  line-height: 1.15;
+  letter-spacing: -0.035em;
+}
+
+.auth-card .form-stack {
+  display: grid;
+  gap: 16px;
+}
+
+.auth-card .checkbox-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: #5d7265;
+}
+
+.auth-card .checkbox-row input {
+  width: 17px;
+  height: 17px;
+  margin: 2px 0 0;
+  flex: none;
+  accent-color: #24764a;
+}
+
+.auth-card .form-error {
+  margin: 6px 0 0;
+  color: #a3322a;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.auth-card .field-hint {
+  color: #7b8c81;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+.auth-card .button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 48px;
+  border: 0;
+  border-radius: 10px;
+  padding: 0 18px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.auth-card .button-primary {
+  background: #24764a;
+  color: #fff;
+}
+
+.auth-card .button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.auth-card .invitation-summary {
+  margin: 18px 0;
+  padding: 16px;
+  border: 1px solid #dce9e0;
+  border-radius: 12px;
+  background: #f4f9f5;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.auth-card .invitation-summary p {
+  margin: 0 0 10px;
+}
+
+.auth-card .invitation-summary dl {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.auth-card .invitation-summary dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.auth-card .invitation-summary dt {
+  color: #718278;
+  font-weight: 600;
+}
+
+.auth-card .invitation-summary dd {
+  margin: 0;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.auth-card .auth-footnote {
+  margin: 22px 0 0;
+  color: #73857b;
+  font-size: 13px;
+}
+
+.auth-card .consent-copy {
+  margin: 0;
+  color: #718278;
+  font-size: 11px;
+  line-height: 1.55;
+  text-align: center;
+}
+
+.auth-card .divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #829087;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.auth-card .divider::before,
+.auth-card .divider::after {
+  content: "";
+  height: 1px;
+  flex: 1;
+  background: #e4ece6;
+}
+
+.auth-card .google-signin {
+  margin-top: 18px;
+}

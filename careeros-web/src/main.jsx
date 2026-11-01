@@ -7,6 +7,8 @@ import "./styles.css";
 import "./auth-google.css";
 import "./workspace.css";
 import "./landing.css";
+import "./logo.css";
+import "./auth-pages.css";
 
 createRoot(document.getElementById("root")).render(
   <React.StrictMode>

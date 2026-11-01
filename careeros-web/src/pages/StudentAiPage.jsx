@@ -166,6 +166,7 @@ export function StudentAiPage() {
       setSessions(remaining);
       if (activeIdRef.current === sessionId) {
         setActiveId(remaining[0]?.id ?? null);
+        setLastMeta(null);
         if (remaining.length === 0) setMessages([]);
       }
       toast.success("Conversation deleted.");
@@ -233,7 +234,7 @@ export function StudentAiPage() {
         <input className="search-input ai-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search conversations" aria-label="Search conversations" />
         <div className="ai-session-list">
           {loadingSessions ? <LoadingBlock label="Loading chats..." /> : filtered.length === 0 ? <p className="muted ai-empty">{sessions.length === 0 ? "No conversations yet. Send your first message." : "No matching conversations."}</p> : filtered.map((session) => <div key={session.id} className={`ai-session ${session.id === activeId ? "ai-session-active" : ""}`}>
-            <button type="button" onClick={() => setActiveId(session.id)}><strong>{session.title}</strong><span>{formatDate(session.updatedAt)}</span></button>
+            <button type="button" onClick={() => { setActiveId(session.id); setLastMeta(null); }}><strong>{session.title}</strong><span>{formatDate(session.updatedAt)}</span></button>
             <button type="button" className="ai-session-delete" onClick={() => removeSession(session.id)} aria-label={`Delete ${session.title}`}><Icon name="trash" size={14} /></button>
           </div>)}
         </div>

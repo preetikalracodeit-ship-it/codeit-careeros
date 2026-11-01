@@ -13,12 +13,35 @@ const CHECKLIST = [
   ["degree", "Degree"], ["branch", "Branch"], ["graduationYear", "Graduation year"],
   ["semester", "Semester"], ["linkedinUrl", "LinkedIn URL"],
 ];
-const DEGREES = ["BTech", "BE", "BSc", "BCA", "MTech", "ME", "MCA", "MBA", "Other"];
+const DEGREES = [
+  "B.Tech", "BTech", "B.E.", "BE", "B.Sc", "BSc", "BCA",
+  "M.Tech", "MTech", "M.E.", "ME", "M.Sc", "MSc", "MCA", "MBA", "PhD", "Other",
+];
+const URL_FIELDS = [
+  ["linkedinUrl", "LinkedIn"],
+  ["githubUrl", "GitHub"],
+  ["portfolioUrl", "portfolio"],
+];
+
+function todayInputValue() {
+  const now = new Date();
+  return new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
+}
+
+function validHttpUrl(value) {
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
 
 function fromProfile(data) {
   return {
     ...EMPTY,
-    fullName: data.fullName || "", mobile: data.mobile || "", dateOfBirth: data.dateOfBirth || "",
+    fullName: data.fullName || "", mobile: data.mobile || "",
+    dateOfBirth: data.dateOfBirth ? String(data.dateOfBirth).slice(0, 10) : "",
     college: data.college || "", degree: data.degree || "", branch: data.branch || "",
     graduationYear: data.graduationYear ? String(data.graduationYear) : "",
     semester: data.semester ? String(data.semester) : "", location: data.location || "",
@@ -88,6 +111,7 @@ export function StudentProfilePage() {
       setPhotoUrl(null);
       return undefined;
     }
+    setPhotoUrl(null);
     api.get("/students/me/photo", { responseType: "blob" }).then((blob) => {
       if (!active || !blob?.size) return;
       objectUrl = URL.createObjectURL(blob);
@@ -117,6 +141,14 @@ export function StudentProfilePage() {
     if (form.graduationYear) {
       const year = Number(form.graduationYear);
       if (!Number.isInteger(year) || year < 2000 || year > 2100) next.graduationYear = "Enter a year from 2000 to 2100.";
+    }
+    if (form.dateOfBirth && form.dateOfBirth > todayInputValue()) {
+      next.dateOfBirth = "Date of birth cannot be in the future.";
+    }
+    for (const [name, label] of URL_FIELDS) {
+      if (form[name] && !validHttpUrl(form[name])) {
+        next[name] = `Enter a valid ${label} URL starting with http:// or https://.`;
+      }
     }
     return next;
   }
@@ -200,7 +232,7 @@ export function StudentProfilePage() {
         <section className="profile-card"><div className="profile-section-heading"><h2>Personal information</h2><p>Your name and contact basics.</p></div><div className="profile-fields">
           <Field label="Full name" name="fullName" form={form} errors={errors} onChange={change} required maxLength={120} />
           <Field label="Mobile" name="mobile" form={form} errors={errors} onChange={change} type="tel" inputMode="numeric" maxLength={10} placeholder="9876543210" />
-          <Field label="Date of birth" name="dateOfBirth" form={form} errors={errors} onChange={change} type="date" />
+          <Field label="Date of birth" name="dateOfBirth" form={form} errors={errors} onChange={change} type="date" max={todayInputValue()} />
           <Field label="Location" name="location" form={form} errors={errors} onChange={change} placeholder="City, State" />
         </div></section>
         <section className="profile-card"><div className="profile-section-heading"><h2>Education</h2><p>College, degree, branch and graduation details.</p></div><div className="profile-fields">
@@ -208,12 +240,12 @@ export function StudentProfilePage() {
           <label className="profile-field" htmlFor="profile-degree">Degree<select id="profile-degree" name="degree" value={form.degree} onChange={change}><option value="">Select degree</option>{DEGREES.map((degree) => <option key={degree}>{degree}</option>)}</select></label>
           <Field label="Branch" name="branch" form={form} errors={errors} onChange={change} placeholder="Computer Science" />
           <Field label="Graduation year" name="graduationYear" form={form} errors={errors} onChange={change} inputMode="numeric" maxLength={4} placeholder="2027" />
-          <label className="profile-field" htmlFor="profile-semester">Current semester<select id="profile-semester" name="semester" value={form.semester} onChange={change}><option value="">Select semester</option>{Array.from({ length: 8 }, (_, index) => String(index + 1)).map((semester) => <option key={semester} value={semester}>Semester {semester}</option>)}</select></label>
+          <label className="profile-field" htmlFor="profile-semester">Current semester<select id="profile-semester" name="semester" value={form.semester} onChange={change}><option value="">Select semester</option>{Array.from({ length: 12 }, (_, index) => String(index + 1)).map((semester) => <option key={semester} value={semester}>Semester {semester}</option>)}</select></label>
         </div></section>
         <section className="profile-card"><div className="profile-section-heading"><h2>Career links</h2><p>Where recruiters and your analysis can find you online.</p></div><div className="profile-fields profile-fields-single">
-          <Field label="LinkedIn URL" name="linkedinUrl" form={form} errors={errors} onChange={change} type="url" placeholder="https://linkedin.com/in/…" />
-          <Field label="GitHub URL" name="githubUrl" form={form} errors={errors} onChange={change} type="url" placeholder="https://github.com/…" />
-          <Field label="Portfolio URL" name="portfolioUrl" form={form} errors={errors} onChange={change} type="url" placeholder="https://…" />
+          <Field label="LinkedIn URL" name="linkedinUrl" form={form} errors={errors} onChange={change} type="url" maxLength={250} placeholder="https://linkedin.com/in/…" />
+          <Field label="GitHub URL" name="githubUrl" form={form} errors={errors} onChange={change} type="url" maxLength={250} placeholder="https://github.com/…" />
+          <Field label="Portfolio URL" name="portfolioUrl" form={form} errors={errors} onChange={change} type="url" maxLength={250} placeholder="https://…" />
         </div></section>
         <div className="profile-submit"><span>Last updated: {updatedAt ? new Date(updatedAt).toLocaleString() : "—"}</span><button className="secondary-button" type="button" disabled={saving || !dirty} onClick={() => { setForm(savedForm); setErrors({}); }}>Cancel</button><button className="primary-button" type="submit" disabled={saving || !dirty}>{saving ? "Saving…" : "Save changes"}</button></div>
       </form>

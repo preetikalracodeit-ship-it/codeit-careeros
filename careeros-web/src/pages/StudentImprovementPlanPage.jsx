@@ -22,6 +22,10 @@ function taskTone(status) {
   return "muted";
 }
 
+function progressStatus(task) {
+  return task.progressStatus ?? task.status;
+}
+
 export function StudentImprovementPlanPage() {
   const [plans, setPlans] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -84,10 +88,10 @@ export function StudentImprovementPlanPage() {
         {task.description && <p>{task.description}</p>}
         {(task.baselineScore != null || task.targetScore != null) && <small>Baseline {task.baselineScore ?? "-"}% - Target {task.targetScore ?? "-"}%</small>}
         <div className="button-row">
-          {task.status !== "COMPLETED" && <button className="primary-button" disabled={saving === task.id} onClick={() => updateTask(task, "COMPLETED")}><Icon name="check" size={14} /> {saving === task.id ? "Saving..." : "Mark complete"}</button>}
-          {task.status !== "IN_PROGRESS" && task.status !== "COMPLETED" && <button className="secondary-button" disabled={saving === task.id} onClick={() => updateTask(task, "IN_PROGRESS")}>Start task</button>}
-          {task.status === "IN_PROGRESS" && <button className="secondary-button" disabled={saving === task.id} onClick={() => updateTask(task, "NOT_STARTED")}>Reset</button>}
-          {task.status === "COMPLETED" && <span className="improvement-done"><Icon name="check" size={13} /> Completed {formatDate(task.completedAt)}</span>}
+          {progressStatus(task) !== "COMPLETED" && <button className="primary-button" disabled={saving === task.id} onClick={() => updateTask(task, "COMPLETED")}><Icon name="check" size={14} /> {saving === task.id ? "Saving..." : "Mark complete"}</button>}
+          {progressStatus(task) !== "IN_PROGRESS" && progressStatus(task) !== "COMPLETED" && <button className="secondary-button" disabled={saving === task.id} onClick={() => updateTask(task, "IN_PROGRESS")}>Start task</button>}
+          {progressStatus(task) === "IN_PROGRESS" && <button className="secondary-button" disabled={saving === task.id} onClick={() => updateTask(task, "NOT_STARTED")}>Reset</button>}
+          {progressStatus(task) === "COMPLETED" && <span className="improvement-done"><Icon name="check" size={13} /> Completed {formatDate(task.completedAt)}</span>}
         </div>
       </article>)}</div>
     </Panel>)}</div>}

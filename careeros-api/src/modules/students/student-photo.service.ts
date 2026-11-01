@@ -75,7 +75,7 @@ export async function downloadStudentPhoto(userId: number) {
   const profile = await StudentProfile.findOne({ userId }).select("profilePhotoUrl").lean();
   if (!profile) throw AppError.notFound("Student profile not found");
   const key = profile.profilePhotoUrl;
-  if (!key) throw AppError.notFound("No profile photo uploaded yet");
+  if (!key) return null;
   const filePath = safeFilePath(key);
   try {
     const bytes = await readFile(filePath);
@@ -84,7 +84,7 @@ export async function downloadStudentPhoto(userId: number) {
     return { filename: `profile-photo.${extension || "jpg"}`, mimeType, bytes };
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-      throw AppError.notFound("Profile photo file not found in storage");
+      return null;
     }
     throw AppError.conflict("Could not read the profile photo, please try again");
   }

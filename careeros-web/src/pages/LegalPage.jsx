@@ -14,7 +14,7 @@ export default function LegalPage() {
     : "The terms and conditions governing your use of the CareerOS platform";
   const content = isPrivacy ? PRIVACY_POLICY : TERMS_OF_SERVICE;
   return <main className="legal-page">
-    <header className="legal-header"><p className="eyebrow">POLICY</p><Link className="brand" to="/"><span className="brand-mark">C</span><span>CareerOS</span></Link><h1>{title}</h1><p className="muted">{subtitle}</p><span className="legal-date">Last updated {lastUpdated}</span></header>
+    <header className="legal-header"><p className="eyebrow">POLICY</p><h1>{title}</h1><p className="muted">{subtitle}</p><span className="legal-date">Last updated {lastUpdated}</span></header>
     <article className="legal-content"><Markdown remarkPlugins={[remarkGfm]}>{content}</Markdown></article>
     <footer className="legal-footer"><span>© {new Date().getFullYear()} CODEIT CareerOS</span><nav aria-label="Legal pages"><Link to="/legal/privacy">Privacy Policy</Link><Link to="/legal/terms">Terms of Service</Link></nav></footer>
   </main>;

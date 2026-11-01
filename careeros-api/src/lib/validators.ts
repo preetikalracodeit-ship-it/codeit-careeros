@@ -9,8 +9,11 @@ export function validate<T>(schema: ZodType<T>, input: unknown): T {
       message: issue.message,
     }));
     const first = fieldErrors[0];
+    const customMessage = first?.message && !first.message.startsWith("Invalid input")
+      ? first.message
+      : "";
     const message = first
-      ? `Validation failed for field '${first.field}'`
+      ? customMessage || `Validation failed for field '${first.field}'`
       : "Validation failed";
     throw AppError.validation(message, fieldErrors);
   }

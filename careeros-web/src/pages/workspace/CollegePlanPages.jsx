@@ -170,6 +170,8 @@ export function CollegePlansPage() {
 export function CollegePlanDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const basePath = location.pathname.replace(/\/[^/]+$/, "");
   const [plan, setPlan] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -261,7 +263,7 @@ export function CollegePlanDetailPage() {
         description={`${plan.studentName} · ${plan.rollNumber} · ${plan.batchLabel}`}
         actions={
           <div className="button-row">
-            <button type="button" className="secondary-button" onClick={() => navigate("/college/plans")}>Back</button>
+            <button type="button" className="secondary-button" onClick={() => navigate(basePath)}>Back</button>
             <button type="button" className="primary-button" onClick={openTask}>Add task</button>
           </div>
         }
@@ -299,9 +301,9 @@ export function CollegePlanDetailPage() {
               key: "actions",
               label: "",
               render: (task) => (
-                <select className="inline-select" value={task.status} onChange={(event) => updateTaskStatus(task, event.target.value)}>
+                <select className="inline-select" value={task.progressStatus ?? task.status} onChange={(event) => updateTaskStatus(task, event.target.value)}>
                   {TASK_STATUSES.map((value) => <option key={value} value={value}>{prettify(value)}</option>)}
-                  {task.status === "OVERDUE" && <option value="OVERDUE">Overdue</option>}
+                  {task.status === "OVERDUE" && !task.progressStatus && <option value="OVERDUE">Overdue</option>}
                 </select>
               ),
             },
