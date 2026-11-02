@@ -191,7 +191,7 @@ export function StudentReportsPage() {
 
   return <main className="workspace-page report-page">
     <PageHeader eyebrow="CAREER REPORTS" title="Reports" description="Generated from your live CareerOS data. View online or download a formatted PDF." actions={<Badge tone="info">{reports.filter((report) => report.available).length} of {reports.length} available</Badge>} />
-    <div className="report-grid">{reports.map((report) => <Panel key={report.type} title={report.title} description={report.description}>
+    <div className="report-grid">{reports.map((report) => <Panel key={report.type} title={report.title} titleAs="h3" description={report.description}>
       <div className="report-card-meta"><Badge tone={report.available ? "positive" : "muted"}>{report.available ? "Ready" : "Not ready"}</Badge><span>{report.statusDetail || formatDate(report.generatedAt)}</span></div>
       <div className="button-row">
         <button className="secondary-button" disabled={!report.available} onClick={() => toggle(report.type)}><Icon name={viewing === report.type ? "check" : "search"} size={14} /> {viewing === report.type ? "Hide report" : "View report"}</button>

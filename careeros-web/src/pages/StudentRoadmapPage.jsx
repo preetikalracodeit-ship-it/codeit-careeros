@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { BookOpen } from "lucide-react";
 import { api } from "../lib/api.js";
 
 const statusLabel = { NOT_STARTED: "Not started", IN_PROGRESS: "In progress", COMPLETED: "Completed" };
@@ -10,6 +11,38 @@ function guidance(item) {
   if (!item.assessed) return "Take a skill assessment to see how this step fits your current level.";
   if (item.gapPercent < 0) return `Your score is ${Math.abs(item.gapPercent)} points below the ${item.targetPercent}% target.`;
   return `Your ${item.skillName} score currently meets the ${item.targetPercent}% target.`;
+}
+
+function StudyContent({ item }) {
+  const study = item.studyContent;
+  const topics = study?.topics || [];
+  const lessons = study?.lessons || [];
+  const resources = study?.resources || [];
+  const practice = study?.practice || item.description;
+  const evidence = study?.evidence || item.learningGoal;
+
+  return <section className="roadmap-study-content" aria-label={`${item.title} study content`}>
+    <h4><BookOpen size={16} aria-hidden="true" /> Study this step</h4>
+    {topics.length > 0 && <div>
+      <strong>Topics to learn</strong>
+      <ul>{topics.map((topic) => <li key={topic}>{topic}</li>)}</ul>
+    </div>}
+    {lessons.length > 0 && <div>
+      <strong>Guided lessons</strong>
+      <ol>{lessons.map((lesson, index) => <li key={lesson.title}>
+        <span className="roadmap-study-number">{index + 1}</span>
+        <div><b>{lesson.title}</b><p>{lesson.content}</p></div>
+      </li>)}</ol>
+    </div>}
+    {practice && <div><strong>Practice</strong><p>{practice}</p></div>}
+    {evidence && <div><strong>Show what you learned</strong><p>{evidence}</p></div>}
+    {resources.length > 0 && <div>
+      <strong>Recommended learning resources</strong>
+      <ul className="roadmap-study-resources">{resources.map((resource) => <li key={resource.url}>
+        <a href={resource.url} target="_blank" rel="noreferrer">{resource.title}<span aria-hidden="true"> ↗</span></a>
+      </li>)}</ul>
+    </div>}
+  </section>;
 }
 
 export function StudentRoadmapPage() {
@@ -50,11 +83,12 @@ export function StudentRoadmapPage() {
       {phases.length === 0 ? <section className="dashboard-empty"><h2>No roadmap published yet</h2><p>Your target career does not have any roadmap phases yet.</p></section> : <div className="roadmap-phases">{phases.map((phase, index) => <section className="roadmap-phase" key={phase.phaseId}>
         <header className="roadmap-phase-heading"><span className="roadmap-phase-number">{index + 1}</span><div><span className="eyebrow">PHASE {index + 1}{phase.durationDays ? ` · ${phase.durationDays} DAYS` : ""}</span><h2>{phase.title}</h2>{phase.description && <p>{phase.description}</p>}</div><span className="roadmap-phase-count">{phase.completedItems}/{phase.totalItems} done</span></header>
         <div className="roadmap-items">{phase.items.map((item) => <article className={`roadmap-item roadmap-item-${item.status.toLowerCase()}`} key={item.itemId}>
-          <div className="roadmap-item-marker" aria-hidden="true">{item.status === "COMPLETED" ? "✓" : item.displayOrder + 1}</div>
+          <div className="roadmap-item-marker" aria-hidden="true">{item.status === "COMPLETED" ? "✓" : item.displayOrder}</div>
           <div className="roadmap-item-content"><div className="roadmap-item-title"><h3>{item.title}</h3><span className={`roadmap-status roadmap-status-${item.status.toLowerCase()}`}>{statusLabel[item.status] || item.status}</span></div>
-            {item.description && <p>{item.description}</p>}{item.learningGoal && <p className="roadmap-learning-goal"><strong>Learning goal:</strong> {item.learningGoal}</p>}
+            {item.description && <p>{item.description}</p>}{item.learningGoal && !item.studyContent && <p className="roadmap-learning-goal"><strong>Learning goal:</strong> {item.learningGoal}</p>}
             <div className="roadmap-item-meta">{item.estimatedHours > 0 && <span>◷ {item.estimatedHours} hours</span>}{item.skillName && <span>{item.skillName}{item.skillCategory ? ` · ${item.skillCategory}` : ""}</span>}{item.targetPercent != null && <span>Target {item.targetPercent}%{item.assessed ? ` · Current ${item.scorePercent}%` : " · Not assessed"}</span>}</div>
             <p className="roadmap-guidance">{guidance(item)}</p>
+            {item.status === "IN_PROGRESS" && <StudyContent item={item} />}
           </div>
           <div className="roadmap-actions"><button className="secondary-button roadmap-action" disabled={saving === item.itemId} onClick={() => changeStatus(item, item.status === "NOT_STARTED" ? "IN_PROGRESS" : item.status === "IN_PROGRESS" ? "COMPLETED" : "IN_PROGRESS")}>{saving === item.itemId ? "Saving…" : item.status === "NOT_STARTED" ? "Start step" : item.status === "IN_PROGRESS" ? "Mark complete" : "Reopen"}</button>{item.status === "IN_PROGRESS" && <button className="text-button roadmap-reset" disabled={saving === item.itemId} onClick={() => changeStatus(item, "NOT_STARTED")}>Reset</button>}</div>
         </article>)}</div>

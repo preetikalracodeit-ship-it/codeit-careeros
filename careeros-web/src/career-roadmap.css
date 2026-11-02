@@ -1,0 +1,285 @@
+/* Career roadmap redesign */
+.student-readable .roadmap-page {
+  max-width: 1280px;
+}
+
+.student-readable .roadmap-overview {
+  padding: 22px 24px;
+  border-radius: 16px;
+  box-shadow: 0 12px 28px #173d2714;
+}
+
+.student-readable .roadmap-overview>div {
+  gap: 10px;
+}
+
+.student-readable .roadmap-overview span {
+  font-size: 13px;
+}
+
+.student-readable .roadmap-overview strong {
+  font-size: 27px;
+}
+
+.student-readable .roadmap-overview strong small {
+  font-size: 13px;
+}
+
+.student-readable .roadmap-overview .readiness-bar {
+  height: 12px;
+}
+
+.student-readable .roadmap-overview-stat {
+  padding-left: 20px;
+  border-left: 1px solid #edf1ee;
+}
+
+.student-readable .roadmap-overview-stat strong {
+  font-size: 24px;
+}
+
+.student-readable .roadmap-phases {
+  display: grid;
+  gap: 18px;
+}
+
+.student-readable .roadmap-phase {
+  padding: 20px;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 10px 24px #173d270d;
+  border: 1px solid #e3ebe5;
+}
+
+.student-readable .roadmap-phase-heading {
+  padding: 0;
+  border-bottom: 1px solid #edf1ee;
+  gap: 14px;
+}
+
+.student-readable .roadmap-phase-number {
+  width: 40px;
+  height: 40px;
+  font-size: 18px;
+  font-weight: 800;
+  background: #eaf4ed;
+}
+
+.student-readable .roadmap-phase-heading h2 {
+  font-size: 20px;
+  margin: 3px 0 4px;
+}
+
+.student-readable .roadmap-phase-heading p {
+  font-size: 13px;
+}
+
+.student-readable .roadmap-phase-count {
+  padding: 7px 11px;
+  font-size: 12px;
+  background: #edf5ef;
+}
+
+.student-readable .roadmap-items {
+  display: grid;
+  gap: 12px;
+}
+
+.student-readable .roadmap-item {
+  padding: 16px 18px;
+  border-radius: 14px;
+  border: 1px solid #e3ebe5;
+  background: #fff;
+  box-shadow: 0 6px 16px #173d270a;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 14px;
+}
+
+.student-readable .roadmap-item:last-child {
+  border-bottom: 0;
+}
+
+.student-readable .roadmap-item-marker {
+  width: 34px;
+  height: 34px;
+  font-size: 14px;
+  font-weight: 800;
+  border-width: 2px;
+  flex: 0 0 34px;
+}
+
+.student-readable .roadmap-item-completed .roadmap-item-marker {
+  border-color: #cff0d4;
+  background: #eaf6ec;
+  color: #347449;
+}
+
+.student-readable .roadmap-item-content {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.student-readable .roadmap-item-title {
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.student-readable .roadmap-item-title h3 {
+  font-size: 17px;
+  margin: 0;
+}
+
+.student-readable .roadmap-item-content>p {
+  margin-top: 6px;
+}
+
+.student-readable .roadmap-learning-goal strong {
+  color: #526b5b;
+}
+
+.student-readable .roadmap-item-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.student-readable .roadmap-item-meta span,
+.student-readable .roadmap-status {
+  padding: 5px 10px;
+  font-size: 12px;
+}
+
+.student-readable .roadmap-guidance {
+  color: #52785d;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.student-readable .roadmap-item-completed .roadmap-item-title h3 {
+  text-decoration: line-through;
+  text-decoration-color: #b6c8bb;
+}
+
+.student-readable .roadmap-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-inline-start: auto;
+  flex: 1 1 auto;
+  justify-content: flex-end;
+}
+
+.student-readable .roadmap-action {
+  padding: 9px 16px;
+}
+
+.student-readable .roadmap-reset {
+  padding: 9px 14px;
+  font-size: 13px;
+}
+
+.student-readable .roadmap-study-content {
+  padding: 18px;
+  border-radius: 16px;
+  background: #f7fbf7;
+  border: 1px solid #d5e8da;
+  box-shadow: 0 8px 18px #173d270c;
+}
+
+.student-readable .roadmap-study-content h4 {
+  font-size: 16px;
+  margin-bottom: 10px;
+}
+
+.student-readable .roadmap-study-content>div>strong {
+  font-size: 13px;
+  color: #526b5b;
+}
+
+.student-readable .roadmap-study-content p {
+  font-size: 13px;
+}
+
+.student-readable .roadmap-study-content ul {
+  gap: 8px;
+}
+
+.student-readable .roadmap-study-content li {
+  padding: 7px 10px;
+  font-size: 12px;
+}
+
+.student-readable .roadmap-study-content ol li {
+  font-size: 13px;
+}
+
+.student-readable .roadmap-study-content .roadmap-study-number {
+  width: 24px;
+  height: 24px;
+  font-size: 13px;
+}
+
+.student-readable .roadmap-study-content ol b {
+  font-size: 13px;
+}
+
+.student-readable .roadmap-study-resources a {
+  font-size: 12px;
+  padding: 10px 12px;
+}
+
+@media (max-width: 900px) {
+  .student-readable .roadmap-overview {
+    grid-template-columns: 1fr !important;
+  }
+
+  .student-readable .roadmap-overview>div:first-child {
+    grid-column: 1 / -1;
+  }
+
+  .student-readable .roadmap-phase-heading {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .student-readable .roadmap-phase-count {
+    margin-left: 0;
+  }
+
+  .student-readable .roadmap-actions {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 640px) {
+  .student-readable .roadmap-page {
+    padding: 0;
+  }
+
+  .student-readable .roadmap-overview {
+    padding: 18px;
+  }
+
+  .student-readable .roadmap-phase {
+    padding: 16px;
+  }
+
+  .student-readable .roadmap-item {
+    padding: 14px 16px;
+  }
+
+  .student-readable .roadmap-item-marker {
+    width: 30px;
+    height: 30px;
+    flex: 0 0 30px;
+  }
+
+  .student-readable .roadmap-study-content {
+    padding: 14px;
+  }
+}

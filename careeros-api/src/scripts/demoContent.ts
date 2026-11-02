@@ -386,3 +386,604 @@ export const CAREERS: DemoCareer[] = [
     },
   },
 ];
+
+export interface CareerStudyGuide {
+  topics: string[];
+  practice: string;
+  evidence: string;
+}
+
+export interface StudyLesson {
+  title: string;
+  content: string;
+}
+
+export interface StudyResource {
+  title: string;
+  url: string;
+}
+
+export interface CareerStudyMaterial {
+  lessons: StudyLesson[];
+  resources: StudyResource[];
+}
+
+export const CAREER_STUDY_GUIDES: Record<
+  DemoCareer["name"],
+  Partial<Record<DemoWeight["name"], CareerStudyGuide>>
+> = {
+  "Software Engineer": {
+    "Problem Solving": {
+      topics: ["problem decomposition", "constraints and edge cases", "time and space complexity"],
+      practice: "Solve one array, one string, and one hash-map problem; compare a simple solution with an optimized one.",
+      evidence: "Keep the solutions, complexity notes, and tests for edge cases.",
+    },
+    JavaScript: {
+      topics: ["scope and closures", "modules and errors", "promises and the event loop"],
+      practice: "Build a small asynchronous command-line app that calls an API, validates its response, and handles failures.",
+      evidence: "Publish the source with tests and a short explanation of its asynchronous flow.",
+    },
+    "Data Structures": {
+      topics: ["arrays and hash maps", "stacks and queues", "trees, graphs, and traversal"],
+      practice: "Implement a queue and a graph traversal, then solve a problem that uses each structure.",
+      evidence: "Document operation costs and add tests for empty and boundary cases.",
+    },
+    Communication: {
+      topics: ["clarifying requirements", "explaining technical trade-offs", "constructive code review"],
+      practice: "Write a one-page design note for a feature and present its trade-offs in a three-minute walkthrough.",
+      evidence: "Save the design note and revise it using peer feedback.",
+    },
+    "System Design": {
+      topics: ["API boundaries and data models", "caching and scaling", "availability and failure handling"],
+      practice: "Sketch a service for a high-traffic feature, including its API, data store, bottlenecks, and failure modes.",
+      evidence: "Keep the architecture diagram and a written explanation of two key trade-offs.",
+    },
+  },
+  "Data Analyst": {
+    SQL: {
+      topics: ["filtering and joins", "aggregation and window functions", "data quality and query performance"],
+      practice: "Use a public dataset to answer five business questions with joins, grouped metrics, and one window function.",
+      evidence: "Publish the SQL queries with assumptions and a brief interpretation of each result.",
+    },
+    "Problem Solving": {
+      topics: ["turning vague requests into questions", "checking assumptions", "separating correlation from cause"],
+      practice: "Take one business question and define the metric, comparison group, time period, and possible confounders.",
+      evidence: "Write a short analysis plan that another analyst can reproduce.",
+    },
+    Communication: {
+      topics: ["audience-first storytelling", "clear metric definitions", "recommendations with limitations"],
+      practice: "Present one finding to both a technical and a non-technical audience using the same evidence.",
+      evidence: "Create a concise summary with the finding, its caveat, and a recommended next action.",
+    },
+    "Data Visualization": {
+      topics: ["choosing charts for comparisons and trends", "scales and labeling", "avoiding misleading visuals"],
+      practice: "Build a dashboard with three charts that answer a defined business question and include useful filters.",
+      evidence: "Share the dashboard and explain why each chart type and scale was chosen.",
+    },
+  },
+  "Frontend Developer": {
+    "HTML & CSS": {
+      topics: ["semantic HTML", "responsive layouts", "keyboard access and visual contrast"],
+      practice: "Build a responsive, accessible page from a wireframe using semantic elements and flexible layouts.",
+      evidence: "Provide screenshots at mobile and desktop widths plus a keyboard-navigation checklist.",
+    },
+    JavaScript: {
+      topics: ["DOM and event handling", "modules and data transformation", "async requests and error states"],
+      practice: "Add search, filtering, and loading/error states to a small data-driven page.",
+      evidence: "Publish the feature with tests for empty, successful, and failed responses.",
+    },
+    React: {
+      topics: ["component composition and props", "state and effects", "forms and reusable UI patterns"],
+      practice: "Create a small searchable catalogue with reusable cards, controlled filters, and an empty state.",
+      evidence: "Document the component boundaries and demonstrate the main interaction states.",
+    },
+    "Git & Version Control": {
+      topics: ["small, reviewable commits", "branches and pull requests", "resolving merge conflicts"],
+      practice: "Implement a feature on a branch, make focused commits, and review the diff before merging.",
+      evidence: "Keep a clear commit history and a pull-request summary with test results.",
+    },
+    Communication: {
+      topics: ["handoff questions", "explaining UI trade-offs", "accessible feedback and error messages"],
+      practice: "Review a design with a teammate and turn the discussion into clear implementation notes.",
+      evidence: "Save the notes and show how the final interface addresses the feedback.",
+    },
+  },
+  "Backend Developer": {
+    "Node.js": {
+      topics: ["event loop and asynchronous I/O", "request lifecycle", "validation and error handling"],
+      practice: "Build a small service with input validation, structured errors, and an asynchronous data-access layer.",
+      evidence: "Include tests for valid input, invalid input, and downstream failures.",
+    },
+    "REST APIs": {
+      topics: ["resource-oriented routes", "HTTP methods and status codes", "pagination and API contracts"],
+      practice: "Design and implement a versioned CRUD API with pagination and consistent validation errors.",
+      evidence: "Publish an API specification and example requests and responses.",
+    },
+    SQL: {
+      topics: ["relational modeling and constraints", "joins and transactions", "indexes and query plans"],
+      practice: "Model a small transactional domain and write queries for its key read paths.",
+      evidence: "Include the schema, constraints, query plan, and a migration script.",
+    },
+    "System Design": {
+      topics: ["service boundaries", "data consistency and queues", "scaling, observability, and resilience"],
+      practice: "Design a job-processing service with retries, idempotency, and a clear failure-recovery path.",
+      evidence: "Create a diagram and explain consistency, capacity, and operational trade-offs.",
+    },
+    Docker: {
+      topics: ["images and layers", "multi-stage builds", "networking and runtime configuration"],
+      practice: "Containerize the API with a non-root runtime and a separate local dependency service.",
+      evidence: "Provide a reproducible build and run command with documented environment variables.",
+    },
+  },
+  "Data Scientist": {
+    Python: {
+      topics: ["data structures and functions", "pandas data preparation", "reproducible notebooks and environments"],
+      practice: "Load a raw dataset, validate its schema, clean missing values, and produce a repeatable analysis.",
+      evidence: "Publish a notebook or script that runs from a clean environment with documented dependencies.",
+    },
+    Statistics: {
+      topics: ["sampling and distributions", "confidence intervals and hypothesis tests", "bias and experimental design"],
+      practice: "Compare two groups in a dataset and quantify uncertainty instead of reporting only a point estimate.",
+      evidence: "Explain the assumptions, uncertainty, and limits of the conclusion.",
+    },
+    "Machine Learning": {
+      topics: ["train/validation/test splits", "baseline models and feature leakage", "metrics and error analysis"],
+      practice: "Train a baseline and a second model for a documented prediction task, then inspect their errors.",
+      evidence: "Record the split strategy, chosen metric, baseline comparison, and error analysis.",
+    },
+    SQL: {
+      topics: ["joins across analytical tables", "cohort and time-window queries", "aggregations for model features"],
+      practice: "Create a leakage-safe feature table from event and entity tables using SQL.",
+      evidence: "Save the query and document its grain, time boundaries, and validation checks.",
+    },
+    "Data Visualization": {
+      topics: ["distribution and relationship plots", "uncertainty and subgroup comparisons", "visual narrative"],
+      practice: "Visualize model errors across important segments and identify one actionable pattern.",
+      evidence: "Present the charts with captions that distinguish evidence from interpretation.",
+    },
+    Communication: {
+      topics: ["framing the decision", "translating model metrics", "stating uncertainty and limitations"],
+      practice: "Explain a model result to a non-technical stakeholder and recommend whether to use it.",
+      evidence: "Write a one-page decision brief with benefits, risks, and a monitoring plan.",
+    },
+  },
+  "DevOps Engineer": {
+    Linux: {
+      topics: ["files, permissions, and processes", "shell pipelines and scripting", "logs and service troubleshooting"],
+      practice: "Write a script that checks a service, captures useful diagnostics, and exits with meaningful status codes.",
+      evidence: "Include usage instructions and a short incident-troubleshooting checklist.",
+    },
+    Docker: {
+      topics: ["image construction and caching", "container networking", "health checks and resource limits"],
+      practice: "Containerize a small app and its dependency with health checks and explicit resource settings.",
+      evidence: "Publish the Dockerfiles and a repeatable local startup command.",
+    },
+    "CI/CD": {
+      topics: ["build and test stages", "artifact promotion", "deployment approvals and rollback"],
+      practice: "Create a pipeline that runs tests, builds an artifact, and deploys a non-production environment.",
+      evidence: "Document pipeline stages and demonstrate a failed deployment rollback.",
+    },
+    "Cloud Fundamentals": {
+      topics: ["identity and networking", "compute and managed storage", "availability, cost, and monitoring"],
+      practice: "Design a small web service deployment with private data access and basic monitoring.",
+      evidence: "Provide an architecture diagram and estimate its main cost and availability risks.",
+    },
+    "Security Fundamentals": {
+      topics: ["least-privilege identity", "secret handling and image scanning", "patching and audit logs"],
+      practice: "Review a deployment pipeline for exposed secrets, excessive permissions, and vulnerable images.",
+      evidence: "Record findings and implement at least one preventive control.",
+    },
+  },
+  "Product Manager": {
+    "Product Thinking": {
+      topics: ["user problems and outcomes", "assumptions and discovery", "success metrics and prioritization"],
+      practice: "Interview users about one workflow and turn the evidence into a problem statement and outcome metric.",
+      evidence: "Create a concise opportunity brief that separates observations from assumptions.",
+    },
+    Communication: {
+      topics: ["decision memos", "stakeholder alignment", "clear scope and trade-offs"],
+      practice: "Write a decision memo for a feature including options, evidence, risks, and a recommendation.",
+      evidence: "Share the memo and record questions or decisions from a review.",
+    },
+    "Agile & Scrum": {
+      topics: ["backlog refinement", "sprint goals and slicing", "reviews and retrospectives"],
+      practice: "Break a user outcome into testable, ordered stories and define a sprint goal.",
+      evidence: "Provide the backlog, acceptance criteria, and a short retrospective with one improvement.",
+    },
+    "Problem Solving": {
+      topics: ["root-cause analysis", "impact-versus-effort reasoning", "testing risky assumptions"],
+      practice: "Analyze a product drop-off and propose a small experiment that can distinguish likely causes.",
+      evidence: "Document the hypothesis, success threshold, and decision for each possible outcome.",
+    },
+    "Data Visualization": {
+      topics: ["metric definitions and funnels", "cohorts and trends", "communicating uncertainty"],
+      practice: "Create a simple funnel or cohort view for a product question and identify a measurable opportunity.",
+      evidence: "Share the chart with metric definitions and a recommendation grounded in the data.",
+    },
+  },
+  "UI/UX Designer": {
+    "UI/UX Design": {
+      topics: ["user research and synthesis", "task flows and wireframes", "usability and accessibility"],
+      practice: "Observe users completing a task, map the friction points, and redesign the flow.",
+      evidence: "Show the research notes, before-and-after flow, and findings from a usability check.",
+    },
+    Figma: {
+      topics: ["components and variants", "auto layout and responsive behavior", "interactive prototyping"],
+      practice: "Create a small component set and prototype a complete task flow with alternate states.",
+      evidence: "Share the prototype and a component page with naming and usage guidance.",
+    },
+    Communication: {
+      topics: ["design rationale", "engineering handoff", "facilitating critique"],
+      practice: "Present a design decision with evidence, constraints, and open questions to an engineering partner.",
+      evidence: "Create annotated handoff notes and track one change made from feedback.",
+    },
+    "Product Thinking": {
+      topics: ["user needs and business outcomes", "scope and prioritization", "measuring experience quality"],
+      practice: "Connect a usability problem to a product outcome and define a low-cost way to validate a solution.",
+      evidence: "Write a short design brief with the problem, hypothesis, and success measure.",
+    },
+    "HTML & CSS": {
+      topics: ["semantic structure", "responsive layout constraints", "color contrast and focus states"],
+      practice: "Build a responsive prototype screen and verify it with keyboard navigation and a contrast check.",
+      evidence: "Share the implementation and a checklist of accessibility decisions.",
+    },
+  },
+};
+
+export const SKILL_STUDY_MATERIALS: Record<DemoWeight["name"], CareerStudyMaterial> = {
+  "Problem Solving": {
+    lessons: [
+      { title: "Clarify the problem", content: "Restate the goal, identify inputs and outputs, and list constraints before choosing an algorithm." },
+      { title: "Start with a simple solution", content: "Write the clearest correct approach first. Trace it with a small example and check empty, duplicate, and boundary inputs." },
+      { title: "Improve and explain", content: "Look for repeated work and choose a suitable data structure. Compare time and space costs, then explain why the trade-off fits." },
+    ],
+    resources: [
+      { title: "HackerRank: Problem Solving", url: "https://www.hackerrank.com/domains/algorithms" },
+      { title: "LeetCode: Explore", url: "https://leetcode.com/explore/" },
+    ],
+  },
+  JavaScript: {
+    lessons: [
+      { title: "Values, scope, and functions", content: "Practice primitives, objects, lexical scope, closures, and how functions capture values." },
+      { title: "Collections and modules", content: "Transform arrays and objects with built-in methods, split code into modules, and handle errors deliberately." },
+      { title: "Asynchronous JavaScript", content: "Use promises and async/await to coordinate I/O. Understand how the event loop schedules callbacks and how rejected work is handled." },
+    ],
+    resources: [
+      { title: "MDN: JavaScript Guide", url: "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide" },
+      { title: "JavaScript.info: The Modern JavaScript Tutorial", url: "https://javascript.info/" },
+    ],
+  },
+  "Data Structures": {
+    lessons: [
+      { title: "Choose a structure for the operation", content: "Compare arrays, linked structures, sets, and hash maps by lookup, insertion, deletion, and ordering needs." },
+      { title: "Work with linear structures", content: "Use stacks for last-in-first-out work and queues for first-in-first-out processing; recognize common traversal patterns." },
+      { title: "Explore trees and graphs", content: "Represent relationships with nodes and edges, then use breadth-first or depth-first traversal while tracking visited nodes." },
+    ],
+    resources: [
+      { title: "Princeton: Algorithms, 4th Edition", url: "https://algs4.cs.princeton.edu/home/" },
+      { title: "VisuAlgo: Data Structures and Algorithms", url: "https://visualgo.net/en" },
+    ],
+  },
+  Communication: {
+    lessons: [
+      { title: "Write for your audience", content: "Lead with the context and decision the reader needs. Define unfamiliar terms and keep each paragraph focused on one idea." },
+      { title: "Explain technical decisions", content: "State the problem, options considered, chosen approach, and trade-offs so another person can review the reasoning." },
+      { title: "Give useful feedback", content: "Describe observable behavior, explain its impact, and suggest a concrete next step without making the feedback personal." },
+    ],
+    resources: [
+      { title: "Google: Technical Writing One", url: "https://developers.google.com/tech-writing/one" },
+      { title: "Google: Technical Writing Two", url: "https://developers.google.com/tech-writing/two" },
+    ],
+  },
+  "System Design": {
+    lessons: [
+      { title: "Define requirements and constraints", content: "Separate user-visible requirements from scale, latency, availability, privacy, and cost constraints." },
+      { title: "Draw the main components", content: "Trace a request through clients, APIs, services, queues, caches, and storage. Identify each component's responsibility." },
+      { title: "Reason about failure and growth", content: "Estimate load, locate bottlenecks, and plan for retries, timeouts, replication, monitoring, and partial failure." },
+    ],
+    resources: [
+      { title: "System Design Primer", url: "https://github.com/donnemartin/system-design-primer" },
+      { title: "Google SRE: Service Level Objectives", url: "https://sre.google/sre-book/service-level-objectives/" },
+    ],
+  },
+  SQL: {
+    lessons: [
+      { title: "Read and filter rows", content: "Use SELECT, WHERE, ORDER BY, and LIMIT to inspect a dataset and verify assumptions about its values." },
+      { title: "Combine and summarize data", content: "Join tables using their keys, group at the correct grain, and use aggregate functions to answer questions." },
+      { title: "Analyze sequences and validate results", content: "Use window functions for ranking and running metrics. Compare row counts and spot-check results before sharing them." },
+    ],
+    resources: [
+      { title: "SQLBolt: Interactive SQL Lessons", url: "https://sqlbolt.com/" },
+      { title: "Mode: SQL Tutorial", url: "https://mode.com/sql-tutorial/" },
+    ],
+  },
+  "Data Visualization": {
+    lessons: [
+      { title: "Match the chart to the question", content: "Use position for precise comparisons, lines for trends, and distributions to show spread rather than only averages." },
+      { title: "Make the encoding honest", content: "Label units and time ranges, use sensible scales, and avoid visual effects that exaggerate small differences." },
+      { title: "Guide the reader", content: "Use hierarchy, annotations, and focused color to make the main finding easy to see without hiding uncertainty or caveats." },
+    ],
+    resources: [
+      { title: "Fundamentals of Data Visualization", url: "https://clauswilke.com/dataviz/" },
+      { title: "From Data to Viz: Chart Selection", url: "https://www.data-to-viz.com/" },
+    ],
+  },
+  "HTML & CSS": {
+    lessons: [
+      { title: "Structure content semantically", content: "Choose HTML elements by meaning and document structure so assistive technologies and browsers can interpret the page." },
+      { title: "Build flexible layouts", content: "Use the normal flow, Flexbox, Grid, and relative sizing to adapt content to different viewport widths." },
+      { title: "Support accessible interaction", content: "Keep controls keyboard-operable, show visible focus, provide labels, and ensure text and controls have sufficient contrast." },
+    ],
+    resources: [
+      { title: "MDN: Learn Web Development", url: "https://developer.mozilla.org/en-US/docs/Learn_web_development" },
+      { title: "web.dev: Learn Accessibility", url: "https://web.dev/learn/accessibility/" },
+    ],
+  },
+  React: {
+    lessons: [
+      { title: "Compose components", content: "Break an interface into components with clear responsibilities and pass data through explicit props." },
+      { title: "Model state and events", content: "Keep state minimal, update it in response to user actions, and derive display values instead of duplicating them." },
+      { title: "Connect to external data", content: "Handle loading, success, empty, and error states when synchronizing with a server; clean up effects when needed." },
+    ],
+    resources: [
+      { title: "React: Learn", url: "https://react.dev/learn" },
+      { title: "React: Thinking in React", url: "https://react.dev/learn/thinking-in-react" },
+    ],
+  },
+  "Git & Version Control": {
+    lessons: [
+      { title: "Record focused changes", content: "Stage only related edits and write commit messages that describe the intent of each change." },
+      { title: "Collaborate with branches", content: "Use branches and pull requests to review changes before integrating them with shared work." },
+      { title: "Resolve conflicts carefully", content: "Understand both sides of a conflict, preserve intended behavior, and run tests after resolving it." },
+    ],
+    resources: [
+      { title: "Pro Git Book", url: "https://git-scm.com/book/en/v2" },
+      { title: "GitHub Skills: Introduction to GitHub", url: "https://github.com/skills/introduction-to-github" },
+    ],
+  },
+  "Node.js": {
+    lessons: [
+      { title: "Understand the runtime", content: "Learn how Node.js uses the V8 engine and event loop to handle JavaScript and asynchronous I/O." },
+      { title: "Organize a service", content: "Separate routing, business logic, and persistence; make configuration explicit and keep secrets outside source code." },
+      { title: "Handle requests safely", content: "Validate untrusted input, return consistent errors, and use asynchronous APIs without blocking the event loop." },
+    ],
+    resources: [
+      { title: "Node.js: Introduction to Node.js", url: "https://nodejs.org/en/learn/getting-started/introduction-to-nodejs" },
+      { title: "Node.js: The Event Loop", url: "https://nodejs.org/en/learn/asynchronous-work/event-loop-timers-and-nexttick" },
+    ],
+  },
+  "REST APIs": {
+    lessons: [
+      { title: "Model resources and routes", content: "Name endpoints around resources and use HTTP methods consistently for reading, creating, replacing, and deleting." },
+      { title: "Return predictable responses", content: "Choose meaningful status codes, validate request data, and define a stable error shape for clients." },
+      { title: "Design for real clients", content: "Document pagination, filtering, authentication, versioning, and retry behavior before consumers depend on the API." },
+    ],
+    resources: [
+      { title: "MDN: An Overview of HTTP", url: "https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Overview" },
+      { title: "Microsoft REST API Guidelines", url: "https://github.com/microsoft/api-guidelines" },
+    ],
+  },
+  Docker: {
+    lessons: [
+      { title: "Build an image", content: "Use a Dockerfile to describe reproducible image layers, pin dependencies, and exclude irrelevant files from the build context." },
+      { title: "Run an isolated service", content: "Understand container processes, ports, networks, volumes, environment variables, and health checks." },
+      { title: "Harden the runtime", content: "Use a small trusted base image, run as a non-root user, and avoid embedding credentials in image layers." },
+    ],
+    resources: [
+      { title: "Docker Docs: Get Started", url: "https://docs.docker.com/get-started/" },
+      { title: "Docker Docs: Build Best Practices", url: "https://docs.docker.com/build/building/best-practices/" },
+    ],
+  },
+  Python: {
+    lessons: [
+      { title: "Write clear Python", content: "Practice functions, collections, iteration, exceptions, and modules using small, readable programs." },
+      { title: "Work with tabular data", content: "Load data into a DataFrame, inspect types and missing values, then transform columns with explicit assumptions." },
+      { title: "Make analysis reproducible", content: "Separate reusable code from exploration, control dependencies, and make each run produce the same documented result." },
+    ],
+    resources: [
+      { title: "Python: The Official Tutorial", url: "https://docs.python.org/3/tutorial/" },
+      { title: "pandas: Getting Started", url: "https://pandas.pydata.org/docs/getting_started/index.html" },
+    ],
+  },
+  Statistics: {
+    lessons: [
+      { title: "Describe variation", content: "Use distributions and summary statistics to understand spread, skew, outliers, and the shape of the data." },
+      { title: "Quantify uncertainty", content: "Use sampling ideas and confidence intervals to express how much an estimate might vary across samples." },
+      { title: "Evaluate comparisons", content: "Choose a suitable test, inspect assumptions, and distinguish statistical evidence from practical importance or causation." },
+    ],
+    resources: [
+      { title: "OpenIntro: Introduction to Modern Statistics", url: "https://www.openintro.org/book/ims/" },
+      { title: "Khan Academy: Statistics and Probability", url: "https://www.khanacademy.org/math/statistics-probability" },
+    ],
+  },
+  "Machine Learning": {
+    lessons: [
+      { title: "Create a valid evaluation", content: "Split data before fitting transformations, and keep a final test set untouched until model selection is complete." },
+      { title: "Build a baseline", content: "Compare a simple baseline with more complex models using a metric aligned to the real cost of errors." },
+      { title: "Inspect model behavior", content: "Check for leakage, analyze errors by segment, and monitor whether data changes after deployment." },
+    ],
+    resources: [
+      { title: "Google: Machine Learning Crash Course", url: "https://developers.google.com/machine-learning/crash-course" },
+      { title: "scikit-learn: Common Pitfalls", url: "https://scikit-learn.org/stable/common_pitfalls.html" },
+    ],
+  },
+  Linux: {
+    lessons: [
+      { title: "Navigate files and permissions", content: "Use paths, file inspection, ownership, and permissions to understand what a process can read or change." },
+      { title: "Inspect processes and services", content: "Find processes, signals, resource use, service state, and logs before restarting or changing a system." },
+      { title: "Combine shell tools", content: "Use pipes and small scripts to filter output and automate repeatable checks with clear exit codes." },
+    ],
+    resources: [
+      { title: "Linux Journey", url: "https://linuxjourney.com/" },
+      { title: "The Linux Command Line", url: "https://linuxcommand.org/tlcl.php" },
+    ],
+  },
+  "CI/CD": {
+    lessons: [
+      { title: "Automate quality checks", content: "Run formatting, tests, and security checks on every change so failures are found before deployment." },
+      { title: "Promote immutable artifacts", content: "Build an artifact once, identify it by version or digest, and promote the same artifact between environments." },
+      { title: "Deploy with recovery in mind", content: "Use health checks and controlled rollout strategies, and define when and how to roll back." },
+    ],
+    resources: [
+      { title: "GitHub Actions: Understanding Workflows", url: "https://docs.github.com/en/actions/about-github-actions/understanding-github-actions" },
+      { title: "Google Cloud: CI/CD Overview", url: "https://cloud.google.com/architecture/devops/devops-tech-continuous-delivery" },
+    ],
+  },
+  "Cloud Fundamentals": {
+    lessons: [
+      { title: "Understand shared responsibility", content: "Know which security and reliability controls belong to the cloud provider and which remain your team's responsibility." },
+      { title: "Choose core building blocks", content: "Compare compute, object storage, managed databases, virtual networks, and identity services for a workload." },
+      { title: "Plan for operations and cost", content: "Use least-privilege access, monitoring, backups, and budgets as part of the design rather than after launch." },
+    ],
+    resources: [
+      { title: "AWS Skill Builder: Cloud Essentials", url: "https://skillbuilder.aws/" },
+      { title: "Microsoft Learn: Azure Fundamentals", url: "https://learn.microsoft.com/en-us/training/paths/azure-fundamentals-describe-cloud-concepts/" },
+    ],
+  },
+  "Security Fundamentals": {
+    lessons: [
+      { title: "Identify threats and trust boundaries", content: "Map sensitive data, entry points, and trust boundaries; consider how an attacker could misuse each one." },
+      { title: "Use secure defaults", content: "Apply least privilege, validate input, protect secrets, and use established authentication and cryptography libraries." },
+      { title: "Respond and learn", content: "Log security-relevant events without exposing secrets, keep dependencies patched, and define how incidents are handled." },
+    ],
+    resources: [
+      { title: "OWASP Top 10", url: "https://owasp.org/www-project-top-ten/" },
+      { title: "OWASP Cheat Sheet Series", url: "https://cheatsheetseries.owasp.org/" },
+    ],
+  },
+  "Product Thinking": {
+    lessons: [
+      { title: "Start with the user problem", content: "Understand who experiences the problem, when it occurs, and what they do today before proposing a feature." },
+      { title: "Test assumptions early", content: "Separate evidence from guesses and choose the smallest experiment that can reduce an important uncertainty." },
+      { title: "Measure outcomes", content: "Define a user or business outcome and a baseline so success is not confused with shipping activity." },
+    ],
+    resources: [
+      { title: "Atlassian: Product Management", url: "https://www.atlassian.com/agile/product-management" },
+      { title: "Product Talk: Continuous Discovery", url: "https://www.producttalk.org/continuous-discovery-habits/" },
+    ],
+  },
+  "Agile & Scrum": {
+    lessons: [
+      { title: "Plan around an outcome", content: "Set a sprint goal that describes value, then select and refine work that supports that goal." },
+      { title: "Make work small and testable", content: "Write clear acceptance criteria and split stories so progress and feedback arrive during the iteration." },
+      { title: "Inspect and adapt", content: "Use reviews to learn from the product and retrospectives to choose one practical improvement to the team's process." },
+    ],
+    resources: [
+      { title: "The Scrum Guide", url: "https://scrumguides.org/scrum-guide.html" },
+      { title: "Atlassian: Agile Coach", url: "https://www.atlassian.com/agile" },
+    ],
+  },
+  "UI/UX Design": {
+    lessons: [
+      { title: "Research the task", content: "Observe users and ask neutral questions to understand goals, context, and obstacles rather than confirming a preferred solution." },
+      { title: "Design and test a flow", content: "Map the steps and states needed to complete a task, then test a low-fidelity prototype before polishing it." },
+      { title: "Check usability and access", content: "Review feedback, error prevention, keyboard use, labels, contrast, and recovery paths across the full journey." },
+    ],
+    resources: [
+      { title: "Nielsen Norman Group: 10 Usability Heuristics", url: "https://www.nngroup.com/articles/ten-usability-heuristics/" },
+      { title: "W3C: WAI Tutorials", url: "https://www.w3.org/WAI/tutorials/" },
+    ],
+  },
+  Figma: {
+    lessons: [
+      { title: "Create reusable components", content: "Turn repeated interface elements into components with clear names, variants, and sensible defaults." },
+      { title: "Build responsive layouts", content: "Use auto layout and constraints to keep spacing and alignment predictable as content and frame sizes change." },
+      { title: "Prototype meaningful states", content: "Connect screens and interactive states so a reviewer can test the actual task flow, including errors and empty states." },
+    ],
+    resources: [
+      { title: "Figma Help Center: Get Started", url: "https://help.figma.com/hc/en-us/categories/360002051613-Get-started" },
+      { title: "Figma: Design Systems", url: "https://help.figma.com/hc/en-us/categories/360002051613-Get-started" },
+    ],
+  },
+};
+
+export const CAREER_CAPSTONE_MATERIALS: Record<DemoCareer["name"], CareerStudyMaterial> = {
+  "Software Engineer": {
+    lessons: [
+      { title: "Plan the application", content: "Define user roles, core workflows, data ownership, and API boundaries before building the placement portal." },
+      { title: "Deliver a vertical slice", content: "Connect one end-to-end workflow across UI, API, and persistence, with validation and automated tests." },
+      { title: "Deploy and explain it", content: "Deploy the application, document setup and trade-offs, and prepare a short walkthrough of the decisions you made." },
+    ],
+    resources: [
+      { title: "GitHub Skills: Review Pull Requests", url: "https://github.com/skills/review-pull-requests" },
+      { title: "OWASP Cheat Sheet Series", url: "https://cheatsheetseries.owasp.org/" },
+    ],
+  },
+  "Data Analyst": {
+    lessons: [
+      { title: "Define the analysis grain", content: "Specify what one row represents, which outcomes matter, and how departments and years should be compared." },
+      { title: "Validate the measures", content: "Check duplicates, missing values, cohort sizes, and metric definitions before building dashboard charts." },
+      { title: "Turn findings into decisions", content: "Present a small number of findings with caveats and recommendations tied directly to the evidence." },
+    ],
+    resources: [
+      { title: "Fundamentals of Data Visualization", url: "https://clauswilke.com/dataviz/" },
+      { title: "SQLBolt: Interactive SQL Lessons", url: "https://sqlbolt.com/" },
+    ],
+  },
+  "Frontend Developer": {
+    lessons: [
+      { title: "Build a reusable visual system", content: "Choose a small set of design tokens and components, then use them consistently across the portfolio." },
+      { title: "Make every screen responsive", content: "Use flexible layouts and test content at narrow widths, zoomed text, and keyboard-only interaction." },
+      { title: "Publish and evaluate", content: "Deploy the portfolio, check loading and error behavior, and ask a reviewer to complete key tasks." },
+    ],
+    resources: [
+      { title: "React: Learn", url: "https://react.dev/learn" },
+      { title: "web.dev: Learn Accessibility", url: "https://web.dev/learn/accessibility/" },
+    ],
+  },
+  "Backend Developer": {
+    lessons: [
+      { title: "Define the contract", content: "Specify resources, authorization rules, validation, status codes, and stable error responses before coding." },
+      { title: "Protect state changes", content: "Hash credentials, enforce ownership, validate input, and make retryable operations safe where appropriate." },
+      { title: "Test and package the service", content: "Cover success and failure cases, document the API, and run the service as a non-root container." },
+    ],
+    resources: [
+      { title: "Microsoft REST API Guidelines", url: "https://github.com/microsoft/api-guidelines" },
+      { title: "Docker Docs: Get Started", url: "https://docs.docker.com/get-started/" },
+    ],
+  },
+  "Data Scientist": {
+    lessons: [
+      { title: "Establish a trustworthy baseline", content: "Define the prediction target and split strategy before exploring model choices; prevent leakage across the split." },
+      { title: "Compare and inspect models", content: "Compare a baseline to a candidate model using suitable metrics and inspect errors across important segments." },
+      { title: "Communicate limitations", content: "Explain uncertainty, data limitations, likely failure cases, and how the model should be monitored." },
+    ],
+    resources: [
+      { title: "Google: Machine Learning Crash Course", url: "https://developers.google.com/machine-learning/crash-course" },
+      { title: "scikit-learn: Common Pitfalls", url: "https://scikit-learn.org/stable/common_pitfalls.html" },
+    ],
+  },
+  "DevOps Engineer": {
+    lessons: [
+      { title: "Make builds repeatable", content: "Keep infrastructure and pipeline configuration reviewable, versioned, and reproducible." },
+      { title: "Add deployment safeguards", content: "Run tests and image checks, use health probes, and avoid deploying unverified artifacts." },
+      { title: "Operate the deployment", content: "Collect useful logs and metrics, test rollback, and document how to diagnose a failed release." },
+    ],
+    resources: [
+      { title: "GitHub Actions: Understanding Workflows", url: "https://docs.github.com/en/actions/about-github-actions/understanding-github-actions" },
+      { title: "Docker Docs: Build Best Practices", url: "https://docs.docker.com/build/building/best-practices/" },
+    ],
+  },
+  "Product Manager": {
+    lessons: [
+      { title: "Synthesize discovery", content: "Group interview observations into needs and unmet outcomes; avoid treating a proposed feature as proof of the problem." },
+      { title: "Choose a focused opportunity", content: "Compare opportunities by user impact, confidence, and effort, and record assumptions that still need testing." },
+      { title: "Connect delivery to outcomes", content: "Define a product metric and a learning plan that show whether the shipped work improved the user outcome." },
+    ],
+    resources: [
+      { title: "Atlassian: Product Management", url: "https://www.atlassian.com/agile/product-management" },
+      { title: "Product Talk: Continuous Discovery", url: "https://www.producttalk.org/continuous-discovery-habits/" },
+    ],
+  },
+  "UI/UX Designer": {
+    lessons: [
+      { title: "Ground the design in research", content: "Connect user observations to a clear problem statement and prioritize the most important task or friction point." },
+      { title: "Prototype and test the flow", content: "Create realistic states and use usability sessions to find confusion before refining visual details." },
+      { title: "Prepare a useful case study", content: "Show the process, iterations, accessibility considerations, and what changed because of user feedback." },
+    ],
+    resources: [
+      { title: "Nielsen Norman Group: 10 Usability Heuristics", url: "https://www.nngroup.com/articles/ten-usability-heuristics/" },
+      { title: "W3C: WAI Tutorials", url: "https://www.w3.org/WAI/tutorials/" },
+    ],
+  },
+};

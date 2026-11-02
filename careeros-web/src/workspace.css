@@ -500,7 +500,7 @@
   margin-bottom: 16px;
 }
 
-.panel-heading h2 {
+.panel-heading :is(h2, h3) {
   margin: 0;
   color: #1e3b2c;
   font-size: 15px;

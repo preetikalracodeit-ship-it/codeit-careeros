@@ -179,7 +179,8 @@ function Protected({ roles, children }) {
   if (!auth.isAuthenticated()) return <Navigate to="/login" replace state={{ from: location }} />;
   const role = auth.getRole();
   if (!roles.includes(role)) return <Navigate to={homeForRole(role)} replace />;
-  return <AppShell>{children}</AppShell>;
+  const content = roles.includes("STUDENT") ? <div className="student-readable">{children}</div> : children;
+  return <AppShell>{content}</AppShell>;
 }
 
 function PublicAuthRedirect() {

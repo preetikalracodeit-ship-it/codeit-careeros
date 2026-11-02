@@ -31,15 +31,17 @@ export function StudentDashboardPage() {
     setLoading(true);
     setError("");
     try {
-      const student = await api.get("/students/me");
-      setProfile(student);
-      const [readinessData, careerData, catalog, history, roadmapData, projectData] = await Promise.all([
+      const [student, readinessData, history, roadmapData, projectData] = await Promise.all([
+        api.get("/students/me"),
         api.get("/students/me/readiness").catch(() => null),
-        student?.targetCareerId ? api.get(`/careers/${student.targetCareerId}`).catch(() => null) : Promise.resolve(null),
-        student?.targetCareerId ? api.get(`/assessments/${student.targetCareerId}/available`).catch(() => []) : Promise.resolve([]),
         api.get("/students/me/attempts").catch(() => []),
         api.get("/roadmaps/my").catch(() => null),
         api.get("/projects/recommended").catch(() => null),
+      ]);
+      setProfile(student);
+      const [careerData, catalog] = await Promise.all([
+        student?.targetCareerId ? api.get(`/careers/${student.targetCareerId}`).catch(() => null) : Promise.resolve(null),
+        student?.targetCareerId ? api.get(`/assessments/${student.targetCareerId}/available`).catch(() => []) : Promise.resolve([]),
       ]);
       setReadiness(readinessData);
       setCareer(careerData);
@@ -104,7 +106,7 @@ export function StudentDashboardPage() {
   return <main className="workspace-page dashboard-page">
     <section className="dashboard-welcome"><div className="dashboard-avatar">{photoUrl ? <img src={photoUrl} alt="Profile" /> : <span>{firstName.slice(0, 1).toUpperCase()}</span>}</div><div className="dashboard-welcome-copy"><span className="welcome-greeting">{greeting()}</span><h1>{firstName === "there" ? "Welcome to CareerOS" : `${greeting()}, ${firstName}!`}</h1><p>Keep learning and building. You’re moving toward your career goal one step at a time.</p>{readiness?.readinessLevel && assessedSkills.length > 0 && <span className="readiness-badge">{readiness.readinessLevel.replaceAll("_", " ")}</span>}</div><Link className="welcome-action" to={nextAction.href}>{nextAction.label} <span aria-hidden="true">→</span></Link></section>
 
-    <section className="dashboard-career-card"><div className="career-target-icon" aria-hidden="true">◎</div><div className="dashboard-career-copy"><span className="eyebrow">TARGET CAREER</span>{hasTarget ? <><h2>{profile.targetCareerName || career?.name || "Your career"}</h2><p>{career?.description || "Your assessment and skill framework are tailored to this career."}</p><span className="muted">{assessedSkills.length ? `${assessedSkills.length} skills assessed · ${readiness?.metSkills ?? 0} on target` : "Take an assessment to calculate your readiness."}</span></> : <><h2>Set your target career</h2><p>Choose a direction to unlock relevant assessments and see the skills employers expect.</p></>}</div>{assessedSkills.length > 0 && <div className="readiness-meter" aria-label={`${readiness.readinessPercent}% career readiness`}><strong>{readiness.readinessPercent}<small>%</small></strong><span>ready</span></div>}<Link className="secondary-button" to={hasTarget ? "/student/careers" : "/student/careers"}>{hasTarget ? "Change career" : "Choose career"}</Link></section>
+    <section className="dashboard-career-card"><div className="career-target-icon" aria-hidden="true">◎</div><div className="dashboard-career-copy"><span className="eyebrow">TARGET CAREER</span>{hasTarget ? <><h2>{profile.targetCareerName || career?.name || "Your career"}</h2><p>{career?.description || "Your assessment and skill framework are tailored to this career."}</p><span className="muted">{assessedSkills.length ? `${assessedSkills.length} skills assessed · ${readiness?.metSkills ?? 0} on target` : "Take an assessment to calculate your readiness."}</span></> : <><h2>Set your target career</h2><p>Choose a direction to unlock relevant assessments and see the skills employers expect.</p></>}</div>{assessedSkills.length > 0 && <div className="readiness-meter" style={{ "--readiness-percent": `${Math.min(100, Math.max(0, readiness.readinessPercent ?? 0))}%` }} aria-label={`${readiness.readinessPercent}% career readiness`}><strong>{readiness.readinessPercent}<small>%</small></strong><span>ready</span></div>}<Link className="secondary-button" to={hasTarget ? "/student/careers" : "/student/careers"}>{hasTarget ? "Change career" : "Choose career"}</Link></section>
 
     <section className="dashboard-stat-grid" aria-label="Learning summary"><article className="dashboard-stat"><span>Assessments completed</span><strong>{completedAssessments}<small> / {assessments.length} available</small></strong><p>{latestAttempt ? `Latest score ${latestAttempt.overallScore ?? 0}% · ${formatDate(latestAttempt.submittedAt)}` : "Your assessment results will appear here."}</p><Link to="/student/assessment">View assessments →</Link></article><article className="dashboard-stat"><span>Career readiness</span><strong>{assessedSkills.length ? `${readiness.readinessPercent}%` : "—"}</strong><p>{assessedSkills.length ? `${readiness.metSkills ?? 0} of ${readiness.totalSkills ?? 0} skills currently meet target.` : "Complete an assessment to establish your baseline."}</p><Link to={hasTarget ? "/student/progress" : "/student/careers"}>{hasTarget ? "View skill progress →" : "Choose a career →"}</Link></article><article className="dashboard-stat"><span>Best assessment score</span><strong>{bestScore === null ? "—" : `${bestScore}%`}</strong><p>{submitted.length ? `${submitted.length} submitted attempt${submitted.length === 1 ? "" : "s"} across your career assessments.` : "Your best score appears after your first assessment."}</p><Link to="/student/assessment">Practice now →</Link></article></section>
 

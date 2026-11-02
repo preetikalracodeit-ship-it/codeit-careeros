@@ -9,6 +9,11 @@ import "./workspace.css";
 import "./landing.css";
 import "./logo.css";
 import "./auth-pages.css";
+import "./student-readable.css";
+
+import "./readability.css";
+import "./career-roadmap.css";
+
 
 createRoot(document.getElementById("root")).render(
   <React.StrictMode>

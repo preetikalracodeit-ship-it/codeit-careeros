@@ -1255,6 +1255,20 @@ describe("settings and role guards", () => {
       { _id: 907, phaseId: 905, title: "Plan a project", displayOrder: 1, estimatedHours: 2 },
       { _id: 908, phaseId: 904, title: "Ship a project", displayOrder: 1, estimatedHours: 8 },
     ]);
+    await RoadmapItem.updateOne(
+      { _id: 906 },
+      {
+        $set: {
+          studyContent: {
+            topics: ["closures", "promises"],
+            practice: "Build a small asynchronous API client.",
+            evidence: "Add tests and document error handling.",
+            lessons: [{ title: "Promises", content: "Track how asynchronous results resolve or reject." }],
+            resources: [{ title: "MDN JavaScript Guide", url: "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide" }],
+          },
+        },
+      },
+    );
     const submittedAt = new Date();
     await AssessmentTest.create({ _id: 909, careerId: 901, title: "JavaScript check", durationMinutes: 20, published: true });
     await AssessmentAttempt.create({ _id: 910, attemptCode: "roadmap-score", userId: 1, assessmentId: 909, status: "SUBMITTED", startedAt: submittedAt, expiresAt: submittedAt, submittedAt, totalQuestions: 10, answeredCount: 10, overallScore: 60 });
@@ -1265,7 +1279,22 @@ describe("settings and role guards", () => {
     expect(initial.body.data).toMatchObject({ careerId: 901, careerName: "Roadmap Engineer", hasTarget: true, totalItems: 3, completedItems: 0, inProgressItems: 0 });
     expect(initial.body.data.phases.map((phase: { title: string }) => phase.title)).toEqual(["Foundation", "Advanced"]);
     expect(initial.body.data.phases[0].items.map((item: { title: string }) => item.title)).toEqual(["Plan a project", "Build fundamentals"]);
-    expect(initial.body.data.phases[0].items[1]).toMatchObject({ skillId: 902, skillName: "Roadmap JavaScript", targetPercent: 70, scorePercent: 60, gapPercent: -10, assessed: true, status: "NOT_STARTED" });
+    expect(initial.body.data.phases[0].items[1]).toMatchObject({
+      skillId: 902,
+      skillName: "Roadmap JavaScript",
+      targetPercent: 70,
+      scorePercent: 60,
+      gapPercent: -10,
+      assessed: true,
+      status: "NOT_STARTED",
+      studyContent: {
+        topics: ["closures", "promises"],
+        practice: "Build a small asynchronous API client.",
+        evidence: "Add tests and document error handling.",
+        lessons: [{ title: "Promises", content: "Track how asynchronous results resolve or reject." }],
+        resources: [{ title: "MDN JavaScript Guide", url: "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide" }],
+      },
+    });
 
     const updated = await request(app).put("/api/v1/roadmaps/items/906/status").set(authHeader(first.body.data.accessToken)).send({ status: "in_progress" });
     expect(updated.status).toBe(200);

@@ -58,12 +58,13 @@ async function skillDetails(careerId: number, userId: number, skillIds: number[]
   }));
 }
 
-function itemResponse(item: { _id: number; title: string; description?: string | null; learningGoal?: string | null; estimatedHours: number; displayOrder: number; skillId?: number | null }, detail: SkillDetail | undefined, status: RoadmapStatus) {
+function itemResponse(item: { _id: number; title: string; description?: string | null; learningGoal?: string | null; studyContent?: { topics: string[]; practice: string; evidence: string; lessons: Array<{ title: string; content: string }>; resources: Array<{ title: string; url: string }> } | null; estimatedHours: number; displayOrder: number; skillId?: number | null }, detail: SkillDetail | undefined, status: RoadmapStatus) {
   return {
     itemId: item._id,
     title: item.title,
     ...(item.description == null ? {} : { description: item.description }),
     ...(item.learningGoal == null ? {} : { learningGoal: item.learningGoal }),
+    ...(item.studyContent == null ? {} : { studyContent: item.studyContent }),
     estimatedHours: item.estimatedHours,
     displayOrder: item.displayOrder,
     ...(item.skillId == null ? {} : { skillId: item.skillId, ...(detail ?? { assessed: false }) }),

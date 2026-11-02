@@ -34,7 +34,17 @@ import { AiChatSession } from "../models/AiChatSession.js";
 import { AiChatMessage } from "../models/AiChatMessage.js";
 import { buildPdf } from "../lib/pdf.js";
 import { extractPdfText } from "../lib/cv-text.js";
-import { CAREERS, QUESTION_BANK, SKILLS, type DemoWeight } from "./demoContent.js";
+import {
+  CAREER_CAPSTONE_MATERIALS,
+  CAREER_STUDY_GUIDES,
+  SKILL_STUDY_MATERIALS,
+  CAREERS,
+  QUESTION_BANK,
+  SKILLS,
+  type CareerStudyGuide,
+  type CareerStudyMaterial,
+  type DemoWeight,
+} from "./demoContent.js";
 import { LinkedInProfile } from "../models/LinkedInProfile.js";
 import { AssessmentQuestion } from "../models/AssessmentQuestion.js";
 import { QuestionOption } from "../models/QuestionOption.js";
@@ -519,13 +529,31 @@ async function ensureRoadmap(
   skillIds: Map<string, number>,
 ): Promise<void> {
   const sorted = [...career.weights].sort((a, b) => b.weightPercent - a.weightPercent);
-  const items = sorted.map((weight) => ({
-    skillId: skillIds.get(weight.name) ?? null,
-    title: `Master ${weight.name}`,
-    description: `Study the core ideas of ${weight.name} and apply them in a short, focused exercise.`,
-    learningGoal: `Reach ${weight.targetPercent}% readiness in ${weight.name} and add evidence to your portfolio.`,
-    estimatedHours: Math.max(6, Math.round(weight.weightPercent * 0.6)),
-  }));
+  const items: Array<{
+    skillId: number | null;
+    title: string;
+    description: string;
+    learningGoal: string;
+    studyContent: (CareerStudyGuide & CareerStudyMaterial) | null;
+    estimatedHours: number;
+  }> = sorted.map((weight) => {
+    const guide = CAREER_STUDY_GUIDES[career.name][weight.name];
+    if (!guide) {
+      throw new Error(`Missing study guide for ${career.name}: ${weight.name}`);
+    }
+    const material = SKILL_STUDY_MATERIALS[weight.name];
+    if (!material) {
+      throw new Error(`Missing study material for ${weight.name}`);
+    }
+    return {
+      skillId: skillIds.get(weight.name) ?? null,
+      title: `Study ${weight.name} for ${career.name}`,
+      description: `Study ${weight.name} concepts that are used in ${career.name} work.`,
+      learningGoal: `Reach ${weight.targetPercent}% readiness in ${weight.name}.`,
+      studyContent: { ...guide, ...material },
+      estimatedHours: Math.max(6, Math.round(weight.weightPercent * 0.6)),
+    };
+  });
   items.push({
     skillId: null,
     title: career.capstone?.title ?? `Build a portfolio project for ${career.name}`,
@@ -534,6 +562,15 @@ async function ensureRoadmap(
       `Ship one project that demonstrates the core skills required for ${career.name}.`,
     learningGoal:
       "Publish the project, write a short case study and prepare to discuss your decisions in interviews.",
+    studyContent: {
+      topics: ["Plan", "Build", "Review", "Present"],
+      practice:
+        career.capstone?.description ??
+        `Ship one project that demonstrates the core skills required for ${career.name}.`,
+      evidence:
+        "Publish the project, write a short case study, and prepare to discuss your decisions in interviews.",
+      ...CAREER_CAPSTONE_MATERIALS[career.name],
+    },
     estimatedHours: 30,
   });
 
@@ -547,10 +584,10 @@ async function ensureRoadmap(
       title: ROADMAP_PHASE_TITLES[index]!,
       description:
         index === 0
-          ? "Close the foundational gaps that every interview assumes."
+          ? `Build the foundations needed for ${career.name}, focusing first on your highest-weighted skills.`
           : index === 1
-            ? "Turn knowledge into working, reviewed practice."
-            : "Package your work and get interview-ready.",
+            ? `Apply ${career.name} skills through focused exercises and reviewed work.`
+            : `Present your ${career.name} work clearly and prepare to explain your decisions.`,
       displayOrder,
       durationDays: [21, 30, 21][index]!,
     };
@@ -573,6 +610,7 @@ async function ensureRoadmap(
         title: item.title,
         description: item.description,
         learningGoal: item.learningGoal,
+        studyContent: item.studyContent,
         displayOrder: itemOrder,
         estimatedHours: item.estimatedHours,
       };

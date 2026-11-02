@@ -1,0 +1,77 @@
+.student-readable {
+  font-size: clamp(1rem, 0.98rem + 0.12vw, 1.125rem);
+  line-height: 1.6;
+}
+
+.student-readable :is(h1, h2, h3, h4) {
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.student-readable .roadmap-study-content,
+.student-readable .notice-card,
+.student-readable .workspace-page {
+  font-size: inherit;
+}
+/* Responsive student layouts */
+.student-readable {
+  min-width: 0;
+}
+
+.student-readable :is(.career-grid, .dashboard-stat-grid, .dashboard-content-grid, .cv-overview-grid, .cv-section-grid, .cv-skill-columns, .cv-two-column, .progress-summary-grid, .progress-skill-list, .report-grid, .report-stat-grid, .placement-drive-grid, .linkedin-score-grid, .linkedin-analysis-columns, .improvement-tasks, .project-cards, .assessment-grid, .ai-layout, .profile-layout, .profile-fields, .cv-preview, .placement-applications) {
+  min-width: 0;
+}
+
+@media (max-width: 900px) {
+  .student-readable :is(.career-grid, .dashboard-stat-grid, .dashboard-content-grid, .cv-overview-grid, .cv-section-grid, .cv-skill-columns, .cv-two-column, .progress-summary-grid, .progress-skill-list, .report-grid, .report-stat-grid, .placement-drive-grid, .linkedin-score-grid, .linkedin-analysis-columns, .improvement-tasks, .project-cards, .assessment-grid, .ai-layout, .profile-layout, .profile-fields, .cv-preview, .placement-applications, .split-layout, .two-column, .settings-grid) {
+    grid-template-columns: 1fr !important;
+  }
+
+/* Normalized text scale for careeros-web student pages */
+.student-readable h1 { font-size: clamp(1.5rem, 1.3rem + 0.8vw, 2rem) !important; line-height: 1.2 !important; }
+.student-readable h2 { font-size: clamp(1.25rem, 1.1rem + 0.5vw, 1.625rem) !important; line-height: 1.25 !important; }
+.student-readable h3 { font-size: clamp(1.0625rem, 1rem + 0.3vw, 1.375rem) !important; line-height: 1.3 !important; }
+.student-readable h4 { font-size: clamp(1rem, 0.95rem + 0.2vw, 1.25rem) !important; line-height: 1.35 !important; }
+.student-readable p,
+.student-readable li,
+.student-readable label,
+.student-readable span {
+  font-size: clamp(0.9375rem, 0.91rem + 0.12vw, 1.0625rem) !important;
+  line-height: 1.55 !important;
+}
+
+  .student-readable :is(.career-controls, .profile-form, .linkedin-form, .ai-composer, .placement-drive-top, .report-detail-top, .project-card-top, .progress-skill-top, .improvement-task-top) {
+    flex-wrap: wrap !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .student-readable :is(.career-controls input, .career-controls select, .search-input) {
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+
+  .student-readable .data-table {
+    display: block;
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .student-readable :is(.dashboard-stat, .report-score, .placement-meta) {
+    min-width: 0;
+  }
+
+  .student-readable :is(.button-row, .photo-actions, .placement-actions, .project-card-actions, .report-preview-head) {
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+}
+
+.student-readable img,
+.student-readable canvas,
+.student-readable svg {
+  max-width: 100%;
+  height: auto;
+}
+

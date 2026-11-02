@@ -1,0 +1,746 @@
+body {
+  min-width: 0;
+  font-size: clamp(1rem, 0.98rem + 0.15vw, 1.125rem);
+  line-height: 1.55;
+}
+
+.app-shell .app-content {
+  padding-top: clamp(12px, 1.5vw, 20px);
+}
+
+.app-shell .workspace-page {
+  padding-top: clamp(20px, 2.5vw, 32px);
+}
+
+.student-readable .dashboard-stat > span {
+  color: #53665a;
+  font-size: clamp(1rem, 0.96rem + 0.2vw, 1.125rem);
+  line-height: 1.4;
+}
+
+.student-readable .career-grid .career-card h2 {
+  font-size: clamp(1.0625rem, 1rem + 0.2vw, 1.1875rem) !important;
+}
+
+.student-readable .assessment-card-heading h3 {
+  font-size: 8px !important;
+}
+
+.student-readable .assessment-card {
+  gap: clamp(11px, 1.2vw, 14px);
+  padding: clamp(15px, 1.6vw, 19px);
+  border-color: #dce8df;
+  border-radius: 16px;
+  box-shadow: 0 6px 18px rgb(23 61 39 / 5%);
+}
+
+.student-readable .assessment-card-complete {
+  border-color: #c9e2d0;
+  background: linear-gradient(180deg, #fff 0%, #fbfefb 100%);
+}
+
+.student-readable .assessment-card-heading {
+  align-items: center;
+  gap: 11px;
+}
+
+.student-readable .assessment-card-heading > div {
+  min-width: 0;
+}
+
+.student-readable .assessment-card-heading h3 {
+  margin-bottom: 6px;
+  color: #17392a;
+  font-weight: 800;
+  line-height: 1.45;
+  letter-spacing: 0;
+}
+
+.student-readable .ai-suggestions {
+  gap: clamp(10px, 1.4vw, 14px);
+  margin-top: 12px;
+}
+
+.student-readable .ai-suggestions button {
+  min-height: 104px;
+  gap: 9px;
+  padding: clamp(14px, 1.6vw, 18px);
+  border-color: #dce8df;
+  border-radius: 14px;
+  box-shadow: 0 4px 14px rgb(23 61 39 / 5%);
+  transition: border-color 150ms ease, background-color 150ms ease, transform 150ms ease, box-shadow 150ms ease;
+}
+
+.student-readable .ai-suggestions button:hover {
+  transform: translateY(-2px);
+  border-color: #a4c9af;
+  background: #f7fbf8;
+  box-shadow: 0 8px 18px rgb(23 61 39 / 8%);
+}
+
+.student-readable .ai-suggestions button:focus-visible {
+  outline: 3px solid #8dbc99;
+  outline-offset: 2px;
+}
+
+.student-readable .ai-suggestions strong {
+  color: #245c3b;
+  font-size: clamp(0.9375rem, 0.9rem + 0.18vw, 1.0625rem);
+  line-height: 1.35;
+}
+
+.student-readable .ai-suggestions strong svg {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+}
+
+.student-readable .ai-suggestions span {
+  color: #5f7265;
+  font-size: clamp(0.8125rem, 0.78rem + 0.12vw, 0.9375rem);
+  line-height: 1.5;
+}
+
+.student-readable .assessment-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+}
+
+.student-readable .assessment-description {
+  color: #53665a;
+}
+
+.student-readable .score-callout {
+  min-height: 62px;
+  padding: 10px 14px;
+  border: 1px solid #dcefe1;
+  border-radius: 13px;
+  background: linear-gradient(110deg, #eff8f1, #f7fbf7);
+}
+
+.student-readable .score-callout strong {
+  color: #24764a;
+  font-size: clamp(1.5rem, 1.4rem + 0.4vw, 1.75rem);
+  line-height: 1;
+}
+
+.student-readable .score-callout span {
+  color: #53665a;
+  line-height: 1.5;
+}
+
+.student-readable .assessment-meta {
+  gap: 7px;
+}
+
+.student-readable .assessment-meta > span {
+  padding: 5px 9px;
+  border: 1px solid #e4ebe5;
+  background: #f7f9f7;
+  line-height: 1.35;
+}
+
+.student-readable .assessment-actions {
+  gap: 8px;
+  padding-top: 0;
+}
+
+.student-readable .assessment-actions .primary-button,
+.student-readable .assessment-actions .secondary-button {
+  min-height: 40px;
+  padding: 8px 13px;
+  border-radius: 10px;
+  font-weight: 700;
+}
+
+.student-readable .assessment-actions .secondary-button {
+  border-color: #d2e3d6;
+  background: #fff;
+  color: #286341;
+}
+
+.student-readable .assessment-actions .primary-button {
+  background: linear-gradient(110deg, #1d7145, #2d8756);
+  box-shadow: 0 5px 12px rgb(36 118 74 / 18%);
+}
+
+.student-readable .readiness-meter {
+  position: relative;
+  isolation: isolate;
+  border: 0;
+  background: conic-gradient(
+    from -90deg,
+    #34814c var(--readiness-percent),
+    #d9ecde var(--readiness-percent) 100%
+  );
+}
+
+.student-readable .readiness-meter::before {
+  position: absolute;
+  z-index: -1;
+  inset: 5px;
+  border-radius: 50%;
+  background: #fff;
+  content: "";
+}
+
+.site-header nav,
+.site-header nav a {
+  font-size: clamp(0.875rem, 0.84rem + 0.15vw, 1rem) !important;
+}
+
+.site-header nav a {
+  overflow-wrap: anywhere;
+}
+
+.legal-page {
+  width: min(100%, 900px);
+  margin: 0 auto;
+  padding: clamp(24px, 5vw, 56px);
+}
+
+.legal-page :is(.legal-header, .legal-content, .legal-footer) {
+  min-width: 0;
+}
+
+.legal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 40px;
+}
+
+.legal-footer nav {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.legal-page :is(a, p, li, td, th, pre) {
+  overflow-wrap: anywhere;
+}
+
+.legal-content :is(table, pre) {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.app-shell :is(p, li, label, dt, dd, td, th, caption, legend, blockquote, figcaption, summary),
+.auth-layout :is(p, li, label, dt, dd, blockquote, figcaption, summary),
+.legal-page :is(p, li, dt, dd, td, th, blockquote, figcaption, summary),
+.placeholder-page :is(p, li, label, blockquote, figcaption, summary),
+.landing-root :is(p, li, blockquote, figcaption, summary) {
+  font-size: clamp(0.9375rem, 0.91rem + 0.18vw, 1.0625rem) !important;
+  line-height: 1.6 !important;
+  overflow-wrap: anywhere;
+}
+
+.app-shell :is(
+  small,
+  [class*="eyebrow"],
+  [class*="caption"],
+  [class*="hint"],
+  [class*="helper"],
+  [class*="footnote"],
+  [class*="meta"],
+  [class*="badge"],
+  [class*="chip"],
+  [class*="status"],
+  [class*="label"],
+  [class*="count"],
+  [class*="tag"]
+),
+.auth-layout :is(
+  small,
+  [class*="eyebrow"],
+  [class*="hint"],
+  [class*="helper"],
+  [class*="footnote"],
+  [class*="consent"],
+  [class*="divider"],
+  [class*="error"]
+),
+.legal-page :is(small, .eyebrow, .legal-date),
+.placeholder-page :is(small, .eyebrow),
+.landing-root :is(
+  small,
+  .lp-badge,
+  .lp-banner-inner,
+  .lp-float-title,
+  .lp-float-sub,
+  .lp-assess-question,
+  .lp-assess-option,
+  .lp-progress-caption,
+  .lp-progress-title,
+  .lp-report-label,
+  .lp-report-unit,
+  .lp-footer-heading,
+  .lp-footer-bottom,
+  [class*="eyebrow"],
+  [class*="caption"],
+  [class*="meta"],
+  [class*="badge"],
+  [class*="tag"],
+  [class*="pill"],
+  [class*="label"]
+) {
+  font-size: clamp(0.8125rem, 0.78rem + 0.12vw, 0.9375rem) !important;
+  line-height: 1.5 !important;
+}
+
+.app-shell :is(.app-nav-link, .app-brand, .app-signout, .app-topbar, .app-role),
+.app-shell .workspace-page :is(a, button, input, select, textarea),
+.auth-layout :is(a, button, input, select, textarea),
+.legal-page a,
+.placeholder-page :is(a, button),
+.landing-root :is(a, button) {
+  font-size: clamp(0.875rem, 0.84rem + 0.15vw, 1rem) !important;
+}
+
+.app-shell .workspace-page :is(h1, h2, h3, h4, h5, h6),
+.placeholder-page :is(h1, h2, h3, h4, h5, h6),
+.legal-page :is(h1, h2, h3, h4, h5, h6) {
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.app-shell .workspace-page h1,
+.placeholder-page h1,
+.legal-page h1 {
+  font-size: clamp(1.75rem, 1.5rem + 1.25vw, 2.5rem) !important;
+}
+
+.app-shell .workspace-page h2,
+.placeholder-page h2,
+.legal-page h2 {
+  font-size: clamp(1.375rem, 1.2rem + 0.7vw, 1.875rem) !important;
+}
+
+.app-shell .workspace-page h3,
+.placeholder-page h3,
+.legal-page h3 {
+  font-size: clamp(1.125rem, 1.05rem + 0.35vw, 1.5rem) !important;
+}
+
+.app-shell .workspace-page h4,
+.placeholder-page h4,
+.legal-page h4 {
+  font-size: clamp(1.0625rem, 1rem + 0.25vw, 1.25rem) !important;
+}
+
+.app-shell .workspace-page h5,
+.app-shell .workspace-page h6,
+.placeholder-page h5,
+.placeholder-page h6,
+.legal-page h5,
+.legal-page h6 {
+  font-size: clamp(0.9375rem, 0.9rem + 0.18vw, 1.0625rem) !important;
+}
+
+.auth-card h1,
+.auth-card h2 {
+  font-size: clamp(1.5rem, 1.3rem + 0.8vw, 2rem) !important;
+  line-height: 1.25;
+}
+
+.auth-layout .auth-art h1 {
+  font-size: clamp(2.375rem, 1.8rem + 2.2vw, 4rem) !important;
+}
+
+.app-shell :is(.app-role p, .app-user strong, .app-user span, .app-topbar-eyebrow, .app-college-chip, .app-topbar-date, .app-topbar-left strong),
+.auth-layout :is(.muted, .field-hint, .auth-footnote, .consent-copy),
+.legal-page .muted {
+  color: #53665a;
+}
+
+.app-shell .app-user strong,
+.app-shell .app-topbar-left strong {
+  font-size: clamp(0.875rem, 0.84rem + 0.15vw, 1rem) !important;
+}
+
+.app-shell .app-user span,
+.app-shell .app-topbar-date {
+  font-size: clamp(0.8125rem, 0.78rem + 0.12vw, 0.9375rem) !important;
+}
+
+.app-shell input,
+.app-shell select,
+.app-shell textarea,
+.auth-layout input,
+.auth-layout select,
+.auth-layout textarea {
+  min-width: 0;
+  font-size: max(1rem, 16px) !important;
+}
+
+.app-shell :is(p, li, label, dt, dd, td, th),
+.auth-layout :is(p, li, label, dt, dd),
+.legal-page :is(p, li, dt, dd),
+.placeholder-page :is(p, li),
+.landing-root :is(p, li) {
+  min-width: 0;
+}
+
+@media (max-width: 760px) {
+  .app-shell .app-content {
+    padding-right: clamp(12px, 4vw, 24px);
+    padding-left: clamp(12px, 4vw, 24px);
+  }
+
+  .app-shell .workspace-page :is(a, button) {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .auth-layout .auth-panel {
+    padding-right: clamp(18px, 5vw, 32px);
+    padding-left: clamp(18px, 5vw, 32px);
+  }
+
+  .legal-page {
+    padding-right: clamp(16px, 5vw, 32px);
+    padding-left: clamp(16px, 5vw, 32px);
+  }
+
+  .legal-footer {
+    align-items: flex-start;
+  }
+
+  .legal-footer nav {
+    gap: 12px;
+  }
+
+  .site-header {
+    min-height: 64px;
+    height: auto;
+    gap: 12px;
+    padding: 12px clamp(12px, 4vw, 24px);
+  }
+
+  .site-header nav {
+    gap: clamp(8px, 2vw, 14px);
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .site-header .nav-cta {
+    padding: 10px 12px;
+  }
+
+  .landing-root :is(.lp-banner-inner, .lp-nav, .lp-footer-bottom) {
+    flex-wrap: wrap;
+  }
+
+  .landing-root .lp-banner-inner {
+    justify-content: flex-start;
+    gap: 6px;
+    padding: 8px 44px 8px 12px;
+  }
+
+  .landing-root .lp-banner-text {
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+    line-height: 1.4;
+  }
+}
+
+@media (max-width: 767px) {
+  .landing-root .lp-hero-preview > .lp-hero-pop > .lp-float {
+    display: none !important;
+  }
+}
+
+.student-readable .roadmap-page {
+  gap: clamp(16px, 2vw, 24px);
+}
+
+.student-readable .roadmap-page > .workspace-heading {
+  align-items: center;
+  margin-bottom: 0;
+}
+
+.student-readable .roadmap-overview {
+  grid-template-columns: minmax(0, 2fr) repeat(2, minmax(120px, 0.8fr));
+  align-items: stretch;
+  gap: 12px;
+  padding: clamp(16px, 2vw, 22px);
+  border-color: #dce8df;
+  border-radius: 18px;
+  box-shadow: 0 8px 24px rgb(23 61 39 / 5%);
+}
+
+.student-readable .roadmap-overview > div:first-child {
+  gap: 8px;
+  padding: 4px 14px 4px 2px;
+}
+
+.student-readable .roadmap-overview > div:first-child > span {
+  color: #53665a;
+  font-size: 0.875rem;
+}
+
+.student-readable .roadmap-overview > div:first-child > strong {
+  color: #17392a;
+  font-size: clamp(1.375rem, 1.2rem + 0.7vw, 1.75rem);
+}
+
+.student-readable .roadmap-overview > div:first-child > strong small {
+  font-size: 0.9rem;
+}
+
+.student-readable .roadmap-overview .readiness-bar {
+  height: 10px;
+  margin-top: 3px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e8f0ea;
+}
+
+.student-readable .roadmap-overview .readiness-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #28764a, #62aa72);
+  transition: width 250ms ease;
+}
+
+.student-readable .roadmap-overview-stat {
+  align-content: center;
+  gap: 5px;
+  padding: 12px 16px;
+  border: 1px solid #e8eee9;
+  border-radius: 13px;
+  background: #f8faf8;
+}
+
+.student-readable .roadmap-overview-stat span {
+  color: #63766a;
+  font-size: 0.8125rem;
+}
+
+.student-readable .roadmap-overview-stat strong {
+  color: #245c3b;
+  font-size: 1.5rem;
+}
+
+.student-readable .roadmap-phases {
+  gap: 18px;
+}
+
+.student-readable .roadmap-phase {
+  border-color: #dce8df;
+  border-radius: 17px;
+  box-shadow: 0 8px 24px rgb(23 61 39 / 5%);
+}
+
+.student-readable .roadmap-phase-heading {
+  align-items: center;
+  gap: 14px;
+  padding: clamp(15px, 2vw, 21px);
+  background: linear-gradient(110deg, #f7faf7, #fff);
+}
+
+.student-readable .roadmap-phase-number {
+  width: 40px;
+  height: 40px;
+  border: 1px solid #d5e8da;
+  border-radius: 13px;
+  background: #edf6ef;
+  font-size: 1rem;
+}
+
+.student-readable .roadmap-phase-heading .eyebrow {
+  color: #5a8066;
+  letter-spacing: 0.08em;
+}
+
+.student-readable .roadmap-phase-heading h2 {
+  margin: 4px 0;
+  color: #17392a;
+  font-size: clamp(1.125rem, 1rem + 0.3vw, 1.375rem) !important;
+}
+
+.student-readable .roadmap-phase-heading p {
+  color: #63766a;
+}
+
+.student-readable .roadmap-phase-count {
+  margin-left: auto;
+  padding: 7px 10px;
+  border: 1px solid #dcebe0;
+  background: #eff7f0;
+  color: #2e7046;
+  font-size: 0.75rem;
+}
+
+.student-readable .roadmap-item {
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  gap: 14px;
+  padding: clamp(15px, 1.8vw, 20px);
+  transition: background-color 160ms ease;
+}
+
+.student-readable .roadmap-item:hover {
+  background: #fbfdfb;
+}
+
+.student-readable .roadmap-item-in_progress {
+  background: linear-gradient(100deg, #f7fbf7, #fff 50%);
+}
+
+.student-readable .roadmap-item-marker {
+  width: 32px;
+  height: 32px;
+  border-color: #d7e5da;
+  background: #fff;
+  color: #526b5b;
+  font-size: 0.8125rem;
+}
+
+.student-readable .roadmap-item-in_progress .roadmap-item-marker {
+  border-color: #378153;
+  background: #378153;
+  color: #fff;
+  box-shadow: 0 0 0 4px #e8f4eb;
+}
+
+.student-readable .roadmap-item-title {
+  gap: 8px;
+}
+
+.student-readable .roadmap-item-title h3 {
+  color: #1c3d2c;
+  font-size: clamp(1rem, 0.95rem + 0.2vw, 1.125rem) !important;
+  font-weight: 750;
+}
+
+.student-readable .roadmap-item-content > p {
+  color: #5e7265;
+}
+
+.student-readable .roadmap-item-meta {
+  gap: 7px;
+  margin-top: 11px;
+}
+
+.student-readable .roadmap-item-meta span,
+.student-readable .roadmap-status {
+  padding: 5px 8px;
+  border: 1px solid #e5ece6;
+  background: #f7f9f7;
+  color: #53685b;
+  font-size: 0.75rem;
+}
+
+.student-readable .roadmap-status-in_progress {
+  border-color: #f1dfb8;
+  background: #fff8e9;
+  color: #86601d;
+}
+
+.student-readable .roadmap-status-completed {
+  border-color: #cfe5d4;
+  background: #eff8f1;
+  color: #347449;
+}
+
+.student-readable .roadmap-guidance {
+  margin-top: 11px !important;
+  color: #477153 !important;
+}
+
+.student-readable .roadmap-actions {
+  display: grid;
+  align-self: start;
+  justify-items: stretch;
+  gap: 6px;
+  padding-top: 1px;
+}
+
+.student-readable .roadmap-action {
+  min-height: 40px;
+  padding: 8px 13px;
+  border-color: #d0e2d5;
+  border-radius: 10px;
+  color: #286341;
+  font-weight: 700;
+}
+
+.student-readable .roadmap-item-in_progress .roadmap-action {
+  border-color: #28764a;
+  background: #28764a;
+  color: #fff;
+}
+
+.student-readable .roadmap-reset {
+  margin: 0;
+  padding: 5px 8px;
+  font-size: 0.8125rem;
+}
+
+.student-readable .roadmap-study-content {
+  gap: 14px;
+  margin-top: 15px;
+  padding: clamp(13px, 1.8vw, 18px);
+  border-color: #dcebe0;
+  border-radius: 14px;
+  background: #f8fbf8;
+}
+
+.student-readable .roadmap-study-content h4 {
+  color: #245c3b;
+  font-size: 0.9375rem;
+}
+
+@media (max-width: 700px) {
+  .student-readable .roadmap-page > .workspace-heading {
+    align-items: flex-start;
+  }
+
+  .student-readable .roadmap-overview {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 9px;
+    padding: 13px;
+  }
+
+  .student-readable .roadmap-overview > div:first-child {
+    grid-column: 1 / -1;
+    padding: 2px 2px 10px;
+  }
+
+  .student-readable .roadmap-overview-stat {
+    padding: 10px 12px;
+  }
+
+  .student-readable .roadmap-phase-heading {
+    align-items: flex-start;
+  }
+
+  .student-readable .roadmap-phase-count {
+    flex-basis: auto;
+    margin: 0 0 0 auto;
+  }
+
+  .student-readable .roadmap-item {
+    grid-template-columns: 32px minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .student-readable .roadmap-actions {
+    grid-column: 2;
+    display: flex;
+    align-items: center;
+    justify-items: start;
+    flex-wrap: wrap;
+    margin-top: 2px;
+  }
+
+  .student-readable .roadmap-action {
+    min-height: 38px;
+  }
+}

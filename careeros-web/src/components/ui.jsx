@@ -26,13 +26,13 @@ export function StatCard({ label, value, hint, tone = "default", icon }) {
   );
 }
 
-export function Panel({ title, description, actions, children, className = "" }) {
+export function Panel({ title, description, actions, children, className = "", titleAs: Title = "h2" }) {
   return (
     <section className={`panel ${className}`}>
       {(title || actions) && (
         <header className="panel-heading">
           <div>
-            {title && <h2>{title}</h2>}
+            {title && <Title>{title}</Title>}
             {description && <p>{description}</p>}
           </div>
           {actions && <div className="panel-actions">{actions}</div>}

@@ -109,8 +109,8 @@ export function StudentAssessmentPage() {
         const answered = attempt?.answeredCount ?? 0;
         const total = attempt?.totalQuestions ?? assessment.questionCount ?? 0;
         const best = attempts.length ? Math.max(...attempts.map((item) => item.overallScore ?? 0)) : null;
-        return <article className={`assessment-card${resume ? " assessment-card-active" : ""}`} key={assessment.assessmentId}>
-          <div className="assessment-card-heading"><span className="assessment-icon" aria-hidden="true">{review ? "✓" : resume ? "▶" : "▤"}</span><div><h2>{assessment.title}</h2><span className={`attempt-chip${review ? " chip-complete" : resume ? " chip-active" : ""}`}>{attemptLabel(attempt)}</span></div></div>
+        return <article className={`assessment-card${resume ? " assessment-card-active" : ""}${review ? " assessment-card-complete" : ""}`} key={assessment.assessmentId}>
+          <div className="assessment-card-heading"><span className="assessment-icon" aria-hidden="true">{review ? "✓" : resume ? "▶" : "▤"}</span><div><h3>{assessment.title}</h3><span className={`attempt-chip${review ? " chip-complete" : resume ? " chip-active" : ""}`}>{attemptLabel(attempt)}</span></div></div>
           <p className="assessment-description">{assessment.description || "A focused check of the skills in your target career framework."}</p>
           {review && <div className="score-callout"><strong>{attempt.overallScore ?? 0}%</strong><span>{dateLabel(attempt.submittedAt)}{attempts.length > 1 && best !== null ? ` · Best ${best}%` : ""}</span></div>}
           {resume && total > 0 && <div className="attempt-progress"><div><span>Attempt progress</span><strong>{answered}/{total} · {Math.round((answered / total) * 100)}%</strong></div><progress max="100" value={(answered / total) * 100} aria-label={`${answered} of ${total} questions answered`} /></div>}
