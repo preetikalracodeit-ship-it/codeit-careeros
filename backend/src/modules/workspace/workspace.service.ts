@@ -1,4 +1,4 @@
-import type { ClientSession } from "mongoose";
+﻿import type { ClientSession } from "mongoose";
 import { College, type CollegeDoc } from "../../models/College.js";
 import { User, STAFF_ROLES, type Role, type UserDoc } from "../../models/User.js";
 import { StudentProfile, type StudentProfileDoc } from "../../models/StudentProfile.js";
@@ -9,14 +9,10 @@ import { getNextSequence } from "../../models/Counter.js";
 import { withTransaction } from "../../lib/db.js";
 import { hashPassword } from "../../lib/password.js";
 import { AppError } from "../../lib/errors.js";
-import type {
-  BatchCreateInput,
-  CollegeCreateInput,
-  CollegeUpdateInput,
-  DepartmentCreateInput,
-  StaffCreateInput,
-  StaffUpdateInput,
-} from "./workspace.schemas.js";
+import { Institution, type InstitutionDoc } from "../../models/Institution.js";
+import { InstitutionMembership, type InstitutionMembershipDoc } from "../../models/InstitutionMembership.js";
+import type { CollegeCreateInput, CollegeUpdateInput, DepartmentCreateInput, BatchCreateInput, StaffCreateInput, StaffUpdateInput } from "./workspace.schemas.js";
+
 
 export interface WorkspaceActor {
   id: number;
@@ -399,6 +395,20 @@ export async function createCollege(input: CollegeCreateInput, _actor: Workspace
       ],
       { session },
     );
+
+    // Create the platform institution (tenant) for this college so that staff
+    // invitations can later be issued as college administrators.
+    const [institution] = await Institution.create([
+      {
+        _id: await getNextSequence("institutions", session),
+        code,
+        name: input.name.trim(),
+        timezone: null,
+        contactEmail: input.contactEmail?.trim().toLowerCase() || null,
+        status: "ACTIVE",
+      },
+    ], { session });
+
     return collegeResponse(college);
   });
 }
@@ -514,6 +524,37 @@ export async function createStaff(actor: WorkspaceActor, input: StaffCreateInput
       ],
       { session },
     );
+
+    // Register the new staff member as an institution member so they can be
+    // resolved by the platform scope system (e.g. `requireCollegeAdmin`).
+    if (STAFF_ROLES.includes(input.role as any)) {
+      let institution = await Institution.findOne({ code: college.code }).lean<InstitutionDoc>();
+      if (!institution) {
+        const [created] = await Institution.create([
+          {
+            _id: await getNextSequence("institutions", session),
+            code: college.code,
+            name: college.name,
+            timezone: null,
+            contactEmail: college.contactEmail ?? null,
+            status: "ACTIVE",
+          },
+        ], { session });
+        institution = created.toObject();
+      }
+      const [membership] = await InstitutionMembership.create([
+        {
+          _id: await getNextSequence("institution_memberships", session),
+          userId: user._id,
+          institutionId: institution._id,
+          designation: input.role as any,
+          scopeType: input.departmentId ? "DEPARTMENT" : "INSTITUTION",
+          scopeId: input.departmentId ?? null,
+          status: "ACTIVE",
+        },
+      ], { session });
+    }
+
     return staffResponse(user, college.name);
   });
 }
@@ -615,3 +656,5 @@ export async function listPlacementDrives(_actor: WorkspaceActor) {
     note: "Placement drives and application tracking arrive in a later phase.",
   };
 }
+
+

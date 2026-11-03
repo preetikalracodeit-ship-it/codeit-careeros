@@ -38,7 +38,7 @@ function loadGsi() {
  * Official Google Identity Services button. Google returns an ID token to the
  * browser, which is verified by the backend at POST /auth/google.
  */
-export function GoogleSignInButton({ mode = "signin", onError, disabled = false, termsAccepted = false, redirectTo }) {
+export function GoogleSignInButton({ mode = "signin", onError, disabled = false, termsAccepted = false, redirectTo, collegeId = undefined }) {
   const navigate = useNavigate();
   const location = useLocation();
   const btnRef = useRef(null);
@@ -79,7 +79,7 @@ export function GoogleSignInButton({ mode = "signin", onError, disabled = false,
       try {
         const session = await api.post(
           "/auth/google",
-          { idToken, termsAccepted: mode === "signup" || termsAccepted },
+          { idToken, termsAccepted: mode === "signup" || termsAccepted, collegeId },
           { skipAuth: true },
         );
         auth.save(session);

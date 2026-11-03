@@ -85,10 +85,6 @@ const skills = SKILLS;
 
 const careers = CAREERS;
 
-function weightedSkillTargets(weights: DemoWeight[]) {
-  return new Map(weights.map((weight) => [weight.name, weight]));
-}
-
 
 async function ensureCollege(): Promise<CollegeDoc> {
   let college = await College.findOne({ code: COLLEGE_CODE });

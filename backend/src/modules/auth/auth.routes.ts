@@ -16,6 +16,7 @@ import {
   requestPasswordReset,
   resetPassword,
 } from "./auth.service.js";
+import { listColleges } from "../workspace/workspace.service.js";
 import {
   consentAcceptSchema,
   googleSchema,
@@ -146,3 +147,14 @@ authRouter.post(
 authRouter.get("/config", (_req: Request, res: Response) => {
   sendSuccess(res, authConfig());
 });
+
+authRouter.get(
+  "/colleges",
+  async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+      sendSuccess(res, await listColleges());
+    } catch (error) {
+      next(error);
+    }
+  },
+);

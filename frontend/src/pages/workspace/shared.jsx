@@ -146,6 +146,8 @@ export function SettingsPanel({ roleLabel: label }) {
   const { data, loading, error, reload } = useApi("/settings/me");
   const [form, setForm] = useState({ currentPassword: "", newPassword: "" });
   const [busy, setBusy] = useState(false);
+  const [showCurrent, setShowCurrent] = useState(false);
+  const [showNew, setShowNew] = useState(false);
 
   async function changePassword(event) {
     event.preventDefault();
@@ -185,14 +187,27 @@ export function SettingsPanel({ roleLabel: label }) {
       <Panel title="Change password" description="Use at least 8 characters with letters and digits.">
         <form className="stack-form" onSubmit={changePassword}>
           <label>Current password
-            <input type="password" required value={form.currentPassword} onChange={(event) => setForm({ ...form, currentPassword: event.target.value })} />
+            <div className="password-field">
+              <input type={showCurrent ? "text" : "password"} required value={form.currentPassword} onChange={(event) => setForm({ ...form, currentPassword: event.target.value })} />
+              <button type="button" className="password-toggle" onClick={() => setShowCurrent((v) => !v)} aria-label={showCurrent ? "Hide password" : "Show password"}>
+                <Icon name={showCurrent ? "eye-off" : "eye"} size={16} />
+              </button>
+            </div>
           </label>
           <label>New password
-            <input type="password" required minLength={8} value={form.newPassword} onChange={(event) => setForm({ ...form, newPassword: event.target.value })} />
+            <div className="password-field">
+              <input type={showNew ? "text" : "password"} required minLength={8} value={form.newPassword} onChange={(event) => setForm({ ...form, newPassword: event.target.value })} />
+              <button type="button" className="password-toggle" onClick={() => setShowNew((v) => !v)} aria-label={showNew ? "Hide password" : "Show password"}>
+                <Icon name={showNew ? "eye-off" : "eye"} size={16} />
+              </button>
+            </div>
           </label>
           <button className="primary-button" disabled={busy}>{busy ? "Updating…" : "Update password"}</button>
         </form>
       </Panel>
+
+
+
     </div>
   );
 }

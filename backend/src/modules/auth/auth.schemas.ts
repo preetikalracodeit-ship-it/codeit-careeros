@@ -32,6 +32,7 @@ export const registerSchema = z.object({
       "Mobile must be a 10-digit number starting with 6, 7, 8 or 9",
     ),
   password: strongPassword,
+  collegeId: z.number().positive().optional(),
   termsAccepted: z.boolean().optional(),
 });
 
@@ -61,6 +62,7 @@ export const refreshSchema = z.object({
 export const googleSchema = z.object({
   idToken: z.string({ error: "Google ID token is required" }).min(1, "Google ID token is required"),
   termsAccepted: z.boolean().optional(),
+  collegeId: z.number().positive().optional(),
 });
 
 export const consentAcceptSchema = z.object({

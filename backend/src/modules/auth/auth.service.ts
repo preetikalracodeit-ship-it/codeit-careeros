@@ -20,6 +20,7 @@ import {
   type ConsentMethod,
 } from "../../models/ConsentRecord.js";
 import { StudentProfile } from "../../models/StudentProfile.js";
+import { College, type CollegeDoc } from "../../models/College.js";
 import { toUserResponse, type UserResponse } from "./user.mapper.js";
 import type { GoogleInput, LoginInput, RegisterInput } from "./auth.schemas.js";
 import { verifyGoogleIdToken } from "./google.js";
@@ -59,6 +60,11 @@ function normalizeEmail(value: string): string {
 
 function generateStudentId(userId: number): string {
   return `STU${String(userId).padStart(6, "0")}`;
+}
+
+async function collegeNameById(id: number): Promise<string | null> {
+  const college = await College.findById(id).select("name").lean<CollegeDoc>();
+  return college?.name ?? null;
 }
 
 function generateRefreshTokenRaw(): string {
@@ -207,12 +213,14 @@ export async function register(input: RegisterInput): Promise<AuthResponse> {
             fullName: input.fullName.trim(),
             role: "STUDENT",
             status: "ACTIVE",
+            collegeId: input.collegeId ?? null,
           },
         ],
         { session },
       );
 
       const profileId = await getNextSequence("student_profiles", session);
+      const collegeName = input.collegeId ? await collegeNameById(input.collegeId) : null;
       await StudentProfile.create(
         [
           {
@@ -222,6 +230,8 @@ export async function register(input: RegisterInput): Promise<AuthResponse> {
             fullName: user.fullName,
             mobile: input.mobile.trim(),
             semester: 1,
+            college: collegeName ?? null,
+            collegeId: input.collegeId ?? null,
           },
         ],
         { session },
@@ -333,12 +343,14 @@ export async function googleLogin(input: GoogleInput): Promise<AuthResponse> {
             fullName: truncateName(googleUser.fullName, 120),
             role: "STUDENT",
             status: "ACTIVE",
+            collegeId: input.collegeId ?? null,
           },
         ],
         { session },
       );
 
       const profileId = await getNextSequence("student_profiles", session);
+      const collegeName = input.collegeId ? await collegeNameById(input.collegeId) : null;
       await StudentProfile.create(
         [
           {
@@ -348,6 +360,8 @@ export async function googleLogin(input: GoogleInput): Promise<AuthResponse> {
             fullName: user.fullName,
             semester: 1,
             profilePhotoUrl: googleUser.pictureUrl ?? null,
+            college: collegeName ?? null,
+            collegeId: input.collegeId ?? null,
           },
         ],
         { session },
