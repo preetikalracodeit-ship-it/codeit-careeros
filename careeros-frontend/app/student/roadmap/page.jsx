@@ -5,10 +5,14 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
   ArrowRight,
+  BadgeCheck,
+  BookOpen,
   CheckCircle2,
   Circle,
   ClipboardList,
   Clock3,
+  FolderKanban,
+  Hammer,
   List,
   Loader2,
   Map as MapIcon,
@@ -32,6 +36,7 @@ import { LoadingState } from "@/components/loading-state";
 import { PageHeader } from "@/components/page-header";
 import api from "@/lib/api";
 import { prettifyEnum } from "@/lib/format";
+import { buildStudyPlan } from "@/lib/roadmap-study-plan";
 import { cn } from "cn";
 
 const STATUS_STYLES = {
@@ -107,6 +112,65 @@ function StepActions({ item, busy, onChange }) {
       <RotateCcw className="size-3.5" aria-hidden="true" />
       Reopen
     </Button>
+  );
+}
+
+const STUDY_ICONS = {
+  learn: BookOpen,
+  practice: Hammer,
+  build: FolderKanban,
+  prove: BadgeCheck,
+  review: ClipboardList,
+  document: BookOpen,
+};
+
+/**
+ * The concrete sub-steps behind one roadmap step. The backend supplies the
+ * step content; the study plan restates it as Learn -> Practise -> Build ->
+ * Prove with category-aware guidance and a suggested share of the step hours.
+ */
+function StudyPlan({ item, careerName, done }) {
+  const plan = buildStudyPlan(item, careerName);
+  return (
+    <div className="mt-3 rounded-xl border border-border/60 bg-muted/30 p-3 sm:p-3.5">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+        <p className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+          <BookOpen className="size-3.5" aria-hidden="true" />
+          Study plan
+        </p>
+        <span className="text-[11px] font-medium text-muted-foreground/80">
+          {plan.length} sub-steps · work top to bottom
+        </span>
+      </div>
+      <ol className="mt-2.5 space-y-2.5">
+        {plan.map((step, index) => {
+          const Icon = STUDY_ICONS[step.kind] || ClipboardList;
+          return (
+            <li key={step.key} className="flex gap-2.5">
+              <span
+                className={cn(
+                  "mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-lg",
+                  done ? "bg-chart-3/15 text-chart-3" : "bg-primary/10 text-primary",
+                )}
+                aria-hidden="true"
+              >
+                {done ? <CheckCircle2 className="size-3.5" /> : <Icon className="size-3.5" />}
+              </span>
+              <div className="min-w-0">
+                <p className="text-xs font-bold leading-snug">
+                  <span className="mr-1 text-muted-foreground">{index + 1}.</span>
+                  {step.title}
+                  {step.hours > 0 && (
+                    <span className="ml-1.5 font-semibold text-muted-foreground">~{step.hours}h</span>
+                  )}
+                </p>
+                <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">{step.detail}</p>
+              </div>
+            </li>
+          );
+        })}
+      </ol>
+    </div>
   );
 }
 
@@ -272,7 +336,7 @@ export default function StudentRoadmapPage() {
     <div className="space-y-6">
       <PageHeader
         title="Roadmap"
-        description={`Your personal 90-day plan to become a ${careerName} — built from your assessment results, easiest wins first.`}
+        description={`Your personal 90-day plan to become a ${careerName} — built from your assessment results, easiest wins first, with a study plan for every step.`}
         breadcrumb={<Breadcrumb items={[{ label: "Roadmap" }]} />}
       />
 
@@ -500,9 +564,20 @@ export default function StudentRoadmapPage() {
             </div>
             <p className="text-xs text-muted-foreground">
               {view === "path"
-                ? "Follow the numbered path top to bottom — that is your step-by-step order."
-                : "Every step with full guidance and progress buttons."}
+                ? "Follow the numbered path top to bottom — every step opens into its own study plan."
+                : "Every step with its full study plan, sub-steps and progress buttons."}
             </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl border border-dashed border-border/70 bg-muted/30 px-3 py-2 text-[11px] font-semibold text-muted-foreground">
+            <BookOpen className="size-3.5 text-primary" aria-hidden="true" />
+            Each step becomes four sub-steps:
+            <span className="text-foreground">Learn</span>
+            <ArrowRight className="size-3 text-muted-foreground/60" aria-hidden="true" />
+            <span className="text-foreground">Practise</span>
+            <ArrowRight className="size-3 text-muted-foreground/60" aria-hidden="true" />
+            <span className="text-foreground">Build</span>
+            <ArrowRight className="size-3 text-muted-foreground/60" aria-hidden="true" />
+            <span className="text-foreground">Prove</span>
           </div>
           {skillOrder.length > 0 && (
             <div>
@@ -594,6 +669,11 @@ export default function StudentRoadmapPage() {
                         </span>
                       )}
                     </p>
+                    {phase.description && (
+                      <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">
+                        {phase.description}
+                      </p>
+                    )}
                     <div className="mt-1.5 flex items-center gap-2">
                       <div className="h-1.5 min-w-16 flex-1 overflow-hidden rounded-full bg-muted/80 sm:max-w-56">
                         <div
@@ -602,7 +682,8 @@ export default function StudentRoadmapPage() {
                         />
                       </div>
                       <p className="tnum shrink-0 text-[11px] font-semibold text-muted-foreground">
-                        {phaseComplete ? "complete" : `${phaseDone}/${phaseTotal} steps`} · ~{phase.durationDays}d
+                        {phaseComplete ? "complete" : `${phaseDone}/${phaseTotal} steps`} ·{" "}
+                        {(phase.items || []).length * 4} sub-steps · ~{phase.durationDays}d
                       </p>
                     </div>
                   </div>
@@ -678,7 +759,20 @@ export default function StudentRoadmapPage() {
                             </Badge>
                           </div>
                           <p className="mt-1 text-[15px] font-bold leading-snug">{item.title}</p>
-                          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                          {item.description && (
+                            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                              <span className="font-semibold text-foreground">Study description: </span>
+                              {item.description}
+                            </p>
+                          )}
+                          {item.learningGoal && (
+                            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                              <span className="font-semibold text-foreground">You&apos;ll be able to: </span>
+                              {item.learningGoal}
+                            </p>
+                          )}
+                          <p className="mt-2 rounded-lg border border-primary/15 bg-primary/[0.04] px-2.5 py-1.5 text-xs leading-relaxed text-muted-foreground">
+                            <span className="font-semibold text-foreground">Why this step matters: </span>
                             {whyFor(item, careerName)}
                           </p>
                           <div className="mt-2.5 flex flex-wrap items-center gap-2 text-xs">
@@ -716,6 +810,7 @@ export default function StudentRoadmapPage() {
                               </p>
                             </div>
                           )}
+                          <StudyPlan item={item} careerName={careerName} done={done} />
                           <div className="mt-3 flex flex-wrap gap-2">
                             <StepActions item={item} busy={busy} onChange={setStatus} />
                           </div>
@@ -777,6 +872,7 @@ export default function StudentRoadmapPage() {
                       {(phase.items || []).map((item) => {
                         const busy = pendingId === item.itemId;
                         const isNext = nextStep?.itemId === item.itemId;
+                        const done = item.status === "COMPLETED";
                         return (
                           <li
                             key={item.itemId}
@@ -804,16 +900,22 @@ export default function StudentRoadmapPage() {
                                       </span>
                                     )}
                                   </p>
-                                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                                    <span className="font-semibold text-foreground">Why this matters for you: </span>
-                                    {whyFor(item, careerName)}
-                                  </p>
+                                  {item.description && (
+                                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                                      <span className="font-semibold text-foreground">Study description: </span>
+                                      {item.description}
+                                    </p>
+                                  )}
                                   {item.learningGoal && (
                                     <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
                                       <span className="font-semibold text-foreground">You&apos;ll be able to: </span>
                                       {item.learningGoal}
                                     </p>
                                   )}
+                                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                                    <span className="font-semibold text-foreground">Why this matters for you: </span>
+                                    {whyFor(item, careerName)}
+                                  </p>
                                 </div>
                               </div>
                               <Badge variant="secondary" className={`shrink-0 ${STATUS_STYLES[item.status] || ""}`}>
@@ -853,6 +955,7 @@ export default function StudentRoadmapPage() {
                                 <span>{prettifyEnum(item.skillCategory)}</span>
                               )}
                             </div>
+                            <StudyPlan item={item} careerName={careerName} done={done} />
                             <div className="mt-3 flex flex-wrap gap-2">
                               <StepActions item={item} busy={busy} onChange={setStatus} />
                             </div>
