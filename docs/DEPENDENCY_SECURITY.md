@@ -43,16 +43,21 @@ no-key scan on the newer version.
 - A scan error (NVD unavailable, malformed report) also fails the job; a green
   job therefore means the scan actually ran.
 
-### 2.4 NVD API key handling
+### 2.4 NVD data source and API key handling
 
+- Dependency-Check reads the NVD 2.0 JSON feeds from the project's mirror
+  (`nvdDatafeedUrl` in the POM) instead of the rate-limited NVD REST API. A
+  cold download of the full mirror completes in a few minutes, which keeps the
+  30-minute CI budget safe.
 - The key is optional and is read only from the `NVD_API_KEY` environment
-  variable (`nvdApiKeyEnvironmentVariable` in the POM).
+  variable (`nvdApiKeyEnvironmentVariable` in the POM). It is not needed for
+  the mirror but is kept for fallback/compatibility.
 - CI exports it only when the `NVD_API_KEY` secret is non-empty. Passing an
   empty value breaks the NVD client, so the workflow prints only
   `configured`/`not configured`.
 - The key is never written to the POM, a report, an artifact, a log line, or
   the repository. Rotate it if it is ever exposed.
-- Without a key the scan is slower but still runs (public NVD rate limit).
+- Without a key the scan still runs.
 
 ## 3. CI job
 
@@ -91,6 +96,11 @@ mvn -B -Psca -DskipTests compile org.owasp:dependency-check-maven:check
 - Plugin version is pinned in the POM.
 - Spring Boot’s BOM controls Spring dependency versions; explicit versions are
   used for JJWT, Spring AI, and other direct dependencies.
+- Transitive runtime libraries with available security fixes are pinned through
+  the standard Spring Boot version properties (`httpclient5.version`,
+  `httpcore5.version`, `mysql.version`, `log4j2.version`,
+  `commons-lang3.version`, `jackson-bom.version`) so the next BOM bump can be
+  reviewed as a single change.
 - Maven Central is the only artifact source in CI.
 - The dependency tree artifact records exactly what was resolved for the
   tested commit.
@@ -101,9 +111,19 @@ mvn -B -Psca -DskipTests compile org.owasp:dependency-check-maven:check
 | Check | Result |
 |---|---|
 | Frontend `npm audit --audit-level=high` | 0 vulnerabilities at the previous local run |
-| Backend OWASP scan (local) | **Blocked by environment**: the 13.0.0 attempt failed on the empty-key regression; the 12.2.2 attempt could not start analysis because `api.nvd.nist.gov` does not resolve from this machine. No local vulnerability result is claimed. |
-| Backend OWASP scan (CI) | **Not executed on the repository host** |
+| Backend tests (`mvn -B verify`) | 333 tests, 0 failures, 2 skipped (2026-11-05) |
+| Backend OWASP scan (local, full NVD mirror) | **BUILD SUCCESS**: 0 HIGH/CRITICAL; 9 MEDIUM/LOW reported below the threshold |
+| Backend OWASP scan (CI) | Pending verification on the next pushed commit |
 | GitHub code-scanning SARIF upload | Wired, not yet observed |
+
+Suppressions active on 2026-11-05 (all expire 2027-01-31):
+
+- Spring Framework 6.2.20 (not yet published) — unreachable MVC/WebFlux code
+  paths.
+- Spring Security 6.5.12 (not yet published) — LDAP container, DPoP, WebAuthn
+  and AES encryptor are unused.
+- Spring AI 1.1.9 (not yet published) — tool dispatch is allowlisted in
+  `CareerAssistantService`; PDF/ONNX ingestion is unused.
 
 If the local scan is incomplete or blocked, this document and the release
 report must say so. A partial scan is not proof of a clean backend.
