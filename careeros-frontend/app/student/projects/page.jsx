@@ -5,10 +5,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   ArrowRight,
+  CalendarDays,
   CheckCircle2,
   Clock3,
   FolderKanban,
   Hammer,
+  ListChecks,
   Loader2,
   Play,
   RotateCcw,
@@ -18,6 +20,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog } from "@/components/ui/dialog";
 import { Breadcrumb } from "@/components/breadcrumb";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
@@ -25,6 +28,7 @@ import { LoadingState } from "@/components/loading-state";
 import { PageHeader } from "@/components/page-header";
 import api from "@/lib/api";
 import { prettifyEnum } from "@/lib/format";
+import { buildProjectPlan } from "@/lib/project-plan";
 import { cn } from "cn";
 
 const STATUS_STYLES = {
@@ -39,12 +43,78 @@ function statusLabel(status) {
   return "To do";
 }
 
+/** Full step-by-step plan shown when a student starts or opens a project. */
+function ProjectPlan({ project }) {
+  const plan = buildProjectPlan(project);
+  const skills = project.skills || [];
+
+  return (
+    <div className="mt-4 max-h-[65vh] space-y-5 overflow-y-auto pr-1">
+      <div className="rounded-xl border border-primary/20 bg-primary/[0.04] p-3.5">
+        <p className="text-[11px] font-bold uppercase tracking-widest text-primary">What you will finish</p>
+        <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{plan.outcome}</p>
+        <div className="mt-2.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          <Badge variant="outline">{prettifyEnum(project.difficulty)}</Badge>
+          <span className="inline-flex items-center gap-1.5">
+            <Clock3 className="size-3.5" aria-hidden="true" />~{project.estimatedWeeks} week
+            {project.estimatedWeeks === 1 ? "" : "s"}
+          </span>
+          {skills.map((skill) => (
+            <Badge key={skill.skillId} variant="outline" className="font-normal">
+              {skill.skillName}
+            </Badge>
+          ))}
+        </div>
+      </div>
+
+      <ol className="space-y-3">
+        {plan.steps.map((step, index) => (
+          <li key={step.key} className="rounded-xl border border-border/60 bg-background/40 p-3.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="flex size-6 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-[11px] font-extrabold text-primary">
+                {index + 1}
+              </span>
+              <p className="text-sm font-bold leading-snug">{step.title}</p>
+              <span className="ml-auto inline-flex items-center gap-1 text-[11px] font-semibold text-muted-foreground">
+                <CalendarDays className="size-3.5" aria-hidden="true" />
+                {step.when}
+              </span>
+            </div>
+            <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">{step.detail}</p>
+            <ul className="mt-2 space-y-1">
+              {step.checklist.map((item) => (
+                <li key={item} className="flex gap-1.5 text-[11px] leading-relaxed text-muted-foreground">
+                  <CheckCircle2 className="mt-0.5 size-3 shrink-0 text-primary/70" aria-hidden="true" />
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          </li>
+        ))}
+      </ol>
+
+      <div className="rounded-xl border border-chart-3/30 bg-chart-3/[0.06] p-3.5">
+        <p className="text-[11px] font-bold uppercase tracking-widest text-chart-3">Definition of done</p>
+        <ul className="mt-2 space-y-1">
+          {plan.done.map((item) => (
+            <li key={item} className="flex gap-1.5 text-[11px] leading-relaxed text-muted-foreground">
+              <CheckCircle2 className="mt-0.5 size-3 shrink-0 text-chart-3" aria-hidden="true" />
+              <span>{item}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
 export default function StudentProjectsPage() {
   const [projects, setProjects] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [pendingId, setPendingId] = useState(null);
   const [filter, setFilter] = useState("ALL");
+  const [planProject, setPlanProject] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -70,9 +140,11 @@ export default function StudentProjectsPage() {
       await api.put(`/projects/${projectId}/status`, { status });
       await load();
       if (status === "COMPLETED") toast.success("Project completed — nice portfolio win!");
-      else if (status === "IN_PROGRESS") toast.success("Project started.");
+      else if (status === "IN_PROGRESS") toast.success("Project started — your step-by-step plan is ready.");
+      return true;
     } catch (err) {
       toast.error(err?.message || "Failed to update the project.");
+      return false;
     } finally {
       setPendingId(null);
     }
@@ -256,7 +328,15 @@ export default function StudentProjectsPage() {
 
                   <div className="mt-auto flex flex-wrap gap-2 border-t border-border/60 pt-3.5">
                     {project.status === "NOT_STARTED" && (
-                      <Button size="sm" className="flex-1" disabled={busy} onClick={() => setStatus(project.projectId, "IN_PROGRESS")}>
+                      <Button
+                        size="sm"
+                        className="flex-1"
+                        disabled={busy}
+                        onClick={async () => {
+                          const started = await setStatus(project.projectId, "IN_PROGRESS");
+                          if (started) setPlanProject({ ...project, status: "IN_PROGRESS" });
+                        }}
+                      >
                         {busy ? (
                           <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
                         ) : (
@@ -275,16 +355,26 @@ export default function StudentProjectsPage() {
                           )}
                           Mark complete
                         </Button>
+                        <Button variant="outline" size="sm" onClick={() => setPlanProject(project)}>
+                          <ListChecks className="size-3.5" aria-hidden="true" />
+                          View plan
+                        </Button>
                         <Button variant="outline" size="sm" disabled={busy} onClick={() => setStatus(project.projectId, "NOT_STARTED")}>
                           Reset
                         </Button>
                       </>
                     )}
                     {project.status === "COMPLETED" && (
-                      <Button variant="outline" size="sm" className="flex-1" disabled={busy} onClick={() => setStatus(project.projectId, "IN_PROGRESS")}>
-                        <RotateCcw className="size-3.5" aria-hidden="true" />
-                        Reopen
-                      </Button>
+                      <>
+                        <Button variant="outline" size="sm" className="flex-1" disabled={busy} onClick={() => setStatus(project.projectId, "IN_PROGRESS")}>
+                          <RotateCcw className="size-3.5" aria-hidden="true" />
+                          Reopen
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => setPlanProject(project)}>
+                          <ListChecks className="size-3.5" aria-hidden="true" />
+                          View plan
+                        </Button>
+                      </>
                     )}
                   </div>
                 </CardContent>
@@ -293,6 +383,48 @@ export default function StudentProjectsPage() {
           })}
         </div>
       )}
+
+      <Dialog
+        open={Boolean(planProject)}
+        onOpenChange={(open) => {
+          if (!open) setPlanProject(null);
+        }}
+        title={planProject?.title || "Project plan"}
+        description={
+          planProject
+            ? `Step-by-step plan to finish this project in about ${planProject.estimatedWeeks} week${
+                planProject.estimatedWeeks === 1 ? "" : "s"
+              }.`
+            : undefined
+        }
+        className="max-w-2xl"
+        footer={
+          <>
+            <Button variant="outline" size="sm" onClick={() => setPlanProject(null)}>
+              Close
+            </Button>
+            {planProject?.status === "IN_PROGRESS" && (
+              <Button
+                size="sm"
+                disabled={pendingId === planProject.projectId}
+                onClick={async () => {
+                  const completed = await setStatus(planProject.projectId, "COMPLETED");
+                  if (completed) setPlanProject(null);
+                }}
+              >
+                {pendingId === planProject.projectId ? (
+                  <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+                ) : (
+                  <CheckCircle2 className="size-3.5" aria-hidden="true" />
+                )}
+                Mark complete
+              </Button>
+            )}
+          </>
+        }
+      >
+        {planProject && <ProjectPlan project={planProject} />}
+      </Dialog>
     </div>
   );
 }
