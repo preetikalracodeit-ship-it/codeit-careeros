@@ -165,6 +165,27 @@ function StudyPlan({ item, careerName, done }) {
                   )}
                 </p>
                 <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">{step.detail}</p>
+                {step.topics?.length > 0 && (
+                  <div className="mt-1.5">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/80">
+                      What to study
+                    </p>
+                    <ul className="mt-1 space-y-1">
+                      {step.topics.map((topic) => (
+                        <li
+                          key={topic}
+                          className="flex gap-1.5 text-[11px] leading-relaxed text-muted-foreground"
+                        >
+                          <span
+                            aria-hidden="true"
+                            className="mt-[5px] size-1 shrink-0 rounded-full bg-primary/60"
+                          />
+                          <span>{topic}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
             </li>
           );
@@ -336,7 +357,7 @@ export default function StudentRoadmapPage() {
     <div className="space-y-6">
       <PageHeader
         title="Roadmap"
-        description={`Your personal 90-day plan to become a ${careerName} — built from your assessment results, easiest wins first, with a study plan for every step.`}
+        description={`Your personal 90-day plan to become a ${careerName} — built from your assessment results, easiest wins first, with a detailed what-to-study checklist for every step.`}
         breadcrumb={<Breadcrumb items={[{ label: "Roadmap" }]} />}
       />
 
@@ -570,7 +591,7 @@ export default function StudentRoadmapPage() {
           </div>
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl border border-dashed border-border/70 bg-muted/30 px-3 py-2 text-[11px] font-semibold text-muted-foreground">
             <BookOpen className="size-3.5 text-primary" aria-hidden="true" />
-            Each step becomes four sub-steps:
+            Each step lists what to study, then four sub-steps:
             <span className="text-foreground">Learn</span>
             <ArrowRight className="size-3 text-muted-foreground/60" aria-hidden="true" />
             <span className="text-foreground">Practise</span>
