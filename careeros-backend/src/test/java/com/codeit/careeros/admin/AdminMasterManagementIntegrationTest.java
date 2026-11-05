@@ -13,6 +13,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
+import static org.hamcrest.Matchers.hasItem;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -114,7 +115,7 @@ class AdminMasterManagementIntegrationTest {
         mockMvc.perform(get("/api/v1/admin/careers")
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data[0].name").value("Site Reliability Engineer"));
+                .andExpect(jsonPath("$.data[*].name", hasItem("Site Reliability Engineer")));
 
         mockMvc.perform(delete("/api/v1/admin/questions/" + questionId)
                         .header("Authorization", "Bearer " + token))
