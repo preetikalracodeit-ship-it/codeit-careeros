@@ -8,12 +8,10 @@ import {
   BadgeCheck,
   BookOpen,
   CheckCircle2,
-  Circle,
   ClipboardList,
   Clock3,
   FolderKanban,
   Hammer,
-  List,
   Loader2,
   Map as MapIcon,
   Play,
@@ -26,7 +24,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CircularProgress } from "@/components/ui/circular-progress";
 import { Progress } from "@/components/ui/progress";
 import { Breadcrumb } from "@/components/breadcrumb";
@@ -35,7 +33,6 @@ import { ErrorState } from "@/components/error-state";
 import { LoadingState } from "@/components/loading-state";
 import { PageHeader } from "@/components/page-header";
 import api from "@/lib/api";
-import { prettifyEnum } from "@/lib/format";
 import { buildStudyPlan } from "@/lib/roadmap-study-plan";
 import { cn } from "cn";
 
@@ -200,7 +197,6 @@ export default function StudentRoadmapPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [pendingId, setPendingId] = useState(null);
-  const [view, setView] = useState("path");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -549,46 +545,9 @@ export default function StudentRoadmapPage() {
           </CardContent>
         </Card>
       )}
-      {/* View switch + skill order: which skill to learn first, second, … */}
+      {/* Skill order: which skill to learn first, second, … */}
       <Card className="shadow-card">
         <CardContent className="space-y-4 py-5">
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex rounded-full bg-muted p-1" role="group" aria-label="Roadmap view">
-              <button
-                type="button"
-                onClick={() => setView("path")}
-                aria-pressed={view === "path"}
-                className={cn(
-                  "inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition",
-                  view === "path"
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                <MapIcon className="size-3.5" aria-hidden="true" />
-                Visual path
-              </button>
-              <button
-                type="button"
-                onClick={() => setView("list")}
-                aria-pressed={view === "list"}
-                className={cn(
-                  "inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition",
-                  view === "list"
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                <List className="size-3.5" aria-hidden="true" />
-                Detailed list
-              </button>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {view === "path"
-                ? "Follow the numbered path top to bottom — every step opens into its own study plan."
-                : "Every step with its full study plan, sub-steps and progress buttons."}
-            </p>
-          </div>
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl border border-dashed border-border/70 bg-muted/30 px-3 py-2 text-[11px] font-semibold text-muted-foreground">
             <BookOpen className="size-3.5 text-primary" aria-hidden="true" />
             Each step lists what to study, then four sub-steps:
@@ -659,7 +618,7 @@ export default function StudentRoadmapPage() {
           title="No roadmap published yet"
           description="Your target career has no roadmap phases right now. Check back soon."
         />
-      ) : view === "path" ? (
+      ) : (
         <ol className="space-y-8">
           {phases.map((phase, phaseIndex) => {
             const phaseTotal = phase.totalItems ?? 0;
@@ -840,152 +799,6 @@ export default function StudentRoadmapPage() {
                     );
                   })}
                 </ol>
-              </li>
-            );
-          })}
-        </ol>
-      ) : (
-        <ol className="space-y-6">
-          {phases.map((phase, phaseIndex) => {
-            const phaseTotal = phase.totalItems ?? 0;
-            const phaseDone = phase.completedItems ?? 0;
-            const phaseComplete = phaseTotal > 0 && phaseDone >= phaseTotal;
-            const phasePercent = phaseTotal === 0 ? 0 : Math.round((phaseDone / phaseTotal) * 100);
-            return (
-              <li key={phase.phaseId} className="relative flex gap-4">
-                <div className="flex flex-col items-center" aria-hidden="true">
-                  <span
-                    className={cn(
-                      "flex size-9 shrink-0 items-center justify-center rounded-full text-sm font-bold shadow-sm",
-                      phaseComplete ? "bg-chart-3 text-white" : "bg-primary text-primary-foreground",
-                    )}
-                  >
-                    {phaseComplete ? <CheckCircle2 className="size-4.5" /> : phaseIndex + 1}
-                  </span>
-                  {phaseIndex < phases.length - 1 && <span className="w-0.5 flex-1 bg-border/70" />}
-                </div>
-                <Card className="mb-2 flex-1 shadow-card">
-                  <CardHeader>
-                    <div className="flex flex-wrap items-start justify-between gap-2">
-                      <div>
-                        <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
-                          Phase {phaseIndex + 1} of {phases.length} · about {phase.durationDays} days
-                        </p>
-                        <CardTitle className="mt-0.5 text-base leading-snug">{phase.title}</CardTitle>
-                        <CardDescription className="mt-1">{phase.description}</CardDescription>
-                      </div>
-                      <Badge
-                        variant="secondary"
-                        className={cn("shrink-0", phaseComplete && "bg-chart-3/15 text-chart-3")}
-                      >
-                        {phaseComplete ? "Phase complete" : `${phaseDone}/${phaseTotal} steps done`}
-                      </Badge>
-                    </div>
-                    <Progress
-                      value={phasePercent}
-                      tone={phaseComplete ? "green" : "primary"}
-                      className="mt-3 h-2"
-                      aria-label={`${phase.title} progress ${phasePercent} percent`}
-                    />
-                  </CardHeader>
-                  <CardContent>
-                    <ul className="space-y-3">
-                      {(phase.items || []).map((item) => {
-                        const busy = pendingId === item.itemId;
-                        const isNext = nextStep?.itemId === item.itemId;
-                        const done = item.status === "COMPLETED";
-                        return (
-                          <li
-                            key={item.itemId}
-                            id={`roadmap-step-${item.itemId}`}
-                            className={cn(
-                              "scroll-mt-24 rounded-xl border bg-background/40 p-4 transition",
-                              isNext
-                                ? "border-primary/50 shadow-card ring-1 ring-primary/30"
-                                : "border-border/50",
-                            )}
-                          >
-                            <div className="flex flex-wrap items-start justify-between gap-2">
-                              <div className="flex min-w-0 flex-1 items-start gap-2.5">
-                                {item.status === "COMPLETED" ? (
-                                  <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-chart-3" aria-hidden="true" />
-                                ) : (
-                                  <Circle className="mt-0.5 size-5 shrink-0 text-muted-foreground/50" aria-hidden="true" />
-                                )}
-                                <div className="min-w-0">
-                                  <p className="flex flex-wrap items-center gap-2 text-sm font-semibold leading-snug">
-                                    {item.title}
-                                    {isNext && !allDone && (
-                                      <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary">
-                                        Up next
-                                      </span>
-                                    )}
-                                  </p>
-                                  {item.description && (
-                                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                                      <span className="font-semibold text-foreground">Study description: </span>
-                                      {item.description}
-                                    </p>
-                                  )}
-                                  {item.learningGoal && (
-                                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                                      <span className="font-semibold text-foreground">You&apos;ll be able to: </span>
-                                      {item.learningGoal}
-                                    </p>
-                                  )}
-                                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                                    <span className="font-semibold text-foreground">Why this matters for you: </span>
-                                    {whyFor(item, careerName)}
-                                  </p>
-                                </div>
-                              </div>
-                              <Badge variant="secondary" className={`shrink-0 ${STATUS_STYLES[item.status] || ""}`}>
-                                {statusLabel(item.status)}
-                              </Badge>
-                            </div>
-                            <div className="mt-2.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                              {item.skillName ? (
-                                <span className="inline-flex flex-wrap items-center gap-1.5">
-                                  <Badge variant="outline">{item.skillName}</Badge>
-                                  {item.assessed ? (
-                                    <span className="tnum font-semibold">
-                                      You: {item.scorePercent}% · Needed: {item.targetPercent}%
-                                      {item.gapPercent < 0 ? (
-                                        <span className="text-amber-700 dark:text-amber-400"> · { -item.gapPercent} points behind</span>
-                                      ) : (
-                                        <span className="text-chart-3"> · target met</span>
-                                      )}
-                                    </span>
-                                  ) : (
-                                    <span>
-                                      Needed: {item.targetPercent}% ·{" "}
-                                      <Link href="/student/assessment" className="font-semibold text-primary hover:underline">
-                                        take the assessment to measure yourself
-                                      </Link>
-                                    </span>
-                                  )}
-                                </span>
-                              ) : (
-                                <span>Hands-on portfolio step</span>
-                              )}
-                              <span className="inline-flex items-center gap-1">
-                                <Clock3 className="size-3.5" aria-hidden="true" />
-                                About {item.estimatedHours} hours
-                              </span>
-                              {item.skillCategory && (
-                                <span>{prettifyEnum(item.skillCategory)}</span>
-                              )}
-                            </div>
-                            <StudyPlan item={item} careerName={careerName} done={done} />
-                            <div className="mt-3 flex flex-wrap gap-2">
-                              <StepActions item={item} busy={busy} onChange={setStatus} />
-                            </div>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </CardContent>
-                </Card>
               </li>
             );
           })}
